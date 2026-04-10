@@ -486,10 +486,10 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
 const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }) => {
     const nickSender = m.sender || sender
 
-    if (command === 'nick') {
+    if (command === 'bera') {
         if (!text && !hasImage(m) && !hasImage(m.quoted)) return reply(
             `*Bera AI* — just talk to me.\n` +
-            `${prefix}nickreset · ${prefix}nickmemory · ${prefix}nickclone\n` +
+            `${prefix}berareset · ${prefix}berarmemory · ${prefix}beraclone\n` +
             `Auto-mode: ${prefix}chatbot on/off`
         )
 
@@ -518,7 +518,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
         return reply(action === 'on' ? `✅ Auto-mode ON — Nick listens to everything.` : `✅ Auto-mode OFF.`)
     }
 
-    if (command === 'nickreset') {
+    if (command === 'berareset') {
         const history = getUserHistory(nickSender)
         const count = Math.floor(history.length / 2)
         global.db.data.users[nickSender].nickHistory = []
@@ -526,9 +526,9 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
         return reply(`✅ Memory cleared — ${count} exchange(s) wiped.`)
     }
 
-    if (command === 'nickmemory') {
+    if (command === 'berarmemory') {
         const history = getUserHistory(nickSender)
-        if (history.length === 0) return reply(`No memory yet. Start with ${prefix}nick <message>`)
+        if (history.length === 0) return reply(`No memory yet. Start with ${prefix}bera <message>`)
         const lines = history.map(h => {
             const label = h.role === 'user' ? '👤' : '🤖'
             const preview = h.content.length > 100 ? h.content.slice(0, 100) + '…' : h.content
@@ -537,7 +537,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
         return reply(`*${Math.floor(history.length / 2)} exchange(s):*\n\n${lines.join('\n\n')}`)
     }
 
-    if (command === 'nickclone') {
+    if (command === 'beraclone') {
         const history = getUserHistory(nickSender)
         if (history.length === 0) return reply(`Nothing to export yet.`)
         const lines = history.map(h => `[${h.role === 'user' ? '👤 YOU' : '🤖 NICK'}]\n${h.content}`).join('\n\n' + '─'.repeat(30) + '\n\n')
@@ -636,7 +636,7 @@ handle.before = async (m, { conn, reply, prefix }) => {
     }
 }
 
-handle.command = ['nick', 'chatbot', 'nickclone', 'workspace', 'setghtoken', 'tagreply']
+handle.command = ['bera', 'chatbot', 'beraclone', 'workspace', 'setghtoken', 'tagreply']
 handle.tags = ['ai']
 
 module.exports = handle
