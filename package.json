@@ -1,0 +1,27 @@
+{
+  "name": "bera-ai",
+  "version": "1.0.0",
+  "description": "Bera AI WhatsApp Bot — powered by toxic-baileys",
+  "main": "Connection/start.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node ./Connection/start.js"
+  },
+  "author": "Bera Tech",
+  "license": "MIT",
+  "dependencies": {
+    "@hapi/boom": "^10.0.0",
+    "archiver": "^7.0.1",
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "form-data": "^4.0.5",
+    "fs-extra": "^10.0.0",
+    "lowdb": "1.0.0",
+    "moment-timezone": "^0.5.34",
+    "node-cache": "^5.1.2",
+    "node-cron": "^3.0.0",
+    "pino": "^8.0.0",
+    "sharp": "^0.32.6",
+    "toxic-baileys": "latest"
+  }
+}
