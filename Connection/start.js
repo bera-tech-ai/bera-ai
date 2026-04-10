@@ -297,6 +297,37 @@ const startBot = async () => {
             startReminderLoop(conn)
             startBioLoop(conn)
             applyBotImage(conn, botJid).catch(() => {})
+            // Send connection message to owner
+            try {
+                const ownerJid = config.owner.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+                const prefix = global.db?.data?.settings?.prefix || config.prefix
+                const now = new Date()
+                const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                const date = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                await conn.sendMessage(ownerJid, {
+                    text: [
+                        '━━━━━━━━━━━━━━━━━━━━━',
+                        '🤖 *BERA AI — ONLINE*',
+                        '━━━━━━━━━━━━━━━━━━━━━',
+                        '',
+                        '✅ Successfully connected to WhatsApp.',
+                        '',
+                        `📅 *Date:* ${date}`,
+                        `🕐 *Time:* ${time}`,
+                        `⚡ *Prefix:* ${prefix}`,
+                        `🔖 *Version:* 2.0.0`,
+                        '',
+                        `💬 Chat with me: *${prefix}bera hello*`,
+                        `📋 Full command list: *${prefix}menu*`,
+                        '',
+                        '━━━━━━━━━━━━━━━━━━━━━',
+                        '_Bera AI is ready and at your service._',
+                        '━━━━━━━━━━━━━━━━━━━━━'
+                    ].join('\n')
+                })
+            } catch (e) {
+                console.log(chalk.yellow('[BOT] Could not send connection message: ' + e.message))
+            }
         }
     })
 
