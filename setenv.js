@@ -1,0 +1,6 @@
+process.env.GITHUB_TOKEN = 'your_github_token_here'
+process.env.GITHUB_USERNAME = 'bera-tech-tech'
+process.env.OWNER_NUMBER = '254717459770'
+process.env.PTERODACTYL_URL = 'https://bera-tech.tech'
+process.env.PTERODACTYL_KEY = 'ptlc_1VOf1QqUK1Q'
+process.env.PTERODACTYL_APP_KEY = 'ptla_E0B2js1bgA0R8tkVh2eudy0Mzoih9qNILddg9oVCjhx'
