@@ -34,10 +34,10 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ Prefix: *${prefix}*\n` +
             `┃\n` +
             `┃ *🤖 Bera AI*\n` +
-            `┃❍ ${prefix}nick <msg> — Chat with Bera AI\n` +
-            `┃❍ ${prefix}nickreset — Clear AI memory\n` +
-            `┃❍ ${prefix}nickmemory — View your chat history\n` +
-            `┃❍ ${prefix}nickforget — Wipe your history\n` +
+            `┃❍ ${prefix}bera <msg> — Chat with Bera AI\n` +
+            `┃❍ ${prefix}berareset — Clear AI memory\n` +
+            `┃❍ ${prefix}berarmemory — View your chat history\n` +
+            `┃❍ ${prefix}beraforget — Wipe your history\n` +
             `┃\n` +
             `┃ *🎨 Media & Tools*\n` +
             `┃❍ ${prefix}sticker — Convert image to sticker\n` +
@@ -96,15 +96,15 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
                 `┃❍ ${prefix}antispam on/off — Auto-kick spammers\n` +
                 `┃\n` +
                 `┃ *🛠️ Dev*\n` +
-                `┃❍ ${prefix}nick clone <url>\n` +
-                `┃❍ ${prefix}nick push <folder>\n` +
-                `┃❍ ${prefix}nick list repos\n` +
-                `┃❍ ${prefix}nick create repo <name>\n` +
-                `┃❍ ${prefix}nick run <shell cmd>\n` +
-                `┃❍ ${prefix}nick eval <js code>\n` +
-                `┃❍ ${prefix}nick read <file>\n` +
-                `┃❍ ${prefix}nick list files\n` +
-                `┃❍ ${prefix}nick agent: <task>\n` +
+                `┃❍ ${prefix}bera clone <url>\n` +
+                `┃❍ ${prefix}bera push <folder>\n` +
+                `┃❍ ${prefix}bera list repos\n` +
+                `┃❍ ${prefix}bera create repo <name>\n` +
+                `┃❍ ${prefix}bera run <shell cmd>\n` +
+                `┃❍ ${prefix}bera eval <js code>\n` +
+                `┃❍ ${prefix}bera read <file>\n` +
+                `┃❍ ${prefix}bera list files\n` +
+                `┃❍ ${prefix}bera agent: <task>\n` +
                 `┃\n`
                 : '') +
             `┃ *⚙️ General*\n` +
@@ -166,17 +166,17 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
         }, { quoted: m })
     }
 
-    if (command === 'nickmemory') {
+    if (command === 'berarmemory') {
         const user = global.db?.data?.users?.[sender]
         const history = user?.nickHistory || []
-        if (!history.length) return reply(`📝 No conversation history yet. Start chatting with ${prefix}nick!`)
+        if (!history.length) return reply(`📝 No conversation history yet. Start chatting with ${prefix}bera!`)
         const formatted = history.slice(-10).map((h, i) =>
             `${h.role === 'user' ? '👤' : '🤖'} ${h.content.slice(0, 100)}${h.content.length > 100 ? '...' : ''}`
         ).join('\n\n')
         return reply(`📝 *Your last ${Math.min(history.length, 10)} messages with Nick:*\n\n${formatted}`)
     }
 
-    if (command === 'nickforget') {
+    if (command === 'beraforget') {
         if (!global.db?.data?.users?.[sender]) return reply(`No history to clear.`)
         global.db.data.users[sender].nickHistory = []
         global.db.data.users[sender].nickMsgIds = []
@@ -184,7 +184,7 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
         return reply(`✅ Your conversation history with Nick has been wiped. Fresh start!`)
     }
 
-    if (command === 'nickreset') {
+    if (command === 'berareset') {
         if (!global.db?.data?.users?.[sender]) return reply(`No history to clear.`)
         global.db.data.users[sender].nickHistory = []
         global.db.data.users[sender].nickMsgIds = []
@@ -285,7 +285,7 @@ handle.before = async (m, { conn }) => {
 }
 
 handle.command = ['ping', 'menu', 'help', 'info', 'sticker', 'stic', 's', 'dl', 'download',
-    'nickmemory', 'nickforget', 'nickreset', 'setprefix', 'setendpoint', 'setkey', 'myprofile',
+    'berarmemory', 'beraforget', 'berareset', 'setprefix', 'setendpoint', 'setkey', 'myprofile',
     'setbotpic', 'setbotimage', 'setbotname']
 handle.tags = ['general']
 
