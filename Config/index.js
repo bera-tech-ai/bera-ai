@@ -1,6 +1,6 @@
 const config = {
     botName: 'Bera',
-    prefix: 'p',
+    prefix: '.',
     owner: process.env.OWNER_NUMBER || '254717459770',
     nickApiEndpoint: process.env.NICK_API || 'https://apiskeith.top/ai/gpt4',
     nickApiKey: process.env.NICK_API_KEY || '',
