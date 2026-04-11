@@ -29,24 +29,34 @@ const resolveLanguage = (lang) => {
     return LANGS[lang.toLowerCase()] || lang
 }
 
+const TRANSLATE_ENDPOINTS = [
+    { url: 'https://apiskeith.top/ai/gpt',       param: 'q' },
+    { url: 'https://api.siputzx.my.id/api/ai/chatgpt', param: 'text' },
+    { url: 'https://api.ryzendesu.vip/api/ai/chatgpt', param: 'text' },
+    { url: 'https://bk9.fun/ai/gpt',              param: 'q' },
+]
+
 const translate = async (text, targetLang) => {
     const resolved = resolveLanguage(targetLang) || targetLang
-    try {
-        const prompt = `Translate the following text to ${resolved}. Return ONLY the translated text with no explanation, no labels, no quotes:\n\n${text}`
-        const res = await axios.get('https://apiskeith.top/ai/gpt4', {
-            params: { q: prompt },
-            timeout: 20000
-        })
-        const data = res.data
-        if (data?.status === false || data?.success === false || typeof data?.error === 'string') {
-            return { success: false, error: 'Translation service is busy. Try again in a moment.' }
+    const prompt = `Translate the following text to ${resolved}. Return ONLY the translated text, no explanation, no labels, no quotes:\n\n${text}`
+
+    for (const ep of TRANSLATE_ENDPOINTS) {
+        try {
+            const res = await axios.get(ep.url, {
+                params: { [ep.param]: prompt, q: prompt, text: prompt },
+                timeout: 20000
+            })
+            const data = res.data
+            if (data?.status === false || data?.success === false || typeof data?.error === 'string') continue
+            const result = data?.result || data?.reply || data?.message || data?.text || data?.response || ''
+            if (!result || typeof result !== 'string') continue
+            return { success: true, result: result.trim(), from: 'Auto-detect', to: resolved }
+        } catch (e) {
+            const status = e?.response?.status
+            if (status === 404 || status === 403 || status === 500 || status === 502 || status === 503) continue
         }
-        const result = data?.result || data?.reply || data?.text || ''
-        if (!result) return { success: false, error: 'No translation returned.' }
-        return { success: true, result: result.trim(), from: 'Auto-detect', to: resolved }
-    } catch (e) {
-        return { success: false, error: 'Translation failed. Try again.' }
     }
+    return { success: false, error: 'Translation failed. Try again.' }
 }
 
 module.exports = { translate, resolveLanguage, LANGS }
