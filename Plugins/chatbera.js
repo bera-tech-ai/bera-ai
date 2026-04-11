@@ -6,6 +6,7 @@ const { parseExport, generateStyleReply, getPrebuiltProfile } = require('../Libr
 
 async function ensurePrebuilt() {
     try {
+        if (!global.db || !global.db.data) return
         if (!global.db.data.chatbera) global.db.data.chatbera = {}
         if (!global.db.data.chatbera.profile || !global.db.data.chatbera.profile.myMessages?.length) {
             const prebuilt = getPrebuiltProfile()
@@ -18,7 +19,8 @@ async function ensurePrebuilt() {
     }
 }
 
-ensurePrebuilt()
+// Delay startup so global.db is ready before we access it
+setTimeout(() => ensurePrebuilt(), 5000)
 
 const handle = async (conn, m, { command, args, prefix, reply, isOwner }) => {
 
