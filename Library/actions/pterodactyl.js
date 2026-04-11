@@ -10,12 +10,14 @@ const EGG_ID       = 15
 const EMAIL_DOMAIN = 'bera-tech.tech'
 
 const PLANS = {
-    unli:  { memory: 0,     disk: 0,      cpu: 0,   label: 'Unlimited' },
+    '1gb': { memory: 1024,  disk: 10240,  cpu: 100, label: '1 GB RAM' },
     '2gb': { memory: 2048,  disk: 20480,  cpu: 200, label: '2 GB RAM' },
     '4gb': { memory: 4096,  disk: 40960,  cpu: 300, label: '4 GB RAM' },
     '6gb': { memory: 6144,  disk: 61440,  cpu: 400, label: '6 GB RAM' },
     '8gb': { memory: 8192,  disk: 81920,  cpu: 500, label: '8 GB RAM' },
     '10gb':{ memory: 10240, disk: 102400, cpu: 600, label: '10 GB RAM' },
+    unli:  { memory: 0,     disk: 0,      cpu: 0,   label: 'Unlimited' },
+    admin: { memory: 0,     disk: 0,      cpu: 0,   label: 'Admin (Unlimited + Panel Admin)' },
 }
 
 const appHeaders    = () => ({ Authorization: `Bearer ${APP_KEY()}`,    Accept: 'application/json', 'Content-Type': 'application/json' })
