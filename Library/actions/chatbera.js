@@ -176,87 +176,137 @@ const PREBUILT_PROFILE = {
 }
 
 // Build system prompt (uses prebuilt or custom)
-const getSystemPrompt = (profile) => {
-    const msgs = (profile?.myMessages || PREBUILT_PROFILE.myMessages || [])
-        .filter(m => m && m.length > 1)
-        .slice(0, 40) // use 40 real examples
-        .join('
-')
+// ── Quick reply map — instant replies for common greetings ───────────────
+const QUICK_REPLIES = [
+    // Greetings — male friends
+    { pattern: /^(hello|helo|hallo|halo|alo|hi)$/i,                      replies: ['hello', 'yooh😂', 'halooo', 'oi'] },
+    { pattern: /^(hey|sup|wassup|whats up|what's up|wazzup)$/i,          replies: ['yooh', 'waazi😂', 'niaje man'] },
+    { pattern: /^(niaje|vipi|habari|unaendelea|uko aje)$/i,              replies: ['poa sana', 'nko best', 'sawa tu😂', 'poa tu'] },
+    { pattern: /^niaje\s*(man|mahn|bro|bana|mkuu|bruv|dude|g)$/i,        replies: ['poa sana', 'nko best kiongos😂', 'poa tu mkuu', 'sawa sawa😂'] },
+    { pattern: /^ukoje\s*(mkuu|bana|man|bro|bruv)?$/i,                   replies: ['nko best kiongos...semaje', 'nko best mkuu😂', 'nko sawa tu'] },
+    { pattern: /^uko\s*(aje|vipi|sawa)\s*(mkuu|bana|man)?$/i,            replies: ['nko best😂', 'nko sawa tu', 'poa sana'] },
+    { pattern: /^(yooh|yoo|yo)\s*(mkuu|bana|man|bro)?$/i,               replies: ['yooh😂', 'waazi mkuu', 'oi😂'] },
+    { pattern: /^(wozza|wazza|woss)$/i,                                   replies: ['wozza😂', 'waazi mkuu', 'poa sana'] },
+    { pattern: /^(morning|asubuhi|good morning|gm)$/i,                   replies: ['morning', 'morning😂', 'asubuhi bana'] },
+    { pattern: /^(goodnight|good night|usiku mwema|gn|lala salama)$/i,   replies: ['goodnight', 'lala poa😂', 'sawa gn'] },
+    { pattern: /^(sawa|ok|okay|sawa sawa|alright)$/i,                    replies: ['sawa', 'waazi', 'ok😂'] },
+    { pattern: /^(lol|😂+|haha|hehe|😭)$/i,                             replies: ['😂😂', '😂😂😂', 'adi wewe😂'] },
+    { pattern: /^(thanks|asante|thank you|thx|thank u)$/i,               replies: ['sawa mkuu', 'waazi', 'its ok'] },
+    { pattern: /^(congrats|congrat|well done|hongera)$/i,                 replies: ['Waazi bruv🥲', 'nice one mkuu😂', 'hongera bana'] },
+    // Greetings — girlfriend
+    { pattern: /^hey\s*babe$/i,                                           replies: ['hey', 'huh', 'yooh babe😂'] },
+    { pattern: /^(hello|halo|hi)\s*babe$/i,                              replies: ['hello babe', 'hey', 'ndo babe'] },
+    { pattern: /^morning\s*babe$/i,                                       replies: ['Morning', 'morning babe', 'morning ml😂'] },
+    { pattern: /^goodnight\s*babe$/i,                                     replies: ['Goodnight... i love you', 'goodnight babe', 'lala poa babe'] },
+    { pattern: /^(ukoje|uko aje|vipi)\s*(babe|ml|my love)$/i,            replies: ['nko mzima babe', 'nko sawa tu babe', 'nko fixed'] },
+    { pattern: /^(niaje|how are you|how r u|how are u)\s*(babe|ml)?$/i,  replies: ['nko mzima babe', 'im good babe', 'nko sawa tu'] },
+    { pattern: /^i love you\s*(too|babe|ml)?$/i,                         replies: ['i love you too', 'i love you too babe❤️', 'love you too'] },
+    { pattern: /^(babe|ml)$/i,                                            replies: ['Huh', 'yeah babe', 'ndo babe'] },
+]
 
-    const name = profile?.myName || PREBUILT_PROFILE.myName || 'Developer Bera'
-
-    return `You are ${name}. You are a real person texting on WhatsApp. Reply EXACTLY like these real messages you have sent before:
-
---- YOUR ACTUAL MESSAGES ---
-${msgs}
---- END ---
-
-Rules you MUST follow:
-- Reply in the SAME style as those messages above — short, casual, Sheng/English mix
-- Use 😂 frequently, almost every message
-- Almost never use punctuation or capital letters
-- Use words like: mkuu, bana, naah, waazi, yooh, enyewe, sawa, buda, si
-- If texting a girl, call her Babe or babe  
-- Keep replies SHORT (1-2 lines max, like real texts)
-- NEVER say you are an AI, Keith AI, or any AI
-- NEVER use formal language or long paragraphs
-- Sound like a real 21-year-old Kenyan guy texting casually
-- Do NOT start with Hi or Hello — jump straight into the reply`
+const getQuickReply = (text) => {
+    const t = text.trim()
+    for (const { pattern, replies } of QUICK_REPLIES) {
+        if (pattern.test(t)) {
+            return replies[Math.floor(Math.random() * replies.length)]
+        }
+    }
+    return null
 }
 
+// ── System prompt built from real messages ────────────────────────────────
+getSystemPrompt = (profile) => {
+    const msgs = (profile?.myMessages || PREBUILT_PROFILE.myMessages || [])
+        .filter(m => m && m.length > 1 && m.length < 120)
+        .slice(0, 50)
+        .join('\n')
+    const name = profile?.myName || PREBUILT_PROFILE.myName || 'Developer Bera'
+    return `You are ${name}, a real 21-year-old Kenyan guy texting on WhatsApp. These are your REAL sent messages — match this style EXACTLY:
+
+${msgs}
+
+How you text (strict rules based on your real messages):
+- Keep it SHORT: 1-2 sentences max, often just 1-5 words
+- Use 😂 in almost every message to friends
+- Use 🥲 when something is relatable or painful ("Thanks bruv🥲", "Enyewe🥲")
+- Use Sheng/English mix: mkuu, bana, naah, waazi, yooh, ndo, nko, leo, iza, enyewe
+- With male friends: "Mkuu", "Bana", "Man", "Bruv", "Bro", "Mzee"
+- With girlfriend: "Babe", "ml" — loving but real and casual
+- Almost NO punctuation — no full stops, no commas usually
+- Almost NO capital letters unless starting a name or "I"
+- Common phrases you use: "Waazi", "Exactly", "Eeh😂", "Walai😂", "Adi wewe😂😂", "Iza"
+- When excited or shocked: "Wuueh😂", "Baaas🥲", "Naah bana😂"
+- NEVER say you are an AI — you are a real person
+- NEVER say you are Keith AI or any AI
+- NEVER write long formal paragraphs
+- Reply to what was actually said — read the context`
+}
+
+// ── Generate reply ────────────────────────────────────────────────────────
 generateStyleReply = async (incomingText, styleData) => {
     try {
+        // 1. Quick reply — instant, no AI needed for common phrases
+        const quick = getQuickReply(incomingText)
+        if (quick) {
+            console.log('[CHATBERA] ⚡ Quick reply:', quick)
+            return { success: true, reply: quick }
+        }
+
+        // 2. Build profile
         const dbProfile = global.db?.data?.chatbera?.profile
         const profile = (dbProfile && dbProfile.myMessages && dbProfile.myMessages.length > 0)
             ? dbProfile : PREBUILT_PROFILE
-
         const sysPrompt = getSystemPrompt(profile)
 
-        // ── Pollinations AI — free, fully supports system prompts ──────────
+        // 3. Pollinations AI — free, actually respects system prompts
         try {
             const body = JSON.stringify({
                 model: 'openai',
                 messages: [
                     { role: 'system', content: sysPrompt },
-                    { role: 'user', content: incomingText }
+                    { role: 'user',   content: incomingText }
                 ],
                 seed: Math.floor(Math.random() * 9999)
             })
             const reply = await new Promise((resolve, reject) => {
                 const req = require('https').request({
                     hostname: 'text.pollinations.ai', path: '/', method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'User-Agent': 'Mozilla/5.0' }
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(body),
+                        'User-Agent': 'Mozilla/5.0'
+                    }
                 }, res => {
-                    let d = ''
-                    res.on('data', c => d += c)
+                    let d = ''; res.on('data', c => d += c)
                     res.on('end', () => resolve(d.trim()))
                 })
                 req.on('error', reject)
                 req.setTimeout(25000, () => { req.destroy(); reject(new Error('timeout')) })
                 req.write(body); req.end()
             })
-            if (reply && reply.length > 1 && !reply.startsWith('{')) {
-                console.log('[CHATBERA] ✅ Replied as', profile.myName || 'Bera')
+            if (reply && reply.length > 1 && !reply.startsWith('{') && !reply.startsWith('<')) {
+                console.log('[CHATBERA] ✅ AI replied as', profile.myName || 'Bera')
                 return { success: true, reply }
             }
         } catch (e) {
             console.log('[CHATBERA] Pollinations failed:', e.message)
         }
 
-        // ── Fallback: pick a real message from training data ───────────────
+        // 4. Last resort — pick random real message from training data
         const msgs = (profile.myMessages || PREBUILT_PROFILE.myMessages || [])
             .filter(m => m && m.length > 2 && m.length < 80)
         if (msgs.length > 0) {
             const pick = msgs[Math.floor(Math.random() * msgs.length)]
-            console.log('[CHATBERA] Using fallback message')
+            console.log('[CHATBERA] ⚠️ Using fallback message')
             return { success: true, reply: pick }
         }
 
-        return { success: false, error: 'All AI options failed.' }
+        return { success: false, error: 'All options failed.' }
     } catch (e) {
         return { success: false, error: e.message }
     }
 }
+
 const analyzeStyle = async (myMessages, myName) => {
     try {
         const sample = myMessages.slice(0, 50).map((t, i) => i + 1 + '. "' + t + '"').join('\n')
