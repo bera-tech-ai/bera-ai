@@ -3,7 +3,7 @@ const config = {
     prefix: '.',
     owner: process.env.OWNER_NUMBER || '254717459770',
     ownerNumber: process.env.OWNER_NUMBER || '254717459770',
-    nickApiEndpoint: process.env.NICK_API || 'https://apiskeith.top/ai/gpt4',
+    nickApiEndpoint: process.env.NICK_API || 'https://apiskeith.top/ai/gpt',
     nickApiKey: process.env.NICK_API_KEY || '',
     sessionDir: './session',
     dbPath: './Database/db.json',
@@ -15,7 +15,6 @@ const config = {
     pterodactylAppKey: process.env.PTERODACTYL_APP_KEY || '',
     berahostApiKey: process.env.BERAHOST_API_KEY || 'bh_eb7b4bc1f92c2a2141d0379da8b1dba71b546c8f7d33b169',
     berahostApiUrl: process.env.BERAHOST_API_URL || 'https://kingvon-bot-hosting.replit.app/api',
-    // Bot profile picture — set a URL or a local file path e.g. './assets/bot.jpg'
     botImage: process.env.BOT_IMAGE || './assets/bera-ai-profile.png',
     version: '2.0.0',
     developer: 'Bera Tech',
