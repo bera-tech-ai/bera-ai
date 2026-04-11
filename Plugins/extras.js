@@ -399,25 +399,66 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
         }
 
         if (sub === 'deploy') {
-            const botId = args[1]
-            const session = args[2]
-            if (!botId || !session) return reply(`❌ Usage: ${prefix}berahost deploy <botId> <sessionId>`)
+            // Smart deploy — no session needed for Bera AI
+            // .berahost deploy beraai <yourNumber>     — Bera AI (pairing code, no session)
+            // .berahost deploy atassa <Gifted~session> — Atassa MD (needs session ID)
+            const target = args[1]?.toLowerCase()
+            const value  = args.slice(2).join(' ').trim()
+
+            if (!target || !value) {
+                return reply(
+                    `🚀 *BeraHost Deploy*\n\n` +
+                    `*Deploy Bera AI* (no session needed):\n` +
+                    `${prefix}berahost deploy beraai 254712345678\n\n` +
+                    `*Deploy Atassa MD* (needs session ID):\n` +
+                    `${prefix}berahost deploy atassa Gifted~xxxxxx\n\n` +
+                    `_Replace the number/session with yours._`
+                )
+            }
+
+            let botId, envVars, botLabel
+            if (target === 'beraai' || target === 'bera' || target === '2') {
+                botId    = 2
+                botLabel = 'Bera AI'
+                envVars  = { OWNER_NUMBER: value }
+            } else if (target === 'atassa' || target === 'atassa-md' || target === '1') {
+                botId    = 1
+                botLabel = 'Atassa MD'
+                envVars  = { SESSION_ID: value }
+            } else {
+                const numId = parseInt(target)
+                if (isNaN(numId)) return reply(`❌ Unknown bot "${target}". Use: beraai or atassa`)
+                botId    = numId
+                botLabel = `Bot #${numId}`
+                const pairs = value.split(/\s+/)
+                envVars = {}
+                for (const pair of pairs) {
+                    const [k, ...rest] = pair.split('=')
+                    if (k && rest.length) envVars[k.trim()] = rest.join('=').trim()
+                }
+                if (!Object.keys(envVars).length) envVars = { VALUE: value }
+            }
+
             await react(conn, m, '🚀')
             try {
                 const res = await axios.post(`${BERAHOST_API}/deployments`, {
                     botId,
-                    SESSION_ID: session
+                    envVars
                 }, {
                     headers: { 'x-api-key': BERAHOST_KEY, 'Content-Type': 'application/json' },
                     timeout: 30000
                 })
                 const d = res.data
                 await react(conn, m, '✅')
+                const deployId = d.id || d.deploymentId || '?'
                 return reply(
                     `╭══〘 *🚀 BOT DEPLOYED* 〙═⊷\n` +
-                    `┃❍ *Bot ID:* ${botId}\n` +
+                    `┃❍ *Bot:* ${botLabel}\n` +
+                    `┃❍ *Deploy ID:* ${deployId}\n` +
                     `┃❍ *Status:* ${d.status || 'Deployed'}\n` +
-                    `┃❍ *Message:* ${d.message || 'Success'}\n` +
+                    `┃❍ *Storage:* ${d.storageUsedMb || 0}/${d.storageLimitMb || 100} MB\n` +
+                    `┃\n` +
+                    `┃ ✅ Bot is live on BeraHost\n` +
                     `╰══════════════════⊷`
                 )
             } catch (e) {
