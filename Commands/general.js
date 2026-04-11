@@ -112,21 +112,32 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ ${p}calc <expr> — Calculator\n` +
             `┃❍ ${p}remind <time> <msg> — Set reminder\n` +
             `┃\n` +
-            `┃ *🎲 Games*\n` +
+            `┃ *🎲 Games & Fun*\n` +
             `┃❍ ${p}dice — Roll a dice\n` +
             `┃❍ ${p}diceduel @user — Dice duel\n` +
+            `┃❍ ${p}joke — Random joke\n` +
+            `┃❍ ${p}fact — Random fact\n` +
+            `┃❍ ${p}quote — Inspirational quote\n` +
+            `┃❍ ${p}8ball <question> — Magic 8 ball\n` +
+            `┃❍ ${p}coinflip — Heads or tails\n` +
+            `┃❍ ${p}truth / ${p}dare — Truth or dare\n` +
+            `┃❍ ${p}ship @user — Compatibility %\n` +
+            `┃\n` +
+            `┃ *🛠️ Utility*\n` +
+            `┃❍ ${p}currency <amt> <from> <to> — Convert currency\n` +
+            `┃❍ ${p}worldtime <city> — World clock\n` +
+            `┃❍ ${p}country <name> — Country info\n` +
+            `┃❍ ${p}password <length> — Strong password\n` +
+            `┃❍ ${p}uuid — Generate UUID\n` +
+            `┃❍ ${p}color <hex> — Colour info\n` +
+            `┃❍ ${p}iplookup <ip> — IP address info\n` +
             `┃\n` +
             `┃ *⚽ Sports*\n` +
             `┃❍ ${p}livescore — Live football scores\n` +
             `┃❍ ${p}sportnews — Sport news\n` +
             `┃\n` +
-            `┃ *🔑 Activation*\n` +
-            `┃❍ ${p}activate <key>\n` +
-            `┃❍ ${p}checkkey\n` +
-            `┃\n` +
             (isOwner ?
                 `┃ *👑 Owner Commands*\n` +
-                `┃❍ ${p}genkey <num> <days>\n` +
                 `┃❍ ${p}broadcast <msg>\n` +
                 `┃❍ ${p}backup — Backup DB & session\n` +
                 `┃❍ ${p}stats — Bot statistics\n` +
@@ -138,7 +149,7 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
                 `┃❍ ${p}chatbot on/off\n` +
                 `┃❍ ${p}listusers — All users\n` +
                 `┃❍ ${p}schedule <time> <msg>\n` +
-                `┃❍ ${p}resetlimit — Reset daily limits\n` +
+                `┃❍ ${p}mode public/private — Toggle bot access mode\n` +
                 `┃\n` +
                 `┃ *🚀 BeraHost*\n` +
                 `┃❍ ${p}berahost bots — List bots\n` +
@@ -342,7 +353,7 @@ handle.command = [
     'sticker', 'stic', 's', 'toimg',
     'dl', 'download',
     'berarmemory', 'beraforget', 'berareset',
-    'setprefix', 'setendpoint', 'setkey', 'myprofile',
+    'setprefix', 'setendpoint', 'myprofile',
     'setbotpic', 'setbotimage', 'setbotname',
     'uptime'
 ]
