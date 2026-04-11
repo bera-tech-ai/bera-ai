@@ -35,7 +35,6 @@ const handle = async (m, { conn, text, reply, command, sender, chat, prefix, isO
                 '┃\n' +
                 `┃ I\'m now replying as *${profile?.myName || 'Developer Bera'}*\n` +
                 `┃ Trained on *${profile?.myMessages?.length || 412} real messages*\n` +
-                '┃ from 4 different chats (Carl, Grace, Marisel, Iddah)\n' +
                 '┃\n' +
                 '┃ Anyone who messages here gets a reply\n' +
                 '┃ in your exact texting style 🎭\n' +
@@ -64,7 +63,7 @@ const handle = async (m, { conn, text, reply, command, sender, chat, prefix, isO
                 `┃ This chat: *${isOn ? '🟢 ON' : '🔴 OFF'}*\n` +
                 `┃ Name: *${profile?.myName || 'Developer Bera'}*\n` +
                 `┃ Messages trained: *${profile?.myMessages?.length || 412}*\n` +
-                `┃ Sources: Carl Tech, Grace H, Marisel, Iddah\n` +
+
                 `┃ Active chats: ${allActive || 'none'}\n` +
                 '┃\n' +
                 '┃ *Commands:*\n' +
@@ -154,7 +153,6 @@ const handle = async (m, { conn, text, reply, command, sender, chat, prefix, isO
             '╭══〘 *🪞 YOUR TEXTING STYLE* 〙═⊷\n' +
             `┃ Name: *${profile?.myName || 'Developer Bera'}*\n` +
             `┃ Trained on: *${profile?.myMessages?.length || 412} messages*\n` +
-            '┃ Sources: Carl Tech, Grace H, Marisel, Iddah\n' +
             '┃\n' +
             analysis.split('\n').map(l => '┃ ' + l).join('\n') + '\n' +
             '╰══════════════════⊷'
