@@ -9,7 +9,7 @@ const generateKey = (phoneNumber, durationDays = 30) => {
         .digest('hex')
         .slice(0, 16)
         .toUpperCase()
-    const key = `NICK-${hash}`
+    const key = `BERA-${hash}`
     return { key, expiry, phoneNumber }
 }
 
