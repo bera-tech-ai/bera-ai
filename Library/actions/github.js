@@ -11,7 +11,7 @@ const gh = (endpoint, method = 'GET', data = null) => {
         headers: {
             Authorization: `token ${token}`,
             Accept: 'application/vnd.github+json',
-            'User-Agent': 'NickBot'
+            'User-Agent': 'BeraBot'
         },
         data,
         timeout: 20000
