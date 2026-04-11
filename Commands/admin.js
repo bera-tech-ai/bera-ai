@@ -15,7 +15,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         for (const jid of users) {
             if (jid.includes('@newsletter')) continue
             try {
-                await conn.sendMessage(jid, { text: `📢 *Nick Broadcast*\n\n${text}` })
+                await conn.sendMessage(jid, { text: `📢 *Bera Broadcast*\n\n${text}` })
                 sent++
                 await new Promise(r => setTimeout(r, 1000))
             } catch { failed++ }
@@ -88,7 +88,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         if (!global.db.data.users[target]) global.db.data.users[target] = {}
         global.db.data.users[target].banned = true
         await global.db.write()
-        return reply(`✅ Banned +${target.split('@')[0]}. They can no longer use Nick.`)
+        return reply(`✅ Banned +${target.split('@')[0]}. They can no longer use Bera AI.`)
     }
 
     if (command === 'unban') {
