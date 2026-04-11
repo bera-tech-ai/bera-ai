@@ -305,6 +305,14 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ ${p}autotyping / ${p}autobio on/off\n` +
             `┃❍ ${p}noprefix — Toggle prefix requirement\n` +
             `┃❍ ${p}beraclone — Clone this bot\n` +
+            `┃❍ ${p}setsudo @user — Add sudo user\n` +
+            `┃❍ ${p}getsudo — List sudo users\n` +
+            `┃❍ ${p}delsudo @user — Remove sudo user\n` +
+            `┃❍ ${p}getpp <number> — Get profile picture\n` +
+            `┃\n` +
+            `┃ *💻 Shell & Eval (Owner)*\n` +
+            `┃❍ ${p}$ <cmd> / ${p}bash <cmd> — Run shell command\n` +
+            `┃❍ ${p}> <js> / ${p}eval <js> — Evaluate JavaScript\n` +
             `┃\n` : '') +
             `╰══════════════════⊷`
         )
