@@ -141,16 +141,31 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ ${p}diceduel @user — Dice duel\n` +
             `┃\n` +
             `┃ *🔗 Utilities*\n` +
-            `┃❍ ${p}tinyurl <url> — Shorten URL\n` +
+            `┃❍ ${p}shorten <url> — Shorten URL\n` +
             `┃❍ ${p}qr <text> — Generate QR code\n` +
             `┃❍ ${p}calc <expr> — Calculator\n` +
             `┃❍ ${p}password <length> — Strong password\n` +
             `┃❍ ${p}uuid — Generate UUID\n` +
-            `┃❍ ${p}color <hex> — Colour info\n` +
-            `┃❍ ${p}remind <time> <msg> — Set reminder\n` +
             `┃❍ ${p}ping — Latency check\n` +
             `┃❍ ${p}uptime — Bot uptime\n` +
             `┃❍ ${p}myprofile — Your bot profile\n` +
+            `┃\n` +
+            `┃ *🛠️ Tools & AI Extras*\n` +
+            `┃❍ ${p}ascii <text> — ASCII art\n` +
+            `┃❍ ${p}fancy <text> — Random fancy style\n` +
+            `┃❍ ${p}fancystyles <text> — All 10 text styles\n` +
+            `┃❍ ${p}wacheck <num> — Check if num is on WhatsApp\n` +
+            `┃❍ ${p}search <query> — Web search\n` +
+            `┃❍ ${p}ghfollowers <user> — GitHub profile info\n` +
+            `┃❍ ${p}imagine <desc> — AI image generation\n` +
+            `┃❍ ${p}tr <lang> <text> — Translate to any language\n` +
+            `┃❍ ${p}yts <query> — YouTube search\n` +
+            `┃❍ ${p}roast <name> — Roast someone\n` +
+            `┃❍ ${p}story <topic> — AI short story\n` +
+            `┃❍ ${p}rap <topic> — Rap bars\n` +
+            `┃❍ ${p}riddle — Get a riddle\n` +
+            `┃❍ ${p}recipe <dish> — Get a recipe\n` +
+            `┃❍ ${p}motivate <name> — Motivational message\n` +
             `┃\n` +
             `┃ *⚽ Sports*\n` +
             `┃❍ ${p}livescore — Live football scores\n` +
