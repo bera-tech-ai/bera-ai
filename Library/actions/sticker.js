@@ -4,7 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const os = require('os')
 
-const makeSticker = async (buffer, mimetype = 'image/jpeg', packName = 'Nick', authorName = 'Bera Tech') => {
+const makeSticker = async (buffer, mimetype = 'image/jpeg', packName = 'Bera AI', authorName = 'Bera Tech') => {
     try {
         let webpBuffer
 
