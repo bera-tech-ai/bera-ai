@@ -371,8 +371,37 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
     }
 }
 
+
+    if (command === 'mode') {
+        if (!isOwner) return reply('⛔ Owner only.')
+        const modeInput = text?.trim().toLowerCase()
+        if (!modeInput || !['public','private'].includes(modeInput)) {
+            const current = global.db?.data?.settings?.mode || 'public'
+            return reply(
+                `╭══〘 *⚙️ BOT MODE* 〙═⊷\n` +
+                `┃❍ Current: *${current.toUpperCase()}*\n` +
+                `┃❍ Usage: .mode public\n` +
+                `┃❍         .mode private\n` +
+                `┃\n` +
+                `┃ 🌐 Public — Everyone can use the bot\n` +
+                `┃ 🔒 Private — Only owner can use the bot\n` +
+                `╰══════════════════⊷`
+            )
+        }
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings.mode = modeInput
+        await global.db.write()
+        const icon = modeInput === 'public' ? '🌐' : '🔒'
+        return reply(
+            `╭══〘 *⚙️ BOT MODE CHANGED* 〙═⊷\n` +
+            `┃❍ Mode: *${icon} ${modeInput.toUpperCase()}*\n` +
+            `┃❍ ${modeInput === 'public' ? 'Everyone can now use the bot.' : 'Only you (owner) can use the bot now.'}` +
+            `\n╰══════════════════⊷`
+        )
+    }
+
 handle.command = ['broadcast', 'backup', 'stats', 'ban', 'unban', 'premium', 'depremium',
-    'autoreply', 'schedule', 'listusers', 'resetlimit', 'cleandb',
+    'autoreply', 'schedule', 'listusers', 'resetlimit', 'cleandb', 'mode',
     'autostatusview', 'statusview', 'autotyping', 'autobio',
     'addbio', 'setbio', 'listbios', 'clearbio', 'noprefix']
 handle.tags = ['admin']
