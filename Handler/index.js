@@ -383,6 +383,7 @@ const handleMessage = async (conn, rawMsg) => {
             // Skip if message is from a group (PMs only) unless group mode enabled
             const chatberaGroupOk = global.db?.data?.chatbera?.groupEnabled || false
             if (chatberaOn && !m.fromMe && text && (!m.isGroup || chatberaGroupOk)) {
+                console.log('[CHATBERA] 🔥 Triggered for msg:', text.slice(0, 30), '| from:', sender)
                 let profile = global.db?.data?.chatbera?.profile
                 // Always load prebuilt if profile missing or incomplete
                 if (!profile || !profile.myMessages?.length) {
