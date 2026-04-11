@@ -1,6 +1,6 @@
 const axios = require('axios')
 
-const PLAN_PROMPT = `You are Nick's action planner. Given a task, break it into concrete steps and return ONLY valid JSON — no markdown, no explanation.
+const PLAN_PROMPT = `You are Bera AI's action planner. Given a task, break it into concrete steps and return ONLY valid JSON — no markdown, no explanation.
 
 Available actions:
 - shell: run a terminal command  → args: { cmd: "..." }
@@ -18,13 +18,13 @@ Return format (strict JSON):
 
 Task: `
 
-const SUMMARY_PROMPT = `You are Nick. You just completed an agent task. Summarize what was done in a friendly, concise message. Use bullet points if there are multiple results. Be direct.
+const SUMMARY_PROMPT = `You are Bera AI. You just completed an agent task. Summarize what was done in a friendly, concise message. Use bullet points if there are multiple results. Be direct.
 
 Task: {task}
 Steps executed:
 {steps}
 
-Respond naturally as Nick:`
+Respond naturally as Bera AI:`
 
 const planTask = async (task) => {
     try {
