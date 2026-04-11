@@ -369,9 +369,6 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         await global.db.write()
         return reply(`✅ Reset daily limits for all users.`)
     }
-}
-
-
     if (command === 'mode') {
         if (!isOwner) return reply('⛔ Owner only.')
         const modeInput = text?.trim().toLowerCase()
@@ -399,6 +396,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
             `\n╰══════════════════⊷`
         )
     }
+}
 
 handle.command = ['broadcast', 'backup', 'stats', 'ban', 'unban', 'premium', 'depremium',
     'autoreply', 'schedule', 'listusers', 'resetlimit', 'cleandb', 'mode',
