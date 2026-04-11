@@ -111,8 +111,8 @@ const checkAutoReply = async (conn, m, text) => {
 }
 
 // ── Anti-spam tracker (in-memory) ─────────────────────────────────────────
-const spamTracker = new Map() // key: `${chat}:${sender}` → [timestamps]
-const spamWarned  = new Set() // key: `${chat}:${sender}` — already warned once
+const spamTracker = new Map()
+const spamWarned  = new Set()
 
 const checkAntiSpam = async (conn, m, isOwner) => {
     if (!m.isGroup || isOwner || m.fromMe) return false
@@ -121,8 +121,8 @@ const checkAntiSpam = async (conn, m, isOwner) => {
 
     const key = `${m.chat}:${m.sender}`
     const now = Date.now()
-    const WINDOW = 5000  // 5-second window
-    const MAX    = 5     // max messages in window before action
+    const WINDOW = 5000
+    const MAX    = 5
 
     const timestamps = (spamTracker.get(key) || []).filter(t => now - t < WINDOW)
     timestamps.push(now)
@@ -131,7 +131,6 @@ const checkAntiSpam = async (conn, m, isOwner) => {
     if (timestamps.length >= MAX) {
         const num = m.sender.split('@')[0]
         if (spamWarned.has(key)) {
-            // Already warned — kick
             spamWarned.delete(key)
             spamTracker.delete(key)
             try {
@@ -143,7 +142,6 @@ const checkAntiSpam = async (conn, m, isOwner) => {
             } catch {}
             return true
         } else {
-            // First offence — warn
             spamWarned.add(key)
             setTimeout(() => spamWarned.delete(key), 30000)
             try {
@@ -158,7 +156,7 @@ const checkAntiSpam = async (conn, m, isOwner) => {
 }
 
 // ── In-memory message cache for reaction triggers ─────────────────────────
-const msgCache = new Map() // msgId → { text, sender, chat, hasImage, mimetype, msg }
+const msgCache = new Map()
 const CACHE_SIZE = 200
 
 const cacheMessage = (m) => {
@@ -193,16 +191,15 @@ const handleReaction = async (conn, reactionMsg) => {
         const orig = msgCache.get(origId)
         if (!orig) return
 
-        const { webSearch }             = require('../Library/actions/search')
-        const { translate }             = require('../Library/actions/translate')
-        const { generateImage }         = require('../Library/actions/imagegen')
-        const { searchAndDownload }     = require('../Library/actions/music')
+        const { webSearch }              = require('../Library/actions/search')
+        const { translate }              = require('../Library/actions/translate')
+        const { generateImage }          = require('../Library/actions/imagegen')
+        const { searchAndDownload }      = require('../Library/actions/music')
         const { analyzeImageFromBuffer } = require('../Library/actions/vision')
 
         const react = (e) => conn.sendMessage(chat, { react: { text: e, key: reactionMsg.key } }).catch(() => {})
 
         if (emoji === '🌐' && orig.text) {
-            // Translate to English
             await react('⏳')
             const res = await translate(orig.text, 'English')
             if (res.success) {
@@ -211,7 +208,6 @@ const handleReaction = async (conn, reactionMsg) => {
             } else await react('❌')
 
         } else if (emoji === '🎵' && orig.text) {
-            // Play song from message text
             await react('⏳')
             const res = await searchAndDownload(orig.text.slice(0, 100))
             if (res.success && res.audioUrl) {
@@ -225,7 +221,6 @@ const handleReaction = async (conn, reactionMsg) => {
             } else await react('❌')
 
         } else if (emoji === '🎨' && orig.text) {
-            // Generate image from message text
             await react('⏳')
             const res = await generateImage(orig.text.slice(0, 300))
             if (res.success) {
@@ -236,7 +231,6 @@ const handleReaction = async (conn, reactionMsg) => {
             } else await react('❌')
 
         } else if (emoji === '👁️' || emoji === '🔍') {
-            // Vision: analyse an image message
             if (orig.hasImage) {
                 await react('⏳')
                 try {
@@ -248,7 +242,6 @@ const handleReaction = async (conn, reactionMsg) => {
                     } else await react('❌')
                 } catch { await react('❌') }
             } else if (orig.text && emoji === '🔍') {
-                // Web search from text
                 await react('⏳')
                 const res = await webSearch(orig.text.slice(0, 200))
                 if (res.success) {
@@ -292,14 +285,24 @@ const handleGroupEvents = async (conn, event) => {
                 const name = jid.split('@')[0]
                 try {
                     const meta = await conn.groupMetadata(chat)
-                    await conn.sendMessage(chat, {
-                        text: `👋 Welcome @${name} to *${meta.subject}*!\n\nWe're glad to have you here. Feel free to introduce yourself!`,
-                        mentions: [jid]
-                    })
+                    const customMsg = global.db?.data?.settings?.[`welcomemsg_${chat}`]
+                    const msg = customMsg
+                        ? customMsg.replace('{name}', `@${name}`).replace('{group}', meta.subject)
+                        : `👋 Welcome @${name} to *${meta.subject}*!\n\nWe're glad to have you here. Feel free to introduce yourself!`
+                    await conn.sendMessage(chat, { text: msg, mentions: [jid] })
                 } catch {}
             }
         }
     } catch {}
+}
+
+// ── DB write debounce — batch writes instead of writing on every command ───
+let dbWriteTimer = null
+const debouncedDbWrite = () => {
+    if (dbWriteTimer) clearTimeout(dbWriteTimer)
+    dbWriteTimer = setTimeout(async () => {
+        try { await global.db.write() } catch {}
+    }, 2000)
 }
 
 const handleMessage = async (conn, rawMsg) => {
@@ -309,7 +312,7 @@ const handleMessage = async (conn, rawMsg) => {
 
         // Handle reaction messages separately
         if (m.mtype === 'reactionMessage') {
-            await handleReaction(conn, rawMsg).catch(() => {})
+            handleReaction(conn, rawMsg).catch(() => {})
             return
         }
 
@@ -317,7 +320,7 @@ const handleMessage = async (conn, rawMsg) => {
         const noPrefix = global.db?.data?.settings?.noPrefix || false
         const rawText = m.text?.trim() || ''
 
-        // fromMe guard: allow if starts with prefix, or noPrefix + first word is a known command
+        // fromMe guard
         if (m.fromMe) {
             const firstWord = rawText.split(/\s+/)[0].toLowerCase()
             const noPrefixHit = noPrefix && commandMap.has(firstWord)
@@ -337,13 +340,9 @@ const handleMessage = async (conn, rawMsg) => {
         const existingUser = global.db?.data?.users?.[sender]
         if (existingUser?.banned) return
 
-        // Anti-spam check (group only, non-owner)
-        const spammed = await checkAntiSpam(conn, m, isOwner)
-        if (spammed) return
-
         const text = m.text?.trim() || ''
 
-        // Command detection — prefix mode or no-prefix mode
+        // Command detection
         let isCmd, command, args, body
         if (text.startsWith(prefix) && prefix !== '') {
             isCmd = true
@@ -364,6 +363,41 @@ const handleMessage = async (conn, rawMsg) => {
             isCmd = false; command = ''; args = []; body = ''
         }
 
+        // ── NON-COMMAND: only do lightweight group checks, then exit ──────
+        if (!isCmd) {
+            // Anti-spam only for group messages
+            if (m.isGroup) {
+                const spammed = await checkAntiSpam(conn, m, isOwner)
+                if (spammed) return
+                await checkAntiLink(conn, m, text, isOwner)
+            }
+            // Auto-reply (DM and group)
+            await checkAutoReply(conn, m, text)
+            return  // ← FAST EXIT: no handler loops for non-commands
+        }
+
+        // ── COMMAND PATH ──────────────────────────────────────────────────
+        const handler = commandMap.get(command)
+        if (!handler) return
+
+        if (!authorized) {
+            return conn.sendMessage(chat, {
+                text:
+                    `╭══〘 *🔒 PRIVATE MODE* 〙═⊷\n` +
+                    `┃❍ Bera AI is currently in private mode.\n` +
+                    `┃❍ Only the owner can use the bot right now.\n` +
+                    `╰══════════════════⊷`
+            }, { quoted: m })
+        }
+
+        const user = getUser(sender)
+        checkLimit(user, isOwner)
+
+        user.commandCount = (user.commandCount || 0) + 1
+        if (!global.db.data.stats) global.db.data.stats = { totalCommands: 0 }
+        global.db.data.stats.totalCommands = (global.db.data.stats.totalCommands || 0) + 1
+        debouncedDbWrite()  // batch DB writes — much faster than awaiting every time
+
         const ctx = {
             conn,
             m,
@@ -378,51 +412,14 @@ const handleMessage = async (conn, rawMsg) => {
             reply: (txt) => conn.sendMessage(chat, { text: String(txt) }, { quoted: m }),
         }
 
-        if (!isCmd && text) {
-            await checkAutoReply(conn, m, text)
-            await checkAntiLink(conn, m, text, isOwner)
-        }
-
-        for (const handler of handlers) {
-            if (typeof handler.before === 'function') {
-                await handler.before(m, ctx).catch(e => console.error('[BEFORE ERROR]', e.message))
-            }
-        }
-
-        if (!isCmd) return
-
-        await checkAntiLink(conn, m, text, isOwner)
-
-        const handler = commandMap.get(command)
-        if (!handler) return
-
-        if (!authorized) {
-            return ctx.reply(
-                `╭══〘 *🔒 PRIVATE MODE* 〙═⊷\n` +
-                `┃❍ Bera AI is currently in private mode.\n` +
-                `┃❍ Only the owner can use the bot right now.\n` +
-                `╰══════════════════⊷`
-            )
-        }
-
-        const user = getUser(sender)
-
-        checkLimit(user, isOwner)
-
-        user.commandCount = (user.commandCount || 0) + 1
-        if (!global.db.data.stats) global.db.data.stats = { totalCommands: 0 }
-        global.db.data.stats.totalCommands = (global.db.data.stats.totalCommands || 0) + 1
-        await global.db.write()
-
-        // Auto typing indicator
         if (global.db?.data?.settings?.autoTyping !== false) {
-            await conn.sendPresenceUpdate('composing', chat).catch(() => {})
+            conn.sendPresenceUpdate('composing', chat).catch(() => {})
         }
 
         await handler(m, ctx)
 
         if (global.db?.data?.settings?.autoTyping !== false) {
-            await conn.sendPresenceUpdate('paused', chat).catch(() => {})
+            conn.sendPresenceUpdate('paused', chat).catch(() => {})
         }
 
     } catch (e) {
