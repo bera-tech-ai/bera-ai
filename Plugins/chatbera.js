@@ -21,9 +21,8 @@ async function ensurePrebuilt() {
 ensurePrebuilt()
 
 const handle = async (conn, m, { command, args, prefix, reply, isOwner }) => {
-    const chat = m.chat
 
-    // ── chatbera on/off ──────────────────────────────────────────────────
+    // ── chatbera on/off/status ────────────────────────────────────────────
     if (command === 'chatbera') {
         if (!isOwner) return reply('❌ Owner only.')
         const arg = args[0]?.toLowerCase()
@@ -32,16 +31,11 @@ const handle = async (conn, m, { command, args, prefix, reply, isOwner }) => {
             const isOn = global.db?.data?.chatbera?.globalEnabled
             const profile = global.db?.data?.chatbera?.profile || {}
             return reply(
-                '╭══〘 *🎭 CHATBERA STATUS* 〙═⊷
-' +
-                `┃ Status: *${isOn ? '🟢 ON (all PMs)' : '🔴 OFF'}*
-` +
-                `┃ Trained on: *${profile?.myMessages?.length || 412} messages*
-` +
-                `┃ Turn on: *${prefix}chatbera on*
-` +
-                `┃ Turn off: *${prefix}chatbera off*
-` +
+                '╭══〘 *🎭 CHATBERA STATUS* 〙═⊷\n' +
+                `┃ Status: *${isOn ? '🟢 ON (all PMs)' : '🔴 OFF'}*\n` +
+                `┃ Trained on: *${profile?.myMessages?.length || 412} messages*\n` +
+                `┃ Turn on: *${prefix}chatbera on*\n` +
+                `┃ Turn off: *${prefix}chatbera off*\n` +
                 '╰══════════════════⊷'
             )
         }
@@ -53,22 +47,14 @@ const handle = async (conn, m, { command, args, prefix, reply, isOwner }) => {
             await ensurePrebuilt()
             const profile = global.db.data.chatbera.profile || {}
             return reply(
-                '╭══〘 *🎭 CHATBERA ON* 〙═⊷
-' +
-                `┃ Replying as: *${profile?.myName || 'Developer Bera'}*
-` +
-                `┃ Trained on: *${profile?.myMessages?.length || 412} messages*
-` +
-                '┃ Status: 🟢 Active — all PMs
-' +
-                '┃
-' +
-                '┃ I will now reply to every
-' +
-                '┃ message in your exact style.
-' +
-                `┃ Turn off: *${prefix}chatbera off*
-` +
+                '╭══〘 *🎭 CHATBERA ON* 〙═⊷\n' +
+                `┃ Replying as: *${profile?.myName || 'Developer Bera'}*\n` +
+                `┃ Trained on: *${profile?.myMessages?.length || 412} messages*\n` +
+                '┃ Status: 🟢 Active — all PMs\n' +
+                '┃\n' +
+                '┃ I will now reply to every\n' +
+                '┃ message in your exact style.\n' +
+                `┃ Turn off: *${prefix}chatbera off*\n` +
                 '╰══════════════════⊷'
             )
         }
@@ -79,14 +65,10 @@ const handle = async (conn, m, { command, args, prefix, reply, isOwner }) => {
             global.db.data.chatbera.enabled = {}
             await global.db.write()
             return reply(
-                '╭══〘 *🎭 CHATBERA OFF* 〙═⊷
-' +
-                '┃ Status: 🔴 Disabled
-' +
-                '┃ No longer auto-replying.
-' +
-                `┃ Turn on: *${prefix}chatbera on*
-` +
+                '╭══〘 *🎭 CHATBERA OFF* 〙═⊷\n' +
+                '┃ Status: 🔴 Disabled\n' +
+                '┃ No longer auto-replying.\n' +
+                `┃ Turn on: *${prefix}chatbera on*\n` +
                 '╰══════════════════⊷'
             )
         }
@@ -104,8 +86,7 @@ const handle = async (conn, m, { command, args, prefix, reply, isOwner }) => {
         reply('🤔 Generating reply as you...')
         const result = await generateStyleReply(testMsg, profile)
         if (result.success) {
-            return reply(`*Test Reply:*
-${result.reply}`)
+            return reply(`*Test Reply:*\n${result.reply}`)
         } else {
             return reply('❌ Failed to generate: ' + (result.error || 'unknown error'))
         }
@@ -118,20 +99,13 @@ ${result.reply}`)
         const profile = global.db?.data?.chatbera?.profile || {}
         const stats = profile.stats || {}
         return reply(
-            '╭══〘 *🧬 YOUR CHAT STYLE* 〙═⊷
-' +
-            `┃ Name: *${profile.myName || 'Developer Bera'}*
-` +
-            `┃ Messages trained: *${profile.myMessages?.length || 412}*
-` +
-            `┃ Emoji rate: *${stats.emojiRate || '96%'}*
-` +
-            `┃ Punctuation rate: *${stats.punctuationRate || '3%'}*
-` +
-            `┃ Avg msg length: *${stats.avgLength || '12 words'}*
-` +
-            `┃ Top words: *${(stats.topWords || ['mkuu','bana','naah','😂']).slice(0,4).join(', ')}*
-` +
+            '╭══〘 *🧬 YOUR CHAT STYLE* 〙═⊷\n' +
+            `┃ Name: *${profile.myName || 'Developer Bera'}*\n` +
+            `┃ Messages trained: *${profile.myMessages?.length || 412}*\n` +
+            `┃ Emoji rate: *${stats.emojiRate || '96%'}*\n` +
+            `┃ Punctuation rate: *${stats.punctuationRate || '3%'}*\n` +
+            `┃ Avg msg length: *${stats.avgLength || '12 words'}*\n` +
+            `┃ Top words: *${(stats.topWords || ['mkuu','bana','naah','😂']).slice(0,4).join(', ')}*\n` +
             '╰══════════════════⊷'
         )
     }
@@ -141,18 +115,12 @@ ${result.reply}`)
         if (!isOwner) return reply('❌ Owner only.')
         if (!m.quoted?.message) {
             return reply(
-                '╭══〘 *📚 TRAIN CHATBERA* 〙═⊷
-' +
-                '┃ Reply to an exported chat .txt file
-' +
-                '┃ with this command to train me.
-' +
-                '┃
-' +
-                '┃ Or use the built-in prebuilt profile
-' +
-                `┃ (already loaded — 412 real messages)
-` +
+                '╭══〘 *📚 TRAIN CHATBERA* 〙═⊷\n' +
+                '┃ Reply to an exported chat .txt file\n' +
+                '┃ with this command to train me.\n' +
+                '┃\n' +
+                '┃ Or use the built-in prebuilt profile\n' +
+                '┃ (already loaded — 412 real messages)\n' +
                 '╰══════════════════⊷'
             )
         }
@@ -169,12 +137,9 @@ ${result.reply}`)
             global.db.data.chatbera.profile = result
             await global.db.write()
             return reply(
-                `✅ *Training complete!*
-` +
-                `📊 ${result.myMessages.length} messages from you extracted
-` +
-                `🗓️ Date range: ${result.dateRange || 'N/A'}
-` +
+                `✅ *Training complete!*\n` +
+                `📊 ${result.myMessages.length} messages from you extracted\n` +
+                `🗓️ Date range: ${result.dateRange || 'N/A'}\n` +
                 `🔤 Your name used: ${myName}`
             )
         } catch (e) {
