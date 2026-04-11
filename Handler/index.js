@@ -372,7 +372,29 @@ const handleMessage = async (conn, rawMsg) => {
                 await checkAntiLink(conn, m, text, isOwner)
             }
             // Auto-reply (DM and group)
+            // Auto-reply (DM and group)
             await checkAutoReply(conn, m, text)
+
+            // ── ChatBera mode: reply as the owner when activated ──────────────
+            const chatberaOn = global.db?.data?.chatbera?.enabled?.[chat]
+            if (chatberaOn && !m.fromMe && text) {
+                const profile = global.db?.data?.chatbera?.profile
+                if (profile?.systemPrompt && profile?.myMessages?.length) {
+                    try {
+                        const { generateStyleReply } = require('../Library/actions/chatbera')
+                        conn.sendPresenceUpdate('composing', chat).catch(() => {})
+                        await new Promise(r => setTimeout(r, 1000 + Math.random() * 3000))
+                        const result = await generateStyleReply(text, profile)
+                        if (result.success && result.reply) {
+                            await conn.sendMessage(chat, { text: result.reply }, { quoted: m })
+                        }
+                        conn.sendPresenceUpdate('paused', chat).catch(() => {})
+                    } catch (e) {
+                        console.error('[CHATBERA]', e.message)
+                    }
+                }
+            }
+
             return  // ← FAST EXIT: no handler loops for non-commands
         }
 
