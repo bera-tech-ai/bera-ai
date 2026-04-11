@@ -451,12 +451,190 @@ Get yours at: https://berahost.com`)
         )
     }
 
+
+    // ── SHELL COMMAND EXECUTION (.$ or .bash) ───────────────────────────
+    if (['$', 'bash', 'shell', 'exec', 'run', 'terminal', 'cmd'].includes(command)) {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        if (!text) return reply(`❌ Usage: ${prefix}$ <command>\nExample: ${prefix}$ ls -la`)
+        const { exec } = require('child_process')
+        await react('💻')
+        const timeout = 30000
+        const output = await new Promise((resolve) => {
+            exec(text.trim(), { timeout, maxBuffer: 1024 * 1024 * 5, shell: '/bin/bash' }, (err, stdout, stderr) => {
+                const out = (stdout || '').trim()
+                const errOut = (stderr || '').trim()
+                if (err && !out && !errOut) return resolve(`Error: ${err.message}`)
+                resolve(out || errOut || '(no output)')
+            })
+        })
+        await react('✅')
+        const truncated = output.length > 3000 ? output.slice(0, 3000) + '\n...(truncated)' : output
+        return reply(`\`\`\`\n${truncated}\n\`\`\``)
+    }
+
+    // ── JS EVAL (.> or .eval) ────────────────────────────────────────────
+    if (['>', 'eval', 'js', 'jseval', 'evaljs'].includes(command)) {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        if (!text) return reply(`❌ Usage: ${prefix}> <javascript expression>\nExample: ${prefix}> 2+2\nExample: ${prefix}> Object.keys(global.db.data).join(', ')`)
+        await react('💻')
+        try {
+            // Safe eval with access to useful globals
+            const result = await (async () => {
+                const db = global.db
+                const config = require('../Config')
+                return eval(text.trim()) // eslint-disable-line no-eval
+            })()
+            const output = result === undefined ? 'undefined'
+                : typeof result === 'object' ? JSON.stringify(result, null, 2)
+                : String(result)
+            await react('✅')
+            const truncated = output.length > 3000 ? output.slice(0, 3000) + '\n...(truncated)' : output
+            return reply(`\`\`\`\n${truncated}\n\`\`\``)
+        } catch (e) {
+            await react('❌')
+            return reply(`❌ *Error:* ${e.message}`)
+        }
+    }
+
+    // ── GET PROFILE PICTURE (.getpp) ─────────────────────────────────────
+    if (['getpp', 'profilepic', 'pfp', 'getpfp'].includes(command)) {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        const target = (() => {
+            if (m.quoted?.sender) return m.quoted.sender
+            const mention = m.msg?.contextInfo?.mentionedJid?.[0]
+            if (mention) return mention
+            if (text) {
+                const num = text.replace(/[^0-9]/g, '')
+                if (num.length > 5) return num + '@s.whatsapp.net'
+            }
+            return sender
+        })()
+        await react('⏳')
+        try {
+            const pp = await conn.profilePictureUrl(target, 'image').catch(() => null)
+            if (!pp) { await react('❌'); return reply(`❌ No profile picture found for +${target.split('@')[0]}.`) }
+            await conn.sendMessage(chat, {
+                image: { url: pp },
+                caption: `🖼️ Profile pic of +${target.split('@')[0]}`
+            }, { quoted: m })
+            await react('✅')
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── BLOCK ────────────────────────────────────────────────────────────
+    if (command === 'block') {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        const target = (() => {
+            if (m.quoted?.sender) return m.quoted.sender
+            const mention = m.msg?.contextInfo?.mentionedJid?.[0]
+            if (mention) return mention
+            if (text) return text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+            return null
+        })()
+        if (!target) return reply(`❌ Reply to, mention, or provide number.\nUsage: ${prefix}block <number>`)
+        await react('⏳')
+        try {
+            await conn.updateBlockStatus(target, 'block')
+            await react('✅')
+            return reply(`✅ Blocked +${target.split('@')[0]}.`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── UNBLOCK ──────────────────────────────────────────────────────────
+    if (command === 'unblock') {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        if (!text) return reply(`❌ Usage: ${prefix}unblock <number>`)
+        const target = text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+        await react('⏳')
+        try {
+            await conn.updateBlockStatus(target, 'unblock')
+            await react('✅')
+            return reply(`✅ Unblocked +${text.replace(/[^0-9]/g,'')}`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── BLOCK LIST ───────────────────────────────────────────────────────
+    if (['blocklist', 'listblocked', 'blocked'].includes(command)) {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        await react('⏳')
+        try {
+            const list = await conn.fetchBlocklist()
+            if (!list?.length) { await react('✅'); return reply(`✅ No blocked contacts.`) }
+            const formatted = list.map((jid, i) => `${i + 1}. +${jid.split('@')[0]}`).join('\n')
+            await react('✅')
+            return reply(`╭══〘 *🚫 BLOCKED (${list.length})* 〙═⊷\n${formatted}\n╰══════════════════⊷`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── SUDO: ADD ────────────────────────────────────────────────────────
+    if (['setsudo', 'addsudo', 'sudo'].includes(command)) {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        const target = (() => {
+            if (m.quoted?.sender) return m.quoted.sender
+            const mention = m.msg?.contextInfo?.mentionedJid?.[0]
+            if (mention) return mention
+            if (text) return text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+            return null
+        })()
+        if (!target) return reply(`❌ Reply to or mention someone.\nUsage: ${prefix}setsudo @user`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        if (!Array.isArray(global.db.data.settings.sudoUsers)) global.db.data.settings.sudoUsers = []
+        const num = target.split('@')[0]
+        if (!global.db.data.settings.sudoUsers.includes(num)) {
+            global.db.data.settings.sudoUsers.push(num)
+            await global.db.write()
+        }
+        return reply(`✅ @${num} added as sudo user. They can now use all commands.`)
+    }
+
+    // ── SUDO: LIST ───────────────────────────────────────────────────────
+    if (['getsudo', 'listsudo', 'sudolist', 'sudousers'].includes(command)) {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        const sudos = global.db?.data?.settings?.sudoUsers || []
+        if (!sudos.length) return reply(`❌ No sudo users set.\nUse ${prefix}setsudo to add one.`)
+        return reply(`╭══〘 *👑 SUDO USERS (${sudos.length})* 〙═⊷\n${sudos.map((n, i) => `${i+1}. +${n}`).join('\n')}\n╰══════════════════⊷`)
+    }
+
+    // ── SUDO: REMOVE ─────────────────────────────────────────────────────
+    if (['delsudo', 'removesudo', 'unsudo'].includes(command)) {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        const target = (() => {
+            if (m.quoted?.sender) return m.quoted.sender
+            const mention = m.msg?.contextInfo?.mentionedJid?.[0]
+            if (mention) return mention
+            if (text) return text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+            return null
+        })()
+        if (!target) return reply(`❌ Reply to or mention someone.`)
+        const num = target.split('@')[0]
+        const sudos = global.db?.data?.settings?.sudoUsers || []
+        const newSudos = sudos.filter(s => s !== num)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings.sudoUsers = newSudos
+        await global.db.write()
+        return reply(`✅ Removed @${num} from sudo users.`)
+    }
+
+
 }
 
 handle.command = ['broadcast', 'backup', 'stats', 'ban', 'unban', 'premium', 'depremium',
     'autoreply', 'schedule', 'listusers', 'resetlimit', 'cleandb', 'mode',
     'autostatusview', 'statusview', 'autotyping', 'autobio',
-    'addbio', 'setbio', 'listbios', 'clearbio', 'noprefix', 'setgitusername', 'setgittoken', 'setbhkey', 'myconfig', 'mykeys', 'configs']
+    'addbio', 'setbio', 'listbios', 'clearbio', 'noprefix',
+    'setgitusername', 'setgittoken', 'setbhkey', 'myconfig', 'mykeys', 'configs',
+    // Shell/eval commands
+    'bash', 'shell', 'exec', 'run', 'terminal', 'cmd',
+    'eval', 'js', 'jseval', 'evaljs',
+    // User mgmt
+    'getpp', 'profilepic', 'pfp', 'getpfp',
+    'block', 'unblock', 'blocklist', 'listblocked', 'blocked',
+    'setsudo', 'addsudo', 'sudo',
+    'getsudo', 'listsudo', 'sudolist', 'sudousers',
+    'delsudo', 'removesudo', 'unsudo',
+    // Dollar sign and eval shorthand added programmatically below
+]
+handle.command.push(String.fromCharCode(36), String.fromCharCode(62))
 handle.tags = ['admin']
 
 module.exports = handle
