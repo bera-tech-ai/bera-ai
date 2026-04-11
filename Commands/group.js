@@ -37,7 +37,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         if (!isGroup) return reply(`❌ Group only command.`)
         if (!isOwner) return reply(`⛔ Owner only.`)
         const canAct = await ownerOrAdmin()
-        if (!canAct) return reply(`❌ Nick needs to be a group admin first.`)
+        if (!canAct) return reply(`❌ Bera AI needs to be a group admin first.`)
         const target = getTarget()
         if (!target) return reply(`❌ Reply to a message, mention, or provide a number.\nUsage: ${prefix}kick @user`)
         try {
@@ -50,7 +50,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         if (!isGroup) return reply(`❌ Group only command.`)
         if (!isOwner) return reply(`⛔ Owner only.`)
         const canAct = await ownerOrAdmin()
-        if (!canAct) return reply(`❌ Nick needs to be a group admin first.`)
+        if (!canAct) return reply(`❌ Bera AI needs to be a group admin first.`)
         if (!text) return reply(`❌ Usage: ${prefix}add <number>`)
         const num = text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
         try {
@@ -63,7 +63,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         if (!isGroup) return reply(`❌ Group only command.`)
         if (!isOwner) return reply(`⛔ Owner only.`)
         const canAct = await ownerOrAdmin()
-        if (!canAct) return reply(`❌ Nick needs to be a group admin first.`)
+        if (!canAct) return reply(`❌ Bera AI needs to be a group admin first.`)
         const target = getTarget()
         if (!target) return reply(`❌ Reply to a message or mention someone.\nUsage: ${prefix}promote @user`)
         try {
@@ -76,7 +76,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         if (!isGroup) return reply(`❌ Group only command.`)
         if (!isOwner) return reply(`⛔ Owner only.`)
         const canAct = await ownerOrAdmin()
-        if (!canAct) return reply(`❌ Nick needs to be a group admin first.`)
+        if (!canAct) return reply(`❌ Bera AI needs to be a group admin first.`)
         const target = getTarget()
         if (!target) return reply(`❌ Reply to a message or mention someone.\nUsage: ${prefix}demote @user`)
         try {
@@ -189,10 +189,10 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         const meRaw = conn.user?.id || ''
         const meJid = meRaw.replace(/:[0-9]+@/, '@')
 
-        // Check Nick is already admin
+        // Check Bera AI is already admin
         const nickParticipant = meta.participants.find(p => p.id === meJid)
-        if (!nickParticipant) return reply(`❌ Nick is not even in this group.`)
-        if (!nickParticipant.admin) return reply(`❌ Nick needs to be admin first. Ask a current admin to promote Nick, then run this again.`)
+        if (!nickParticipant) return reply(`❌ Bera AI is not even in this group.`)
+        if (!nickParticipant.admin) return reply(`❌ Bera AI needs to be admin first. Ask a current admin to promote Bera AI, then run this again.`)
 
         await reply(`🦅 *Bera AI Takeover initiated...*\n\n⏳ Processing group acquisition...`)
 
