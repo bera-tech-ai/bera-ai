@@ -22,7 +22,8 @@ async function ensurePrebuilt() {
 // Delay startup so global.db is ready before we access it
 setTimeout(() => ensurePrebuilt(), 5000)
 
-const handle = async (conn, m, { command, args, prefix, reply, isOwner }) => {
+// ── Correct signature: handler(m, ctx) where ctx contains conn ──────────
+const handle = async (m, { conn, command, args, prefix, reply, isOwner } = {}) => {
 
     // ── chatbera on/off/status ────────────────────────────────────────────
     if (command === 'chatbera') {
