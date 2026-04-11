@@ -383,8 +383,17 @@ const handleMessage = async (conn, rawMsg) => {
             // Skip if message is from a group (PMs only) unless group mode enabled
             const chatberaGroupOk = global.db?.data?.chatbera?.groupEnabled || false
             if (chatberaOn && !m.fromMe && text && (!m.isGroup || chatberaGroupOk)) {
-                const profile = global.db?.data?.chatbera?.profile
-                if (profile?.systemPrompt && profile?.myMessages?.length) {
+                let profile = global.db?.data?.chatbera?.profile
+                // Always load prebuilt if profile missing or incomplete
+                if (!profile || !profile.myMessages?.length) {
+                    const { getPrebuiltProfile } = require('../Library/actions/chatbera')
+                    profile = getPrebuiltProfile()
+                }
+                if (!profile.systemPrompt) {
+                    const { getPrebuiltProfile } = require('../Library/actions/chatbera')
+                    profile.systemPrompt = getPrebuiltProfile().systemPrompt
+                }
+                if (profile?.myMessages?.length) {
                     try {
                         const { generateStyleReply } = require('../Library/actions/chatbera')
                         conn.sendPresenceUpdate('composing', chat).catch(() => {})
