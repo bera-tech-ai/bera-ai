@@ -2,7 +2,8 @@ const axios = require('axios')
 
 const BASE = 'https://apiskeith.top'
 
-const handle = async (m, { conn, text, reply, prefix, command, sender, chat, react, args }) => {
+const handle = async (m, { conn, text, reply, prefix, command, sender, chat, args }) => {
+    const react = (emoji) => conn.sendMessage(chat, { react: { text: emoji, key: m.key } }).catch(() => {})
 
     // ── ASCII Art ────────────────────────────────────────────────────────────
     if (command === 'ascii') {
