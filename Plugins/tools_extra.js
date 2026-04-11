@@ -167,206 +167,82 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
     if (['tempmail', 'tmpmail', 'disposablemail'].includes(command)) {
         await react('⏳')
         try {
-            // Use 1secmail API (completely free)
-            const res = await axios.get('https://www.1secmail.com/api/v1/?action=genRandomMailbox&count=1', { timeout: 15000 })
-            const email = res.data?.[0]
+            // GuerrillaMail — free, no auth, works from server environments
+            const gRes = await axios.get('https://api.guerrillamail.com/ajax.php?f=get_email_address', { timeout: 15000 })
+            const email = gRes.data?.email_addr
+            const sidToken = gRes.data?.sid_token
             if (!email) throw new Error('No email generated')
             if (!global.db.data.tempmail) global.db.data.tempmail = {}
-            global.db.data.tempmail[sender] = email
+            global.db.data.tempmail[sender] = { email, sid_token: sidToken, created: Date.now() }
             await global.db.write()
             await react('✅')
             return reply(
-                `╭══〘 *📧 TEMP EMAIL* 〙═⊷\n` +
-                `┃\n` +
-                `┃ *Your Email:*\n` +
-                `┃ ${email}\n` +
-                `┃\n` +
-                `┃❍ Use ${prefix}tempinbox to check mail\n` +
-                `┃❍ Use ${prefix}delmail to clear it\n` +
-                `┃❍ Email expires after ~1 hour\n` +
+                `╭══〘 *📧 TEMP EMAIL* 〙═⊷
+` +
+                `┃
+` +
+                `┃ *Your Email:*
+` +
+                `┃ ${email}
+` +
+                `┃
+` +
+                `┃❍ Use *${prefix}inbox* to check messages
+` +
+                `┃❍ Use *${prefix}delmail* to delete
+` +
+                `┃❍ Valid for 60 minutes
+` +
                 `╰══════════════════⊷`
             )
         } catch (e) {
             await react('❌')
-            return reply(`❌ Failed to generate temp email. Try again.`)
+            return reply('❌ Failed to create temp email: ' + e.message)
         }
     }
 
-    // ── TEMP INBOX ────────────────────────────────────────────────────────
-    if (['tempinbox', 'checkinbox', 'inbox'].includes(command)) {
-        const email = global.db?.data?.tempmail?.[sender]
-        if (!email) return reply(`❌ You have no temp email. Generate one with ${prefix}tempmail`)
+// ── INBOX ────────────────────────────────────────────────────────────
+    if (['inbox', 'tempmailinbox', 'checkinbox'].includes(command)) {
         await react('⏳')
-        try {
-            const [login, domain] = email.split('@')
-            const res = await axios.get(`https://www.1secmail.com/api/v1/?action=getMessages&login=${login}&domain=${domain}`, { timeout: 15000 })
-            const msgs = res.data
-            await react('✅')
-            if (!msgs?.length) return reply(`📭 *Inbox Empty*\n\nEmail: ${email}\nNo messages yet. Check again in a moment.`)
-            const list = msgs.slice(0, 5).map((msg, i) => `*${i+1}.* From: ${msg.from}\n   Subject: ${msg.subject}`).join('\n\n')
-            return reply(
-                `╭══〘 *📬 INBOX (${msgs.length})* 〙═⊷\n\n` +
-                `Email: ${email}\n\n` +
-                `${list}\n\n` +
-                `Use ${prefix}readmail <number> to read\n` +
-                `╰══════════════════⊷`
-            )
-        } catch (e) {
+        const mailData = global.db?.data?.tempmail?.[sender]
+        if (!mailData?.email) {
             await react('❌')
-            return reply(`❌ Failed to check inbox.`)
+            return reply(`❌ No temp email found. Create one with *${prefix}tempmail* first.`)
         }
-    }
-
-    // ── READ MAIL ─────────────────────────────────────────────────────────
-    if (['readmail', 'readmsg', 'openmail'].includes(command)) {
-        const email = global.db?.data?.tempmail?.[sender]
-        if (!email) return reply(`❌ You have no temp email. Generate one with ${prefix}tempmail`)
-        const num = parseInt(text?.trim())
-        if (isNaN(num) || num < 1) return reply(`❌ Usage: ${prefix}readmail <number>\nCheck inbox first with ${prefix}tempinbox`)
-        await react('⏳')
         try {
-            const [login, domain] = email.split('@')
-            const msgs = (await axios.get(`https://www.1secmail.com/api/v1/?action=getMessages&login=${login}&domain=${domain}`, { timeout: 15000 })).data
-            if (!msgs?.length) return reply(`📭 Inbox is empty.`)
-            const msg = msgs[num - 1]
-            if (!msg) return reply(`❌ No message #${num}. You have ${msgs.length} message(s).`)
-            const full = (await axios.get(`https://www.1secmail.com/api/v1/?action=readMessage&login=${login}&domain=${domain}&id=${msg.id}`, { timeout: 15000 })).data
+            const res = await axios.get(
+                `https://api.guerrillamail.com/ajax.php?f=get_email_list&offset=0&sid_token=${mailData.sid_token}`,
+                { timeout: 15000 }
+            )
+            const messages = res.data?.list || []
+            if (!messages.length) {
+                await react('📭')
+                return reply(`╭══〘 *📭 INBOX EMPTY* 〙═⊷
+┃ ${mailData.email}
+┃ No messages yet.
+╰══════════════════⊷`)
+            }
+            const msgList = messages.slice(0, 5).map((msg, i) =>
+                `┃ ${i+1}. From: ${msg.mail_from}
+┃    Subject: ${msg.mail_subject}`
+            ).join('
+')
             await react('✅')
             return reply(
-                `╭══〘 *📧 EMAIL #${num}* 〙═⊷\n` +
-                `┃❍ *From:* ${full.from}\n` +
-                `┃❍ *Subject:* ${full.subject}\n` +
-                `┃❍ *Date:* ${full.date}\n` +
-                `┃\n` +
-                `${(full.textBody || full.htmlBody?.replace(/<[^>]+>/g, '') || 'No text content').slice(0, 1000)}\n` +
-                `╰══════════════════⊷`
+                `╭══〘 *📧 INBOX* 〙═⊷
+` +
+                `┃ Email: ${mailData.email}
+` +
+                `┃ Messages: ${messages.length}
+┃
+` +
+                msgList + `
+╰══════════════════⊷`
             )
         } catch (e) {
             await react('❌')
-            return reply(`❌ Failed to read mail.`)
+            return reply('❌ Failed to check inbox: ' + e.message)
         }
     }
 
-    // ── DELETE TEMP MAIL ──────────────────────────────────────────────────
-    if (['delmail', 'deletemail', 'clearmail'].includes(command)) {
-        if (!global.db?.data?.tempmail?.[sender]) return reply(`❌ You have no temp email stored.`)
-        const old = global.db.data.tempmail[sender]
-        delete global.db.data.tempmail[sender]
-        await global.db.write()
-        return reply(`✅ Temp email *${old}* has been cleared.`)
-    }
 
-    // ── UPLOADER: CATBOX ──────────────────────────────────────────────────
-    if (['catbox', 'uploadcatbox'].includes(command)) {
-        const q = m.quoted
-        if (!q?.mimetype) return reply(`❌ Reply to a file/image/video to upload it.\nUsage: ${prefix}catbox (reply to file)`)
-        await react('⏳')
-        try {
-            const buf = await conn.downloadMediaMessage({ key: q.key, message: q.message })
-            const FormData = require('form-data')
-            const form = new FormData()
-            form.append('reqtype', 'fileupload')
-            form.append('fileToUpload', buf, { filename: 'upload', contentType: q.mimetype })
-            const res = await axios.post('https://catbox.moe/user.php', form, { headers: form.getHeaders(), timeout: 60000 })
-            await react('✅')
-            return reply(`╭══〘 *📤 CATBOX UPLOAD* 〙═⊷\n┃❍ *URL:* ${res.data}\n┃❍ *File type:* ${q.mimetype}\n╰══════════════════⊷`)
-        } catch (e) {
-            await react('❌')
-            return reply(`❌ Upload failed: ${e.message}`)
-        }
-    }
-
-    // ── GITHUB CDN UPLOAD ─────────────────────────────────────────────────
-    if (['githubcdn', 'ghupload', 'uploadgithub'].includes(command)) {
-        const q = m.quoted
-        if (!q?.mimetype) return reply(`❌ Reply to a file/image/video to upload.\nUsage: ${prefix}githubcdn (reply to file)`)
-        const ghToken = global.db?.data?.settings?.githubToken || process.env.GITHUB_PERSONAL_ACCESS_TOKEN
-        const ghUser = global.db?.data?.settings?.githubUsername || 'bera-tech-ai'
-        if (!ghToken) return reply(`❌ Set your GitHub token first with ${prefix}setgittoken <token>`)
-        await react('⏳')
-        try {
-            const buf = await conn.downloadMediaMessage({ key: q.key, message: q.message })
-            const ext = q.mimetype.split('/')[1] || 'bin'
-            const filename = `upload_${Date.now()}.${ext}`
-            const b64 = buf.toString('base64')
-            const res = await axios.put(
-                `https://api.github.com/repos/${ghUser}/bera-cdn/contents/${filename}`,
-                { message: `Upload ${filename}`, content: b64 },
-                { headers: { Authorization: `Bearer ${ghToken}`, 'User-Agent': 'BeraAI' }, timeout: 30000 }
-            )
-            const url = res.data?.content?.download_url
-            await react('✅')
-            return reply(`╭══〘 *📤 GITHUB CDN UPLOAD* 〙═⊷\n┃❍ *URL:* ${url}\n┃❍ *File:* ${filename}\n╰══════════════════⊷`)
-        } catch (e) {
-            await react('❌')
-            return reply(`❌ GitHub upload failed: ${e.message}`)
-        }
-    }
-
-    // ── EMOJIMIX ──────────────────────────────────────────────────────────
-    if (['emojimix', 'mixemoji', 'emojimerge'].includes(command)) {
-        if (!text || !text.includes(' ')) return reply(`❌ Usage: ${prefix}emojimix <emoji1> <emoji2>\nExample: ${prefix}emojimix 😀 🔥`)
-        await react('⏳')
-        try {
-            const parts = text.trim().split(/\s+/)
-            const e1 = parts[0], e2 = parts[1]
-            const c1 = e1.codePointAt(0)?.toString(16)
-            const c2 = e2.codePointAt(0)?.toString(16)
-            const url = `https://www.gstatic.com/android/keyboard/emojikitchen/20201001/u${c1}/u${c1}_u${c2}.png`
-            await conn.sendMessage(chat, { image: { url }, caption: `✨ Emoji Mix: ${e1} + ${e2}` }, { quoted: m })
-            await react('✅')
-        } catch (e) {
-            await react('❌')
-            return reply(`❌ Could not mix those emojis. Try standard emojis like 😀 and 🔥`)
-        }
-    }
-
-    // ── SCREENSHOT (website) ──────────────────────────────────────────────
-    if (['sspc', 'ssweb', 'sstab', 'ssphone', 'screenshot', 'ss'].includes(command)) {
-        if (!text) return reply(`❌ Usage: ${prefix}sspc <url>\nExample: ${prefix}sspc https://google.com`)
-        const url = text.trim().startsWith('http') ? text.trim() : 'https://' + text.trim()
-        await react('⏳')
-        try {
-            // Use screenshotmachine free tier
-            const viewport = command === 'ssphone' ? '480x800' : command === 'sstab' ? '768x1024' : '1280x800'
-            const ssUrl = `https://mini.s-shot.ru/${viewport}/JPEG/1000/Z100/?${encodeURIComponent(url)}`
-            await conn.sendMessage(chat, { image: { url: ssUrl }, caption: `📸 Screenshot of ${url}` }, { quoted: m })
-            await react('✅')
-        } catch (e) {
-            await react('❌')
-            return reply(`❌ Screenshot failed: ${e.message}`)
-        }
-    }
-}
-
-handle.command = [
-    // Weather
-    'weather', 'w', 'forecast',
-    // Dictionary
-    'define', 'dict', 'dictionary', 'meaning',
-    // Base64
-    'ebase', 'base64encode', 'b64e', 'tobase64',
-    'dbase', 'base64decode', 'b64d', 'frombase64',
-    // Binary
-    'ebinary', 'tobinary', 'texttobin',
-    'debinary', 'frombinary', 'bintotext',
-    // Domain
-    'domaincheck', 'domain', 'whois',
-    // NPM
-    'npm', 'npmsearch', 'npmpackage',
-    // Temp mail
-    'tempmail', 'tmpmail', 'disposablemail',
-    'tempinbox', 'checkinbox', 'inbox',
-    'readmail', 'readmsg', 'openmail',
-    'delmail', 'deletemail', 'clearmail',
-    // Uploaders
-    'catbox', 'uploadcatbox',
-    'githubcdn', 'ghupload', 'uploadgithub',
-    // Emoji mix
-    'emojimix', 'mixemoji', 'emojimerge',
-    // Screenshot
-    'sspc', 'ssweb', 'sstab', 'ssphone', 'screenshot', 'ss',
-]
-handle.tags = ['tools']
-
-module.exports = handle
