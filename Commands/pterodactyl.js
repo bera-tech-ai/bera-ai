@@ -683,6 +683,161 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
     }
 }
 
+
+    // ── create <plan> <username>, <number> ─────────────────────────────────
+    // Friendly alias for ptcreate: .create 1gb brucebera, 254743982206
+    if (command === 'create') {
+        if (!appK) return reply(`❌ Pterodactyl App API key not set.`)
+        if (!text) return reply(
+            `╭══〘 *🖥️ CREATE SERVER* 〙═⊷\n` +
+            `┃\n` +
+            `┃ Usage:\n` +
+            `┃ ${prefix}create <plan> <name>, <number>\n` +
+            `┃\n` +
+            `┃ Examples:\n` +
+            `┃❍ ${prefix}create 1gb brucebera, 254743982206\n` +
+            `┃❍ ${prefix}create 2gb john254, 254712345678\n` +
+            `┃❍ ${prefix}create 4gb myserver, 254712345678\n` +
+            `┃❍ ${prefix}create 8gb bigserver, 254712345678\n` +
+            `┃❍ ${prefix}create unli unlimited1, 254712345678\n` +
+            `┃❍ ${prefix}create admin adminuser, 254712345678\n` +
+            `┃\n` +
+            `┃ 📋 Plans: ${PLAN_LIST()}\n` +
+            `╰══════════════════⊷`
+        )
+        // Parse: "1gb brucebera, 254743982206"
+        const commaIdx = text.lastIndexOf(',')
+        let waNum = '', mainPart = text
+        if (commaIdx !== -1) {
+            waNum    = text.slice(commaIdx + 1).trim().replace(/[^0-9]/g, '')
+            mainPart = text.slice(0, commaIdx).trim()
+        }
+        const parts    = mainPart.trim().split(/s+/)
+        const plan     = parts[0]?.toLowerCase()
+        const username = parts.slice(1).join('').trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+
+        if (!plan || !username) return reply(`❌ Usage: ${prefix}create <plan> <username>, <number>\nExample: ${prefix}create 1gb brucebera, 254743982206`)
+        if (!PLANS[plan]) return reply(`❌ Unknown plan *${plan}*\n\nAvailable: ${Object.keys(PLANS).join(', ')}`)
+        if (!waNum) return reply(`❌ WhatsApp number missing. Format: ${prefix}create 1gb username, 254712345678`)
+
+        const waJid       = waNum + '@s.whatsapp.net'
+        const displayNum  = waNum
+        const isAdminPlan = plan === 'admin'
+
+        await react('⏳')
+        await reply(`⏳ Setting up *${isAdminPlan ? 'Admin Panel' : plan.toUpperCase()}* server for *${username}*...`)
+
+        try {
+            // 1. Create panel user
+            const password = genPassword(username)
+            const email    = `${username}@${EMAIL_DOMAIN}`
+            let userRes
+            try {
+                userRes = await createUser({
+                    username, email, password,
+                    firstName: username,
+                    lastName: 'BeraHost',
+                    isAdmin: isAdminPlan
+                })
+            } catch (e) {
+                if (e.message.includes('already been taken') || e.message.includes('exists')) {
+                    return reply(`❌ Username *${username}* already exists.\nTry a different name.`)
+                }
+                throw e
+            }
+            const userId = userRes.id
+
+            // 2. Create server (use unli spec for admin plan)
+            const serverPlan = isAdminPlan ? 'unli' : plan
+            const server = await createPanelServer({ name: username, userId, planKey: serverPlan })
+
+            // 3. Build credential message
+            const panelUrl = ptUrl.replace(/\/api.*/, '').replace(/\/$/, '')
+            const planLabel = isAdminPlan ? '👑 Admin (Unlimited)' : (PLANS[plan]?.label || plan)
+            const credMsg =
+                `╭══〘 *🖥️ YOUR SERVER IS READY* 〙═⊷\n` +
+                `┃\n` +
+                `┃ *Panel URL:* ${panelUrl}\n` +
+                `┃ *Username:* ${username}\n` +
+                `┃ *Password:* ${password}\n` +
+                `┃ *Email:* ${email}\n` +
+                `┃ *Plan:* ${planLabel}\n` +
+                `┃ *Server:* ${username}\n` +
+                `┃\n` +
+                `┃ 📌 Login at the panel URL above\n` +
+                `┃ 🔒 Change your password after logging in\n` +
+                `┃\n` +
+                `┃ Powered by *Bera AI*\n` +
+                `╰══════════════════⊷`
+
+            // 4. Send creds via DM
+            const { sent } = await dispatchCreds(m, conn, chat, waJid, credMsg, displayNum)
+
+            await react('✅')
+            return reply(
+                `╭══〘 *✅ SERVER CREATED* 〙═⊷\n` +
+                `┃❍ *User:* ${username}\n` +
+                `┃❍ *Plan:* ${planLabel}\n` +
+                `┃❍ *Panel Admin:* ${isAdminPlan ? 'Yes 👑' : 'No'}\n` +
+                `┃❍ *Creds sent to:* +${displayNum}${sent ? ' ✅' : ' ⚠️ (send them first message to receive)'}\n` +
+                `╰══════════════════⊷`
+            )
+        } catch (e) {
+            await react('❌')
+            return reply(`❌ Server creation failed:\n${e.message}`)
+        }
+    }
+
+    // ── listservers ────────────────────────────────────────────────────────
+    if (command === 'listservers' || command === 'myservers') {
+        await react('🖥️')
+        const res = await listAllServers()
+        if (!res.success) return reply(`❌ ${res.error}`)
+        if (!res.servers.length) return reply(`📭 No servers on panel.`)
+        const lines = res.servers.map((s, i) =>
+            `${i+1}. *${s.name}* (ID: ${s.id}) — ${s.suspended ? '🔴 Suspended' : '🟢 Active'}\n   RAM: ${s.memory === 0 ? 'Unlimited' : s.memory+'MB'} | Disk: ${s.disk === 0 ? 'Unlimited' : Math.round(s.disk/1024)+'GB'}`
+        ).join('\n')
+        return reply(`╭══〘 *🖥️ ALL SERVERS (${res.servers.length})* 〙═⊷\n\n${lines}\n╰══════════════════⊷`)
+    }
+
+    // ── listusers ──────────────────────────────────────────────────────────
+    if (command === 'listusers') {
+        await react('👥')
+        const res = await listUsers()
+        if (!res.success) return reply(`❌ ${res.error}`)
+        if (!res.users.length) return reply(`📭 No users on panel.`)
+        const lines = res.users.map((u, i) =>
+            `${i+1}. ${u.isAdmin ? '👑' : '👤'} *${u.username}* (ID: ${u.id})\n   ${u.email}`
+        ).join('\n')
+        return reply(`╭══〘 *👥 PANEL USERS (${res.users.length})* 〙═⊷\n\n${lines}\n╰══════════════════⊷`)
+    }
+
+    // ── deleteserver <name> ────────────────────────────────────────────────
+    if (command === 'deleteserver' || command === 'delserver') {
+        if (!text) return reply(`❌ Usage: ${prefix}deleteserver <name>\nExample: ${prefix}deleteserver brucebera`)
+        await react('🗑️')
+        const srv = await findServerByName(text.trim())
+        if (!srv) return reply(`❌ Server *${text.trim()}* not found.`)
+        const id = srv.attributes.id
+        const res = await deleteServer(id)
+        if (!res.success) return reply(`❌ Delete failed: ${res.error}`)
+        await react('✅')
+        return reply(`✅ Server *${text.trim()}* deleted successfully.`)
+    }
+
+    // ── deleteuser <username> ──────────────────────────────────────────────
+    if (command === 'deleteuser' || command === 'deluser') {
+        if (!text) return reply(`❌ Usage: ${prefix}deleteuser <username>\nExample: ${prefix}deleteuser brucebera`)
+        await react('🗑️')
+        const user = await findUserByUsername(text.trim())
+        if (!user) return reply(`❌ User *${text.trim()}* not found.`)
+        const userId = user.attributes.id
+        const res = await deleteUserWithServers(userId)
+        if (!res.success) return reply(`❌ Delete failed: ${res.error}`)
+        await react('✅')
+        return reply(`✅ User *${text.trim()}* and all their servers deleted.`)
+    }
+
 handle.before = async (m, { conn }) => {
     try {
         if (!m || m.isGroup || m.fromMe) return
@@ -701,12 +856,15 @@ handle.before = async (m, { conn }) => {
 }
 
 handle.command = [
-    'ptlist', 'servers',
+    'ptlist', 'servers', 'listservers', 'myservers',
     'ptstatus', 'ptstart', 'ptstop', 'ptrestart', 'ptkill',
     'ptcmd', 'ptcommand', 'ptfiles', 'ptread', 'ptcat', 'ptwrite',
-    'ptcreate', 'ptaddserver', 'ptadmin', 'ptreset', 'ptcreds', 'ptdelete',
-    'ptusers', 'ptdeluser', 'ptpromote', 'ptdemote', 'ptpurgeusers',
-    'ptallservers', 'ptdelserver', 'ptsuspend', 'ptunsuspend', 'ptnodes',
+    'ptcreate', 'create',
+    'ptaddserver', 'ptadmin', 'ptreset', 'ptcreds', 'ptdelete',
+    'ptusers', 'listusers', 'ptdeluser', 'deleteuser', 'deluser',
+    'ptpromote', 'ptdemote', 'ptpurgeusers',
+    'ptallservers', 'ptdelserver', 'deleteserver', 'delserver',
+    'ptsuspend', 'ptunsuspend', 'ptnodes',
     'ptall', 'pthelp', 'ptdmtest'
 ]
 handle.tags = ['pterodactyl']
