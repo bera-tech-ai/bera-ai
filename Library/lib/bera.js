@@ -45,44 +45,79 @@ const buildQuery = (userText, history = []) => {
     return `${PERSONALITY}${ctxBlock}User: ${userText}\nBera AI:`
 }
 
-const nickAi = async (userText, history = [], onAction = null, imageBuffer = null) => {
-    let endpoint = config.nickApiEndpoint
-    if (!endpoint || endpoint.includes('/api/nick')) endpoint = `${BASE_URL}/ai/gpt4`
+const AI_ENDPOINTS = [
+    'https://apiskeith.top/ai/gpt4',
+    'https://api.siputzx.my.id/api/ai/chatgpt',
+    'https://api.ryzendesu.vip/api/ai/chatgpt',
+    'https://bk9.fun/ai/gpt4',
+    'https://api.vreden.my.id/api/openai',
+]
 
-    try {
-        let res
+const VISION_ENDPOINTS = [
+    `https://apiskeith.top/ai/vision`,
+    `https://api.siputzx.my.id/api/ai/gemini-vision`,
+]
 
-        if (imageBuffer) {
-            const imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`
-            res = await axios.get(`${BASE_URL}/ai/vision`, {
-                params: { image: imageBase64, q: userText || 'Describe and analyse this image in detail. Be specific and direct.' },
-                timeout: 30000
-            })
-        } else {
-            const query = buildQuery(userText, history)
-            res = await axios.get(endpoint, { params: { q: query }, timeout: 30000 })
+const cleanAnswer = (raw) => {
+    let clean = String(raw).trim()
+    clean = clean.replace(/^(Nick|ChatGPT|GPT|AI):\s*/i, '').trim()
+    clean = clean.replace(/\bI'?m Nick\b/gi, "I'm Bera AI")
+    clean = clean.replace(/\bNick AI\b/gi, 'Bera AI')
+    clean = clean.replace(/keithkeizzah/gi, 'Bera Tech')
+    return clean
+}
+
+const tryEndpoints = async (endpoints, paramsFn, timeout = 25000) => {
+    let lastError = null
+    for (const url of endpoints) {
+        try {
+            const res = await axios.get(url, { params: paramsFn(url), timeout })
+            const data = res.data
+            if (data?.status === false || data?.success === false) {
+                lastError = new Error(data?.error || 'API returned failure')
+                continue
+            }
+            const answer = data?.result || data?.reply || data?.message || data?.response || data?.answer || data?.text || data?.data
+            if (!answer || typeof answer !== 'string') {
+                lastError = new Error('Empty response')
+                continue
+            }
+            return cleanAnswer(answer)
+        } catch (e) {
+            const status = e?.response?.status
+            if (status === 404 || status === 403 || status === 500 || status === 502 || status === 503) {
+                lastError = new Error(`Endpoint ${url} returned ${status}`)
+                continue
+            }
+            lastError = e
         }
-
-        const data = res.data
-        if (data?.status === false || data?.success === false) {
-            const msg = data?.error || 'API server busy'
-            throw new Error(msg.replace(/keithkeizzah|nick/gi, 'Bera AI').trim() || 'AI service is temporarily busy')
-        }
-        const answer = data.result || data.reply || data.message || data.response || data.answer || data.text
-        if (!answer) throw new Error('Empty response from AI')
-
-        let clean = String(answer).trim()
-        // Strip old prefixes
-        clean = clean.replace(/^(Nick|ChatGPT|GPT|AI):\s*/i, '').trim()
-        // Replace any Nick references with Bera AI
-        clean = clean.replace(/\bI'?m Nick\b/gi, "I'm Bera AI")
-        clean = clean.replace(/\bNick AI\b/gi, 'Bera AI')
-
-        return clean
-    } catch (e) {
-        if (e.response) throw new Error(`API error ${e.response.status}: ${e.response.data?.message || 'Unknown'}`)
-        throw new Error(e.message || 'Bera AI request failed')
     }
+    throw lastError || new Error('All AI endpoints failed')
+}
+
+const nickAi = async (userText, history = [], onAction = null, imageBuffer = null) => {
+    // Custom endpoint override
+    let customEndpoint = config.nickApiEndpoint
+    if (customEndpoint && !customEndpoint.includes('/api/nick')) {
+        AI_ENDPOINTS.unshift(customEndpoint)
+    }
+
+    if (imageBuffer) {
+        const imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`
+        return tryEndpoints(VISION_ENDPOINTS, (url) => ({
+            image: imageBase64,
+            q: userText || 'Describe and analyse this image in detail.'
+        }))
+    }
+
+    const query = buildQuery(userText, history)
+    return tryEndpoints(AI_ENDPOINTS, (url) => {
+        // Different APIs use different param names
+        if (url.includes('siputzx') || url.includes('ryzendesu') || url.includes('vreden')) {
+            return { text: query, prompt: query }
+        }
+        return { q: query, prompt: query, text: query }
+    })
 }
 
 module.exports = { nickAi, MAX_HISTORY }
