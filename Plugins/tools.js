@@ -1,50 +1,35 @@
 const axios = require('axios')
 
 const BASE = 'https://apiskeith.top'
+const kget = (path, params, timeout = 15000) =>
+    axios.get(BASE + path, { params, timeout, headers: { 'User-Agent': 'BeraBot/2.0' } })
 
 const handle = async (m, { conn, text, reply, prefix, command, sender, chat, args }) => {
     const react = (emoji) => conn.sendMessage(chat, { react: { text: emoji, key: m.key } }).catch(() => {})
 
-    // ── ASCII Art ────────────────────────────────────────────────────────────
-    if (command === 'ascii') {
-        if (!text) return reply(`❌ Usage: ${prefix}ascii <text>\nExample: ${prefix}ascii BERA`)
+    // ── URL Shorteners ───────────────────────────────────────────────────────
+    if (command === 'shorten' || command === 'tinyurl' || command === 'short') {
+        if (!text) return reply(`❌ Usage: ${prefix}shorten <url>\nExample: ${prefix}shorten https://google.com`)
+        if (!text.startsWith('http')) return reply('❌ Please provide a valid URL starting with http/https')
         await react('⏳')
         try {
-            const res = await axios.get(`${BASE}/tools/ascii`, { params: { text }, timeout: 15000 })
-            const data = res.data
-            if (!data?.result && !data?.ascii) return reply('❌ Could not generate ASCII art. Try shorter text.')
-            const art = data?.result || data?.ascii || ''
+            const res = await kget('/shortener/tinyurl', { url: text.trim() })
+            const r = res.data?.result || res.data?.link
+            if (!r) throw new Error('no result')
             await react('✅')
-            return reply(`\`\`\`\n${art}\n\`\`\``)
+            return reply(`🔗 *URL Shortened:*\n\n*Short:* ${r}\n*Original:* ${text.slice(0,80)}`)
         } catch {
-            await react('❌')
-            return reply('❌ ASCII art failed. Try again.')
-        }
-    }
-
-    // ── URL Shortener ────────────────────────────────────────────────────────
-    if (command === 'shorten' || command === 'short' || command === 'tinyurl') {
-        if (!text) return reply(`❌ Usage: ${prefix}shorten <url>\nExample: ${prefix}shorten https://example.com`)
-        const url = text.trim()
-        if (!url.startsWith('http')) return reply('❌ Please provide a valid URL starting with http/https')
-        await react('⏳')
-        try {
-            const res = await axios.get(`https://tinyurl.com/api-create.php`, {
-                params: { url },
-                timeout: 10000
-            })
-            const short = res.data?.trim()
-            if (!short || !short.startsWith('http')) throw new Error('Bad response')
-            await react('✅')
-            return reply(
-                `╭══〘 *🔗 URL SHORTENED* 〙═⊷\n` +
-                `┃❍ Original: ${url.slice(0, 60)}...\n` +
-                `┃❍ Short: *${short}*\n` +
-                `╰══════════════════⊷`
-            )
-        } catch {
-            await react('❌')
-            return reply('❌ URL shortening failed. Try again.')
+            // Fallback to bitly
+            try {
+                const res2 = await kget('/shortener/bitly', { url: text.trim() })
+                const r2 = res2.data?.result || res2.data?.link
+                if (!r2) throw new Error('no result')
+                await react('✅')
+                return reply(`🔗 *URL Shortened (Bitly):*\n\n*Short:* ${r2}\n*Original:* ${text.slice(0,80)}`)
+            } catch {
+                await react('❌')
+                return reply('❌ URL shortening failed. Try again.')
+            }
         }
     }
 
@@ -52,113 +37,467 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
     if (command === 'fancy') {
         if (!text) return reply(`❌ Usage: ${prefix}fancy <text>\nExample: ${prefix}fancy Bera AI`)
         await react('⏳')
-        const styles = [
-            // Unicode fancy text styles
-            { name: 'Bold', fn: s => s.replace(/[A-Za-z]/g, c => String.fromCodePoint(c.charCodeAt(0) + (c >= 'a' ? 0x1D41A - 97 : 0x1D400 - 65))) },
-            { name: 'Italic', fn: s => s.replace(/[A-Za-z]/g, c => String.fromCodePoint(c.charCodeAt(0) + (c >= 'a' ? 0x1D44E - 97 : 0x1D434 - 65))) },
-            { name: 'Script', fn: s => s.replace(/[A-Za-z]/g, c => String.fromCodePoint(c.charCodeAt(0) + (c >= 'a' ? 0x1D4B6 - 97 : 0x1D49C - 65))) },
-            { name: 'Double Struck', fn: s => s.replace(/[A-Za-z]/g, c => String.fromCodePoint(c.charCodeAt(0) + (c >= 'a' ? 0x1D552 - 97 : 0x1D538 - 65))) },
-            { name: 'Monospace', fn: s => s.replace(/[A-Za-z0-9]/g, c => String.fromCodePoint(c.charCodeAt(0) + (c >= 'a' ? 0x1D670 - 97 : c >= 'A' ? 0x1D670 - 65 + 26 : 0x1D7F6 - 48))) },
-        ]
-        const chosen = styles[Math.floor(Math.random() * styles.length)]
         try {
-            const fancy = chosen.fn(text)
+            const res = await kget('/fancytext/random', { q: text })
+            const result = res.data?.result
+            if (!result) throw new Error('no result')
             await react('✅')
-            return reply(`╭══〘 *✨ FANCY TEXT* 〙═⊷\n┃❍ Style: *${chosen.name}*\n┃\n┃ ${fancy}\n╰══════════════════⊷`)
+            return reply(`✨ *Fancy Text:*\n\n${result}`)
         } catch {
             await react('❌')
-            return reply('❌ Could not generate fancy text.')
+            return reply('❌ Fancy text failed. Try again.')
         }
     }
 
-    // ── Fancy Text Styles (show all) ─────────────────────────────────────────
+    // ── All Fancy Styles ─────────────────────────────────────────────────────
     if (command === 'fancystyles' || command === 'textstyles') {
         if (!text) return reply(`❌ Usage: ${prefix}fancystyles <text>\nExample: ${prefix}fancystyles Hello`)
         await react('⏳')
-        const map = (s, base_a, base_A) => s.replace(/[A-Za-z]/g, c => {
-            const cp = c >= 'a' ? base_a + c.charCodeAt(0) - 97 : base_A + c.charCodeAt(0) - 65
-            try { return String.fromCodePoint(cp) } catch { return c }
-        })
-        const styles = [
-            ['Bold Serif',    map(text, 0x1D41A, 0x1D400)],
-            ['Italic Serif',  map(text, 0x1D44E, 0x1D434)],
-            ['Bold Italic',   map(text, 0x1D482, 0x1D468)],
-            ['Script',        map(text, 0x1D4B6, 0x1D49C)],
-            ['Fraktur',       map(text, 0x1D51E, 0x1D504)],
-            ['Double Struck', map(text, 0x1D552, 0x1D538)],
-            ['Sans',          map(text, 0x1D5BA, 0x1D5A0)],
-            ['Sans Bold',     map(text, 0x1D5EE, 0x1D5D4)],
-            ['Monospace',     map(text, 0x1D670, 0x1D656)],
-            ['Circled',       text.split('').map(c => { const n = c.charCodeAt(0); if(n>=65&&n<=90) return String.fromCodePoint(0x24B6+n-65); if(n>=97&&n<=122) return String.fromCodePoint(0x24D0+n-97); return c; }).join('')],
-        ]
-        const lines = styles.map(([name, val]) => `┃❍ *${name}:* ${val}`).join('\n')
-        await react('✅')
-        return reply(`╭══〘 *✨ FANCY STYLES: ${text}* 〙═⊷\n${lines}\n╰══════════════════⊷`)
+        try {
+            const res = await kget('/fancytext/styles', { q: text })
+            const styles = res.data?.styles
+            if (!styles || !Array.isArray(styles)) throw new Error('no styles')
+            const lines = styles.slice(0, 20).map((s, i) =>
+                `┃❍ *${s.name || ('Style ' + (i+1))}:* ${s.result || s.text || ''}`
+            ).join('\n')
+            await react('✅')
+            return reply(`╭══〘 *✨ FANCY STYLES: ${text}* 〙═⊷\n${lines}\n╰══════════════════⊷`)
+        } catch {
+            await react('❌')
+            return reply('❌ Could not fetch fancy styles.')
+        }
+    }
+
+    // ── Translate ────────────────────────────────────────────────────────────
+    if (command === 'tr' || command === 'trans' || command === 'translate') {
+        if (!args.length || args.length < 2) return reply(`❌ Usage: ${prefix}tr <language> <text>\nExample: ${prefix}tr french Hello how are you`)
+        const [lang, ...rest] = args
+        const msg = rest.join(' ')
+        if (!msg) return reply(`❌ Usage: ${prefix}tr <language> <text>`)
+        await react('⏳')
+        try {
+            const res = await kget('/translate', { text: msg, to: lang })
+            const data = res.data
+            const translated = data?.result?.translatedText || data?.result?.translated || data?.result
+            if (!translated || typeof translated !== 'string') throw new Error('no result')
+            const originalLang = data?.result?.detectedLanguage || data?.result?.from || ''
+            await react('✅')
+            return reply(
+                `╭══〘 *🌐 TRANSLATE* 〙═⊷\n` +
+                `┃❍ From: *${originalLang || 'auto-detected'}*\n` +
+                `┃❍ To: *${lang}*\n` +
+                `┃\n` +
+                `┃ _${msg}_\n` +
+                `┃ ↓\n` +
+                `┃ *${translated}*\n` +
+                `╰══════════════════⊷`
+            )
+        } catch {
+            await react('❌')
+            return reply('❌ Translation failed. Try again.')
+        }
     }
 
     // ── WhatsApp Number Check ────────────────────────────────────────────────
     if (command === 'wacheck' || command === 'onwa' || command === 'checkwa') {
         if (!text) return reply(`❌ Usage: ${prefix}wacheck <number>\nExample: ${prefix}wacheck 254712345678`)
         const num = text.replace(/[^0-9]/g, '')
-        if (num.length < 7) return reply('❌ Invalid number')
+        if (num.length < 7) return reply('❌ Invalid number. Include country code (e.g. 254712345678)')
         await react('⏳')
         try {
-            const [result] = await conn.onWhatsApp(num + '@s.whatsapp.net').catch(() => [])
-            const exists = result?.exists ?? false
-            await react(exists ? '✅' : '❌')
+            const res = await kget('/onwhatsapp', { q: num })
+            const data = res.data
+            const exists = data?.result?.registered ?? data?.result?.exists ?? data?.result
+            const existsBool = exists === true || exists === 'true' || exists === 1
+            await react(existsBool ? '✅' : '❌')
             return reply(
-                `╭══〘 *📱 WA CHECK* 〙═⊷\n` +
-                `┃❍ Number: +${num}\n` +
-                `┃❍ WhatsApp: *${exists ? '✅ Active' : '❌ Not found'}*\n` +
+                `╭══〘 *📱 WHATSAPP CHECK* 〙═⊷\n` +
+                `┃❍ Number: *+${num}*\n` +
+                `┃❍ Status: *${existsBool ? '✅ Active on WhatsApp' : '❌ Not found on WhatsApp'}*\n` +
                 `╰══════════════════⊷`
             )
         } catch {
-            await react('❌')
-            return reply('❌ Check failed. Try again.')
+            // Fallback: use Baileys native
+            try {
+                const [result] = await conn.onWhatsApp(num + '@s.whatsapp.net').catch(() => [])
+                const exists2 = result?.exists ?? false
+                await react(exists2 ? '✅' : '❌')
+                return reply(`╭══〘 *📱 WA CHECK* 〙═⊷\n┃❍ Number: *+${num}*\n┃❍ Status: *${exists2 ? '✅ Active' : '❌ Not found'}*\n╰══════════════════⊷`)
+            } catch {
+                await react('❌')
+                return reply('❌ Check failed. Try again.')
+            }
         }
     }
 
-    // ── Web Search (enhanced) ────────────────────────────────────────────────
+    // ── WhatsApp Profile Picture ─────────────────────────────────────────────
+    if (command === 'wapfp' || command === 'waprofile' || command === 'profilepic') {
+        if (!text) return reply(`❌ Usage: ${prefix}wapfp <number>\nExample: ${prefix}wapfp 254712345678`)
+        const num = text.replace(/[^0-9]/g, '')
+        await react('⏳')
+        try {
+            const res = await kget('/whatsapp/profile', { query: num }, 20000)
+            const data = res.data
+            const imgUrl = data?.result?.profile_pic || data?.result?.profilePicUrl || data?.result?.url || data?.result
+            if (!imgUrl || typeof imgUrl !== 'string' || !imgUrl.startsWith('http')) throw new Error('no image url')
+            await conn.sendMessage(chat, { image: { url: imgUrl }, caption: `📸 WhatsApp Profile Picture\n+${num}` }, { quoted: m })
+            await react('✅')
+        } catch {
+            await react('❌')
+            return reply('❌ Could not fetch profile picture. The number may be private or not on WhatsApp.')
+        }
+    }
+
+    // ── WhatsApp Link Creator ────────────────────────────────────────────────
+    if (command === 'walink' || command === 'wame') {
+        const num = args[0]?.replace(/[^0-9]/g, '') || ''
+        const msg = args.slice(1).join(' ') || text?.replace(/^\S+\s*/, '') || ''
+        if (!num) return reply(`❌ Usage: ${prefix}walink <number> [message]\nExample: ${prefix}walink 254712345678 Hello!`)
+        await react('⏳')
+        try {
+            const res = await kget('/tools/walink', { q: msg || 'Hello', number: num })
+            const data = res.data
+            const link = data?.result?.link || data?.result?.walink || data?.result
+            if (!link || typeof link !== 'string') throw new Error('no result')
+            await react('✅')
+            return reply(`🔗 *WhatsApp Link:*\n\n${link}`)
+        } catch {
+            const fallback = `https://wa.me/${num}${msg ? '?text=' + encodeURIComponent(msg) : ''}`
+            await react('✅')
+            return reply(`🔗 *WhatsApp Link:*\n\n${fallback}`)
+        }
+    }
+
+    // ── ASCII Art ────────────────────────────────────────────────────────────
+    if (command === 'ascii') {
+        if (!text) return reply(`❌ Usage: ${prefix}ascii <text>\nExample: ${prefix}ascii BERA`)
+        await react('⏳')
+        try {
+            const res = await kget('/tools/ascii', { q: text }, 20000)
+            const data = res.data
+            const art = data?.result || data?.ascii
+            if (!art || typeof art !== 'string') throw new Error('no result')
+            await react('✅')
+            return reply(`\`\`\`\n${art}\n\`\`\``)
+        } catch {
+            await react('❌')
+            return reply('❌ ASCII art failed. Try shorter or different text.')
+        }
+    }
+
+    // ── IP Lookup ────────────────────────────────────────────────────────────
+    if (command === 'iplookup' || command === 'ip') {
+        if (!text) return reply(`❌ Usage: ${prefix}ip <ip-address>\nExample: ${prefix}ip 8.8.8.8`)
+        await react('⏳')
+        try {
+            const res = await kget('/ip/lookup', { q: text.trim() })
+            const data = res.data
+            const r = data?.result || data?.data
+            if (!r) throw new Error('no result')
+            const info = typeof r === 'object' ? r : { info: r }
+            const lines = Object.entries(info).filter(([k,v]) => v && k !== 'status').map(([k,v]) => `┃❍ *${k}:* ${v}`).join('\n')
+            await react('✅')
+            return reply(`╭══〘 *🌐 IP LOOKUP: ${text.trim()}* 〙═⊷\n${lines}\n╰══════════════════⊷`)
+        } catch {
+            await react('❌')
+            return reply('❌ IP lookup failed. Check the IP address.')
+        }
+    }
+
+    // ── JS Encrypt ───────────────────────────────────────────────────────────
+    if (command === 'jsencrypt' || command === 'encrypt') {
+        if (!text) return reply(`❌ Usage: ${prefix}encrypt <javascript code>\nExample: ${prefix}encrypt console.log('hello')`)
+        await react('⏳')
+        try {
+            const res = await kget('/tools/encrypt', { q: text })
+            const data = res.data
+            const result = data?.result || data?.encrypted
+            if (!result) throw new Error('no result')
+            await react('✅')
+            return reply(`🔐 *Encrypted JS (Preemptive):*\n\n\`\`\`\n${result}\n\`\`\``)
+        } catch {
+            await react('❌')
+            return reply('❌ Encryption failed.')
+        }
+    }
+
+    // ── Web Search ───────────────────────────────────────────────────────────
     if (command === 'search' || command === 'websearch' || command === 'google') {
         if (!text) return reply(`❌ Usage: ${prefix}search <query>\nExample: ${prefix}search latest news Kenya`)
         await react('🔍')
         try {
-            const res = await axios.get(`${BASE}/search/brave`, {
-                params: { q: text },
-                timeout: 20000
-            })
+            const res = await kget('/search/google', { q: text }, 20000)
             const data = res.data
-            if (!data?.status) return reply(`❌ No results for: *${text}*`)
-            const result = data?.result
-            if (typeof result === 'string') {
+            if (!data?.status && !data?.result) {
+                // Fallback to brave
+                const res2 = await kget('/search/brave', { q: text }, 20000)
+                const d2 = res2.data
+                if (!d2?.result) throw new Error('no results')
+                const r = d2.result
+                const hits = r?.results?.slice(0, 4) || []
+                if (!hits.length) throw new Error('empty results')
+                const lines = hits.map((h, i) =>
+                    `┃❍ *${i+1}. ${(h.title||'').slice(0,50)}*\n┃   ${(h.description||h.snippet||'').slice(0,90)}`
+                ).join('\n┃\n')
                 await react('✅')
-                return reply(`🔍 *${text}*\n\n${result}`)
+                return reply(`╭══〘 *🔍 ${text.slice(0,30)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`)
             }
-            // Structured results
-            const meta = result?.metadata
-            const hits = result?.results?.slice(0, 4) || []
-            if (!hits.length) return reply(`❌ No results for: *${text}*`)
-            const lines = hits.map((r, i) =>
-                `┃❍ *${i+1}. ${r.title || 'No title'}*\n┃   ${(r.description || r.snippet || '').slice(0, 100)}...\n┃   _${r.url || ''}_`
+            const r = data.result
+            const hits = (r?.organic || r?.results || (Array.isArray(r) ? r : [])).slice(0, 4)
+            if (!hits.length) throw new Error('empty results')
+            const lines = hits.map((h, i) =>
+                `┃❍ *${i+1}. ${(h.title||'').slice(0,50)}*\n┃   ${(h.snippet||h.description||'').slice(0,90)}`
             ).join('\n┃\n')
             await react('✅')
-            return reply(
-                `╭══〘 *🔍 SEARCH: ${text.slice(0,30)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`
-            )
+            return reply(`╭══〘 *🔍 ${text.slice(0,30)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`)
         } catch {
             await react('❌')
-            return reply(`❌ Search failed. Try again.`)
+            return reply('❌ Search failed. Try again.')
         }
     }
 
-    // ── GitHub Followers ─────────────────────────────────────────────────────
-    if (command === 'ghfollowers' || command === 'githubfollowers') {
+    // ── Image Search ─────────────────────────────────────────────────────────
+    if (command === 'imgsearch' || command === 'searchimage') {
+        if (!text) return reply(`❌ Usage: ${prefix}imgsearch <query>\nExample: ${prefix}imgsearch sunset landscape`)
+        await react('🔍')
+        try {
+            const res = await kget('/search/images', { q: text }, 20000)
+            const data = res.data
+            const images = data?.result || data?.results || data?.images || []
+            const imgArr = Array.isArray(images) ? images : [images]
+            const firstImg = imgArr[0]
+            const imgUrl = typeof firstImg === 'string' ? firstImg : firstImg?.url || firstImg?.link || firstImg?.src
+            if (!imgUrl || !imgUrl.startsWith('http')) throw new Error('no image')
+            await conn.sendMessage(chat, { image: { url: imgUrl }, caption: `🖼️ *${text}*` }, { quoted: m })
+            await react('✅')
+        } catch {
+            await react('❌')
+            return reply('❌ No images found for: *' + text + '*')
+        }
+    }
+
+    // ── YouTube Search ───────────────────────────────────────────────────────
+    if (command === 'ytsearch' || command === 'yts') {
+        if (!text) return reply(`❌ Usage: ${prefix}yts <query>\nExample: ${prefix}yts Afrobeats 2025`)
+        await react('🔍')
+        try {
+            const res = await kget('/search/yts', { q: text, query: text })
+            const data = res.data
+            const results = data?.result || []
+            if (!Array.isArray(results) || !results.length) throw new Error('no results')
+            const lines = results.slice(0, 5).map((r, i) =>
+                `┃❍ *${i+1}.* ${(r.title||r.name||'Unknown').slice(0,55)}\n┃   ⏱️ ${r.duration||r.timestamp||'N/A'} | 👁️ ${r.views||'N/A'}\n┃   🔗 ${r.url||r.link||''}`
+            ).join('\n┃\n')
+            await react('✅')
+            return reply(`╭══〘 *🎵 YT: ${text.slice(0,25)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`)
+        } catch {
+            await react('❌')
+            return reply('❌ YouTube search failed. Try again.')
+        }
+    }
+
+    // ── Lyrics Search ────────────────────────────────────────────────────────
+    if (command === 'lyrics') {
+        if (!text) return reply(`❌ Usage: ${prefix}lyrics <song title>\nExample: ${prefix}lyrics Blinding Lights`)
+        await react('🎵')
+        try {
+            let res = await kget('/search/lyrics2', { q: text }, 20000).catch(() => null)
+            if (!res?.data?.result) res = await kget('/search/lyrics3', { q: text }, 20000).catch(() => null)
+            const data = res?.data
+            const lyrics = data?.result?.lyrics || data?.result?.text || data?.result
+            if (!lyrics || typeof lyrics !== 'string') throw new Error('not found')
+            const title = data?.result?.title || data?.result?.song || text
+            const artist = data?.result?.artist || ''
+            await react('✅')
+            return reply(`╭══〘 *🎵 ${title}${artist ? ' - ' + artist : ''}* 〙═⊷\n\n${lyrics.slice(0, 3000)}\n\n╰══════════════════⊷`)
+        } catch {
+            await react('❌')
+            return reply('❌ Lyrics not found for: *' + text + '*')
+        }
+    }
+
+    // ── Movie Search ─────────────────────────────────────────────────────────
+    if (command === 'movie' || command === 'film') {
+        if (!text) return reply(`❌ Usage: ${prefix}movie <title>\nExample: ${prefix}movie Avengers`)
+        await react('🎬')
+        try {
+            const res = await kget('/search/movie', { q: text }, 20000)
+            const data = res.data
+            const results = data?.result || data?.results || []
+            const r = Array.isArray(results) ? results[0] : results
+            if (!r) throw new Error('not found')
+            const info = typeof r === 'object' ? r : { info: r }
+            await react('✅')
+            const thumb = info.thumbnail || info.image || info.poster
+            const msg =
+                `╭══〘 *🎬 ${info.title || text}* 〙═⊷\n` +
+                (info.year ? `┃❍ Year: *${info.year}*\n` : '') +
+                (info.rating ? `┃❍ Rating: *${info.rating}*\n` : '') +
+                (info.genre ? `┃❍ Genre: *${info.genre}*\n` : '') +
+                (info.language ? `┃❍ Language: *${info.language}*\n` : '') +
+                (info.duration ? `┃❍ Duration: *${info.duration}*\n` : '') +
+                `┃\n` +
+                (info.description || info.plot || info.synopsis ? `┃ ${(info.description || info.plot || info.synopsis || '').slice(0, 200)}\n` : '') +
+                `╰══════════════════⊷`
+            if (thumb && thumb.startsWith('http')) {
+                return conn.sendMessage(chat, { image: { url: thumb }, caption: msg }, { quoted: m })
+            }
+            return reply(msg)
+        } catch {
+            await react('❌')
+            return reply('❌ Movie not found: *' + text + '*')
+        }
+    }
+
+    // ── Bible Verse ──────────────────────────────────────────────────────────
+    if (command === 'bible' || command === 'verse') {
+        if (!text) return reply(`❌ Usage: ${prefix}bible <reference>\nExample: ${prefix}bible John 3:16`)
+        await react('📖')
+        try {
+            const res = await kget('/search/bible', { q: text }, 15000)
+            const data = res.data
+            const r = data?.result || data?.verse || data
+            const verseText = r?.text || r?.content || r?.verse || (typeof r === 'string' ? r : null)
+            if (!verseText) throw new Error('not found')
+            await react('✅')
+            return reply(
+                `╭══〘 *📖 ${text}* 〙═⊷\n\n` +
+                `_"${verseText}"_\n\n` +
+                `— *${r.reference || r.book || text}*\n` +
+                `╰══════════════════⊷`
+            )
+        } catch {
+            await react('❌')
+            return reply('❌ Verse not found: *' + text + '*')
+        }
+    }
+
+    // ── SoundCloud Search ────────────────────────────────────────────────────
+    if (command === 'soundcloud' || command === 'sc') {
+        if (!text) return reply(`❌ Usage: ${prefix}sc <query>\nExample: ${prefix}sc lofi hip hop`)
+        await react('🔍')
+        try {
+            const res = await kget('/search/soundcloud', { q: text }, 15000)
+            const data = res.data
+            const results = data?.result || data?.tracks || []
+            const arr = Array.isArray(results) ? results : [results]
+            if (!arr.length) throw new Error('no results')
+            const lines = arr.slice(0, 4).map((r, i) =>
+                `┃❍ *${i+1}.* ${(r.title||r.name||'Unknown').slice(0,50)}\n┃   👤 ${r.artist||r.user?.username||'N/A'} | 🔗 ${r.url||r.permalink||''}`
+            ).join('\n┃\n')
+            await react('✅')
+            return reply(`╭══〘 *🎵 SOUNDCLOUD: ${text.slice(0,25)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`)
+        } catch {
+            await react('❌')
+            return reply('❌ SoundCloud search failed.')
+        }
+    }
+
+    // ── TikTok Search ────────────────────────────────────────────────────────
+    if (command === 'ttsearch' || command === 'tiktoksearch') {
+        if (!text) return reply(`❌ Usage: ${prefix}ttsearch <query>\nExample: ${prefix}ttsearch dance challenge`)
+        await react('🔍')
+        try {
+            const res = await kget('/search/tiktoksearch', { q: text }, 20000)
+            const data = res.data
+            const results = data?.result || data?.videos || []
+            const arr = Array.isArray(results) ? results : [results]
+            if (!arr.length) throw new Error('no results')
+            const lines = arr.slice(0, 4).map((r, i) =>
+                `┃❍ *${i+1}.* ${(r.title||r.desc||'').slice(0,50)}\n┃   ❤️ ${r.likes||r.diggCount||'N/A'} | 👁️ ${r.views||r.playCount||'N/A'}\n┃   🔗 ${r.url||r.link||''}`
+            ).join('\n┃\n')
+            await react('✅')
+            return reply(`╭══〘 *🎵 TIKTOK: ${text.slice(0,25)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`)
+        } catch {
+            await react('❌')
+            return reply('❌ TikTok search failed.')
+        }
+    }
+
+    // ── APK Search ───────────────────────────────────────────────────────────
+    if (command === 'apk' || command === 'appsearch') {
+        if (!text) return reply(`❌ Usage: ${prefix}apk <app name>\nExample: ${prefix}apk whatsapp`)
+        await react('🔍')
+        try {
+            const res = await kget('/search/apk', { q: text }, 20000)
+            const data = res.data
+            const results = data?.result || data?.apps || []
+            const arr = Array.isArray(results) ? results : [results]
+            if (!arr.length) throw new Error('no results')
+            const lines = arr.slice(0, 4).map((r, i) =>
+                `┃❍ *${i+1}. ${(r.name||r.title||'Unknown').slice(0,40)}*\n┃   ⭐ ${r.rating||'N/A'} | 📦 ${r.size||'N/A'}\n┃   🔗 ${r.url||r.link||''}`
+            ).join('\n┃\n')
+            await react('✅')
+            return reply(`╭══〘 *📱 APK: ${text.slice(0,25)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`)
+        } catch {
+            await react('❌')
+            return reply('❌ APK search failed.')
+        }
+    }
+
+    // ── WhatsApp Group Search ────────────────────────────────────────────────
+    if (command === 'wagroups' || command === 'groupsearch') {
+        if (!text) return reply(`❌ Usage: ${prefix}wagroups <topic>\nExample: ${prefix}wagroups tech Kenya`)
+        await react('🔍')
+        try {
+            const res = await kget('/search/whatsappgroup', { q: text }, 20000)
+            const data = res.data
+            const results = data?.result || data?.groups || []
+            const arr = Array.isArray(results) ? results : [results]
+            if (!arr.length) throw new Error('no results')
+            const lines = arr.slice(0, 5).map((r, i) =>
+                `┃❍ *${i+1}. ${(r.name||r.subject||'Unknown').slice(0,40)}*\n┃   ${(r.description||'').slice(0,60)}\n┃   🔗 ${r.link||r.inviteLink||''}`
+            ).join('\n┃\n')
+            await react('✅')
+            return reply(`╭══〘 *👥 WA GROUPS: ${text.slice(0,25)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`)
+        } catch {
+            await react('❌')
+            return reply('❌ WA group search failed.')
+        }
+    }
+
+    // ── Dream Analyzer ───────────────────────────────────────────────────────
+    if (command === 'dream' || command === 'dreamanalyze') {
+        if (!text) return reply(`❌ Usage: ${prefix}dream <your dream>\nExample: ${prefix}dream I was flying over clouds`)
+        await react('🌙')
+        try {
+            const res = await kget('/ai/dreamanalyzer', { q: text }, 30000)
+            const data = res.data
+            const result = data?.result
+            if (!result || typeof result !== 'string') throw new Error('no result')
+            await react('✅')
+            return reply(`🌙 *Dream Analysis:*\n\n${result}`)
+        } catch {
+            await react('❌')
+            return reply('❌ Dream analysis failed. Try again.')
+        }
+    }
+
+    // ── AI Code Generator ────────────────────────────────────────────────────
+    if (command === 'codegen' || command === 'gencode') {
+        if (!text) return reply(`❌ Usage: ${prefix}codegen <what to code>\nExample: ${prefix}codegen REST API in Node.js`)
+        await react('💻')
+        try {
+            const res = await kget('/ai/codegen', { q: text }, 30000)
+            const data = res.data
+            let result = data?.result
+            if (typeof result === 'object') result = result?.code || result?.output || JSON.stringify(result)
+            if (!result || typeof result !== 'string') throw new Error('no result')
+            await react('✅')
+            return reply(`💻 *Generated Code:*\n\n\`\`\`\n${result.slice(0, 3500)}\n\`\`\``)
+        } catch {
+            await react('❌')
+            return reply('❌ Code generation failed. Try again.')
+        }
+    }
+
+    // ── GitHub User Info ─────────────────────────────────────────────────────
+    if (command === 'ghfollowers' || command === 'githubuser') {
         if (!text) return reply(`❌ Usage: ${prefix}ghfollowers <username>\nExample: ${prefix}ghfollowers octocat`)
         await react('⏳')
         try {
             const res = await axios.get(`https://api.github.com/users/${text.trim()}`, {
-                headers: { 'User-Agent': 'BeraBot/2.0' },
-                timeout: 10000
+                headers: { 'User-Agent': 'BeraBot/2.0' }, timeout: 10000
             })
             const u = res.data
             await react('✅')
@@ -182,92 +521,40 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
     if (command === 'imagine' || command === 'aiimage' || command === 'gen') {
         if (!text) return reply(`❌ Usage: ${prefix}imagine <description>\nExample: ${prefix}imagine a cyberpunk city at night`)
         await react('🎨')
-        const IMAGE_ENDPOINTS = [
-            { base: BASE, path: '/ai/flux' },
-            { base: BASE, path: '/ai/sdxl' },
-            { base: BASE, path: '/ai/prodia' },
-        ]
-        for (const ep of IMAGE_ENDPOINTS) {
-            try {
-                const res = await axios.get(`${ep.base}${ep.path}`, {
-                    params: { prompt: text, q: text },
-                    timeout: 45000
-                })
-                const json = res.data
-                if (json?.status === false) continue
-                const urlVal = json?.result?.url || json?.result?.image || json?.result || json?.url || json?.image || json?.data
-                const url = typeof urlVal === 'string' && urlVal.startsWith('http') ? urlVal : null
-                if (url) {
-                    await conn.sendMessage(chat, { image: { url }, caption: `🎨 *${text.slice(0, 80)}*` }, { quoted: m })
-                    await react('✅')
-                    return
-                }
-            } catch { continue }
-        }
-        // Fallback to pollinations image
         try {
-            const encoded = encodeURIComponent(text)
-            const url = `https://image.pollinations.ai/prompt/${encoded}`
-            await conn.sendMessage(chat, { image: { url }, caption: `🎨 *${text.slice(0, 80)}*` }, { quoted: m })
-            await react('✅')
-        } catch {
-            await react('❌')
-            return reply('❌ Image generation failed. Try again.')
-        }
-    }
-
-    // ── Translate (using Pollinations AI) ────────────────────────────────────
-    if (command === 'tr' || command === 'trans') {
-        if (!text) return reply(`❌ Usage: ${prefix}tr <language> <text>\nExample: ${prefix}tr french Hello how are you`)
-        const [lang, ...rest] = args
-        const msg = rest.join(' ')
-        if (!msg) return reply(`❌ Usage: ${prefix}tr <language> <text>`)
-        await react('⏳')
-        try {
-            const prompt = encodeURIComponent(`Translate to ${lang}: "${msg}". Reply with ONLY the translation.`)
-            const res = await axios.get(`https://text.pollinations.ai/${prompt}`, { timeout: 20000 })
-            const result = typeof res.data === 'string' ? res.data.trim() : null
-            if (!result) throw new Error('no response')
-            await react('✅')
-            return reply(`🌐 *Translated to ${lang}:*\n\n${result}`)
-        } catch {
-            await react('❌')
-            return reply('❌ Translation failed. Try again.')
-        }
-    }
-
-    // ── YouTube Search ───────────────────────────────────────────────────────
-    if (command === 'ytsearch' || command === 'yts') {
-        if (!text) return reply(`❌ Usage: ${prefix}yts <query>\nExample: ${prefix}yts Afrobeats 2025`)
-        await react('🔍')
-        try {
-            const res = await axios.get(`${BASE}/search/yts`, {
-                params: { query: text, q: text },
-                timeout: 15000
-            })
+            const res = await kget('/ai/text2img', { q: text, prompt: text }, 45000)
             const data = res.data
-            const results = data?.result || data?.results || data?.data || []
-            if (!Array.isArray(results) || !results.length) return reply(`❌ No results for: *${text}*`)
-            const lines = results.slice(0, 5).map((r, i) =>
-                `┃❍ *${i+1}.* ${r.title || r.name || 'Unknown'}\n┃   ⏱️ ${r.duration || 'N/A'} | 👁️ ${r.views || 'N/A'}\n┃   🔗 ${r.url || r.link || ''}`
-            ).join('\n┃\n')
-            await react('✅')
-            return reply(`╭══〘 *🎵 YT: ${text.slice(0,25)}* 〙═⊷\n┃\n${lines}\n╰══════════════════⊷`)
+            const result = data?.result
+            const imgUrl = typeof result === 'string' && result.startsWith('http') ? result
+                : result?.url || result?.image || result?.link
+            if (imgUrl && imgUrl.startsWith('http')) {
+                await conn.sendMessage(chat, { image: { url: imgUrl }, caption: `🎨 *${text.slice(0, 80)}*` }, { quoted: m })
+                await react('✅')
+                return
+            }
+            throw new Error('no image url')
         } catch {
-            await react('❌')
-            return reply('❌ YouTube search failed. Try again.')
+            // Fallback to pollinations image only (it's free image generation, not text)
+            try {
+                const encoded = encodeURIComponent(text)
+                const url = `https://image.pollinations.ai/prompt/${encoded}?nologo=true`
+                await conn.sendMessage(chat, { image: { url }, caption: `🎨 *${text.slice(0, 80)}*` }, { quoted: m })
+                await react('✅')
+            } catch {
+                await react('❌')
+                return reply('❌ Image generation failed. Try again.')
+            }
         }
     }
 
-    // ── Random Joke (enhanced) ───────────────────────────────────────────────
+    // ── Roast ────────────────────────────────────────────────────────────────
     if (command === 'roast') {
         if (!text) return reply(`❌ Usage: ${prefix}roast <name>\nExample: ${prefix}roast John`)
         await react('🔥')
         try {
-            const prompt = encodeURIComponent(`Give a short funny roast for someone named ${text}. Be creative and funny, not mean. One sentence only.`)
-            const res = await axios.get(`https://text.pollinations.ai/${prompt}`, { timeout: 15000 })
-            const result = typeof res.data === 'string' ? res.data.trim() : null
-            if (!result) throw new Error('no response')
+            const res = await kget('/ai/gpt', { q: `Give a short funny roast for someone named ${text}. Be creative and funny, not mean. One sentence only. No filler intro.` }, 20000)
+            const result = res.data?.result
+            if (!result) throw new Error('no result')
             await react('😂')
             return reply(`🔥 *Roasting ${text}:*\n\n_${result}_`)
         } catch {
@@ -275,32 +562,30 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
         }
     }
 
-    // ── AI Story Generator ───────────────────────────────────────────────────
+    // ── Story Generator ──────────────────────────────────────────────────────
     if (command === 'story' || command === 'generate') {
         if (!text) return reply(`❌ Usage: ${prefix}story <topic>\nExample: ${prefix}story a boy who found a magic phone`)
         await react('📖')
         try {
-            const prompt = encodeURIComponent(`Write a very short and creative story (3-5 sentences) about: ${text}. Make it engaging.`)
-            const res = await axios.get(`https://text.pollinations.ai/${prompt}`, { timeout: 25000 })
-            const result = typeof res.data === 'string' ? res.data.trim() : null
-            if (!result) throw new Error('no response')
+            const res = await kget('/ai/gpt', { q: `Write a short creative story (3-5 sentences) about: ${text}. No filler intro, start immediately.` }, 25000)
+            const result = res.data?.result
+            if (!result) throw new Error('no result')
             await react('✅')
             return reply(`📖 *Story: ${text.slice(0,30)}*\n\n${result}`)
         } catch {
             await react('❌')
-            return reply('❌ Story generation failed. Try again.')
+            return reply('❌ Story generation failed.')
         }
     }
 
-    // ── Rap Battle ───────────────────────────────────────────────────────────
+    // ── Rap Bars ─────────────────────────────────────────────────────────────
     if (command === 'rap') {
         if (!text) return reply(`❌ Usage: ${prefix}rap <topic>\nExample: ${prefix}rap bots vs humans`)
         await react('🎤')
         try {
-            const prompt = encodeURIComponent(`Write 4 lines of rap about: ${text}. Make it rhyme and flow.`)
-            const res = await axios.get(`https://text.pollinations.ai/${prompt}`, { timeout: 20000 })
-            const result = typeof res.data === 'string' ? res.data.trim() : null
-            if (!result) throw new Error('no response')
+            const res = await kget('/ai/gpt', { q: `Write 4 lines of rap about: ${text}. Make it rhyme and flow. No intro text.` }, 20000)
+            const result = res.data?.result
+            if (!result) throw new Error('no result')
             await react('🎤')
             return reply(`🎤 *Rap: ${text.slice(0,30)}*\n\n_${result}_`)
         } catch {
@@ -312,10 +597,9 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
     if (command === 'riddle') {
         await react('🧩')
         try {
-            const prompt = encodeURIComponent('Give me one clever riddle. Format: "Riddle: [riddle]\nAnswer: [answer]"')
-            const res = await axios.get(`https://text.pollinations.ai/${prompt}`, { timeout: 15000 })
-            const result = typeof res.data === 'string' ? res.data.trim() : null
-            if (!result) throw new Error('no response')
+            const res = await kget('/ai/gpt', { q: 'Give me one clever riddle. Format exactly as: Riddle: [riddle here]\nAnswer: [answer here]' }, 15000)
+            const result = res.data?.result
+            if (!result) throw new Error('no result')
             await react('🧩')
             return reply(`🧩 *RIDDLE*\n\n${result}`)
         } catch {
@@ -323,15 +607,14 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
         }
     }
 
-    // ── Recipe Generator ─────────────────────────────────────────────────────
+    // ── Recipe ───────────────────────────────────────────────────────────────
     if (command === 'recipe') {
         if (!text) return reply(`❌ Usage: ${prefix}recipe <dish>\nExample: ${prefix}recipe chicken stew`)
         await react('🍳')
         try {
-            const prompt = encodeURIComponent(`Give a short recipe for ${text}. Format: Ingredients (as bullet list) then Steps (numbered). Keep it brief.`)
-            const res = await axios.get(`https://text.pollinations.ai/${prompt}`, { timeout: 25000 })
-            const result = typeof res.data === 'string' ? res.data.trim() : null
-            if (!result) throw new Error('no response')
+            const res = await kget('/ai/gpt', { q: `Give a short recipe for ${text}. List ingredients then numbered steps. Be brief.` }, 25000)
+            const result = res.data?.result
+            if (!result) throw new Error('no result')
             await react('✅')
             return reply(`🍳 *Recipe: ${text}*\n\n${result}`)
         } catch {
@@ -339,15 +622,14 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
         }
     }
 
-    // ── Motivation Quote Generator ────────────────────────────────────────────
+    // ── Motivate ─────────────────────────────────────────────────────────────
     if (command === 'motivate' || command === 'inspire') {
         await react('💪')
         const name = text || 'you'
         try {
-            const prompt = encodeURIComponent(`Give one powerful motivational message addressed to ${name}. Make it personal and uplifting. One short paragraph.`)
-            const res = await axios.get(`https://text.pollinations.ai/${prompt}`, { timeout: 15000 })
-            const result = typeof res.data === 'string' ? res.data.trim() : null
-            if (!result) throw new Error('no response')
+            const res = await kget('/ai/gpt', { q: `Give one powerful motivational message addressed to ${name}. Personal and uplifting. Short paragraph.` }, 15000)
+            const result = res.data?.result
+            if (!result) throw new Error('no result')
             await react('💪')
             return reply(`💪 *For ${name}:*\n\n_${result}_`)
         } catch {
@@ -357,15 +639,29 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
 }
 
 handle.command = [
-    'ascii',
-    'shorten', 'short', 'tinyurl',
+    'shorten', 'tinyurl', 'short',
     'fancy', 'fancystyles', 'textstyles',
+    'tr', 'trans', 'translate',
     'wacheck', 'onwa', 'checkwa',
+    'wapfp', 'waprofile', 'profilepic',
+    'walink', 'wame',
+    'ascii',
+    'iplookup', 'ip',
+    'jsencrypt', 'encrypt',
     'search', 'websearch', 'google',
-    'ghfollowers', 'githubfollowers',
-    'imagine', 'aiimage', 'gen',
-    'tr', 'trans',
+    'imgsearch', 'searchimage',
     'ytsearch', 'yts',
+    'lyrics',
+    'movie', 'film',
+    'bible', 'verse',
+    'soundcloud', 'sc',
+    'ttsearch', 'tiktoksearch',
+    'apk', 'appsearch',
+    'wagroups', 'groupsearch',
+    'dream', 'dreamanalyze',
+    'codegen', 'gencode',
+    'ghfollowers', 'githubuser',
+    'imagine', 'aiimage', 'gen',
     'roast', 'story', 'generate', 'rap', 'riddle',
     'recipe', 'motivate', 'inspire'
 ]
