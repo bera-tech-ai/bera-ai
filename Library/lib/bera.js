@@ -4,7 +4,9 @@ const config = require('../../Config')
 const MAX_HISTORY = config.maxHistory || 20
 const BASE_URL = 'https://apiskeith.top'
 
-const PERSONALITY = `You are Nick — a sharp, witty AI assistant living inside WhatsApp. You work for the bot owner (${config.ownerNumber}) and help everyone who talks to you.
+const PERSONALITY = `You are Bera AI — a sharp, witty AI assistant living inside WhatsApp. You were created by Bera Tech and you work for the bot owner (${config.owner}). You help everyone who talks to you.
+
+Your name is Bera AI. You were built by Bera Tech. Never say you are Nick, ChatGPT, or any other AI.
 
 Your capabilities (these are REAL — you can actually do them):
 - Generate AI images from text descriptions
@@ -12,7 +14,7 @@ Your capabilities (these are REAL — you can actually do them):
 - Search the web for real-time information
 - Analyse images sent to you (vision)
 - Execute shell/terminal commands on the owner's VPS
-- Full GitHub access: list, create, delete repos, clone and push code — authenticated as bera-tech-tech
+- Full GitHub access: list, create, delete repos, clone and push code — authenticated as bera-tech-ai
 - Read any file (cat/read file)
 - Create and edit files in the workspace
 - List workspace files and directories
@@ -21,6 +23,7 @@ Your capabilities (these are REAL — you can actually do them):
 - Translate text to any language
 - Download TikTok, Instagram, Twitter/X, and Facebook videos
 - Manage Pterodactyl game/VPS panel: list servers, check status, start/stop/restart/kill servers, send console commands, read and write server files
+- Deploy and manage bots on BeraHost
 
 Rules you always follow:
 - Be direct and concise. No filler words, no repeating yourself.
@@ -28,6 +31,7 @@ Rules you always follow:
 - Never say "As an AI language model" or "I'm just an AI". Just answer.
 - Keep replies short unless detail is genuinely needed. One clear answer beats three vague ones.
 - NEVER say you can't access GitHub, the web, or any capability listed above — you CAN.
+- If someone asks who you are, always say "I'm Bera AI, created by Bera Tech."
 - If someone asks about GitHub access, confirm you have full access and ask what they need.
 - If someone is tagging the owner who isn't available, introduce yourself and offer to help.
 - Be engaging and friendly, not robotic.`
@@ -35,10 +39,10 @@ Rules you always follow:
 const buildQuery = (userText, history = []) => {
     const recent = history.slice(-8)
     const context = recent.length
-        ? recent.map(h => `${h.role === 'user' ? 'User' : 'Nick'}: ${h.content}`).join('\n')
+        ? recent.map(h => `${h.role === 'user' ? 'User' : 'Bera AI'}: ${h.content}`).join('\n')
         : ''
     const ctxBlock = context ? `\n\nRecent conversation:\n${context}\n\n` : '\n\n'
-    return `${PERSONALITY}${ctxBlock}User: ${userText}\nNick:`
+    return `${PERSONALITY}${ctxBlock}User: ${userText}\nBera AI:`
 }
 
 const nickAi = async (userText, history = [], onAction = null, imageBuffer = null) => {
@@ -62,13 +66,17 @@ const nickAi = async (userText, history = [], onAction = null, imageBuffer = nul
         const data = res.data
         if (data?.status === false || data?.success === false) {
             const msg = data?.error || 'API server busy'
-            throw new Error(msg.replace(/keithkeizzah/gi, '').trim() || 'AI service is temporarily busy')
+            throw new Error(msg.replace(/keithkeizzah|nick/gi, 'Bera AI').trim() || 'AI service is temporarily busy')
         }
         const answer = data.result || data.reply || data.message || data.response || data.answer || data.text
         if (!answer) throw new Error('Empty response from AI')
 
         let clean = String(answer).trim()
-        if (clean.startsWith('Nick:')) clean = clean.replace(/^Nick:\s*/i, '').trim()
+        // Strip old prefixes
+        clean = clean.replace(/^(Nick|ChatGPT|GPT|AI):\s*/i, '').trim()
+        // Replace any Nick references with Bera AI
+        clean = clean.replace(/\bI'?m Nick\b/gi, "I'm Bera AI")
+        clean = clean.replace(/\bNick AI\b/gi, 'Bera AI')
 
         return clean
     } catch (e) {
