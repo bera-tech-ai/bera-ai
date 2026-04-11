@@ -376,8 +376,13 @@ const handleMessage = async (conn, rawMsg) => {
             await checkAutoReply(conn, m, text)
 
             // ── ChatBera mode: reply as the owner when activated ──────────────
-            const chatberaOn = global.db?.data?.chatbera?.enabled?.[chat]
-            if (chatberaOn && !m.fromMe && text) {
+            // ChatBera: global mode OR per-chat mode
+            const chatberaGlobal = global.db?.data?.chatbera?.globalEnabled
+            const chatberaChat   = global.db?.data?.chatbera?.enabled?.[chat]
+            const chatberaOn = chatberaGlobal || chatberaChat
+            // Skip if message is from a group (PMs only) unless group mode enabled
+            const chatberaGroupOk = global.db?.data?.chatbera?.groupEnabled || false
+            if (chatberaOn && !m.fromMe && text && (!m.isGroup || chatberaGroupOk)) {
                 const profile = global.db?.data?.chatbera?.profile
                 if (profile?.systemPrompt && profile?.myMessages?.length) {
                     try {
