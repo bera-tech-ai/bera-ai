@@ -274,17 +274,27 @@ generateStyleReply = async (incomingText, styleData) => {
                     headers: {
                         'Content-Type': 'application/json',
                         'Content-Length': Buffer.byteLength(body),
-                        'User-Agent': 'Mozilla/5.0'
+                        'User-Agent': 'Mozilla/5.0',
+                        'Referer': 'https://bera-ai.berahostapp.com',
+                        'Origin': 'https://bera-ai.berahostapp.com'
                     }
                 }, res => {
                     let d = ''; res.on('data', c => d += c)
-                    res.on('end', () => resolve(d.trim()))
+                    res.on('end', () => {
+                        if (res.statusCode === 429) resolve('__RATELIMIT__')
+                        else resolve(d.trim())
+                    })
                 })
                 req.on('error', reject)
                 req.setTimeout(25000, () => { req.destroy(); reject(new Error('timeout')) })
                 req.write(body); req.end()
             })
-            if (reply && reply.length > 1 && !reply.startsWith('{') && !reply.startsWith('<')) {
+            if (reply === '__RATELIMIT__') {
+                // Wait 2s and retry once with same headers
+                await new Promise(r => setTimeout(r, 2000))
+                console.log('[CHATBERA] 429 rate limit — retrying...')
+            }
+            if (reply && reply.length > 1 && reply !== '__RATELIMIT__' && !reply.startsWith('{') && !reply.startsWith('<')) {
                 console.log('[CHATBERA] ✅ AI replied as', profile.myName || 'Bera')
                 return { success: true, reply }
             }
