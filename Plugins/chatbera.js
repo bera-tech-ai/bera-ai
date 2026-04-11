@@ -26,28 +26,28 @@ const handle = async (m, { conn, text, reply, command, sender, chat, prefix, isO
 
         if (arg === 'on') {
             if (!global.db.data.chatbera) global.db.data.chatbera = {}
-            if (!global.db.data.chatbera.enabled) global.db.data.chatbera.enabled = {}
-            global.db.data.chatbera.enabled[chat] = true
+            global.db.data.chatbera.globalEnabled = true
             await global.db.write()
-            const profile = global.db.data.chatbera.profile
+            const profile = global.db.data.chatbera.profile || {}
             return reply(
                 '╭══〘 *🎭 CHATBERA ON* 〙═⊷\n' +
+                `┃ Replying as: *${profile?.myName || 'Developer Bera'}*\n` +
+                `┃ Trained on: *${profile?.myMessages?.length || 412} messages*\n` +
+                '┃ Status: 🟢 Active — all PMs\n' +
                 '┃\n' +
-                `┃ I\'m now replying as *${profile?.myName || 'Developer Bera'}*\n` +
-                `┃ Trained on *${profile?.myMessages?.length || 412} real messages*\n` +
-                '┃\n' +
-                '┃ Anyone who messages here gets a reply\n' +
-                '┃ in your exact texting style 🎭\n' +
-                '┃\n' +
+                '┃ I will now reply to every message\n' +
+                '┃ you receive in your exact style.\n' +
                 `┃ Turn off: *${prefix}chatbera off*\n` +
                 '╰══════════════════⊷'
             )
         }
 
         if (arg === 'off') {
+        if (arg === 'off') {
             if (!global.db.data.chatbera) global.db.data.chatbera = {}
             if (!global.db.data.chatbera.enabled) global.db.data.chatbera.enabled = {}
-            global.db.data.chatbera.enabled[chat] = false
+            global.db.data.chatbera.globalEnabled = false
+            global.db.data.chatbera.enabled = {}
             await global.db.write()
             return reply('🔴 *ChatBera OFF* — Bera is back to normal in this chat.')
         }
@@ -60,7 +60,7 @@ const handle = async (m, { conn, text, reply, command, sender, chat, prefix, isO
 
             return reply(
                 '╭══〘 *🎭 CHATBERA STATUS* 〙═⊷\n' +
-                `┃ This chat: *${isOn ? '🟢 ON' : '🔴 OFF'}*\n` +
+                `┃ Status: *${global.db?.data?.chatbera?.globalEnabled ? '🟢 ON (all PMs)' : '🔴 OFF'}*\n` +
                 `┃ Name: *${profile?.myName || 'Developer Bera'}*\n` +
                 `┃ Messages trained: *${profile?.myMessages?.length || 412}*\n` +
 
