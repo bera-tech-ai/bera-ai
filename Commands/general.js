@@ -201,34 +201,77 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃\n` +
             (isOwner ?
             `┃ *👥 Group Management*\n` +
-            `┃❍ ${p}kick / ${p}remove — Remove a member\n` +
-            `┃❍ ${p}add <number> — Add member to group\n` +
-            `┃❍ ${p}promote / ${p}demote @user — Admin control\n` +
-            `┃❍ ${p}tagall / ${p}everyone — Mention all members\n` +
-            `┃❍ ${p}grouplink / ${p}invitelink — Get invite link\n` +
-            `┃❍ ${p}revoke — Revoke & reset invite link\n` +
-            `┃❍ ${p}groupname <name> — Change group name\n` +
-            `┃❍ ${p}groupdesc <text> — Change group description\n` +
-            `┃❍ ${p}setgpic — Set group icon (reply to image)\n` +
-            `┃❍ ${p}delete — Delete a message (reply to it)\n` +
-            `┃❍ ${p}mute / ${p}closegroup — Lock group\n` +
-            `┃❍ ${p}unmute / ${p}opengroup — Unlock group\n` +
-            `┃❍ ${p}onlyadmins / ${p}allusers — Who edits group info\n` +
-            `┃❍ ${p}antilink on/off — Block group invite links\n` +
-            `┃❍ ${p}welcome on/off — Welcome new members\n` +
-            `┃❍ ${p}setwelcomemsg <msg> — Custom welcome message\n` +
+            `┃❍ ${p}kick / ${p}remove — Remove member\n` +
+            `┃❍ ${p}add <number> — Add member\n` +
+            `┃❍ ${p}promote / ${p}demote @user\n` +
+            `┃❍ ${p}tagall / ${p}everyone / ${p}hidetag\n` +
+            `┃❍ ${p}tagadmins — Mention only admins\n` +
+            `┃❍ ${p}grouplink / ${p}revoke / ${p}resetlink\n` +
+            `┃❍ ${p}groupname / ${p}gcdesc — Edit name/desc\n` +
+            `┃❍ ${p}gcpp — Set group icon (reply to image)\n` +
+            `┃❍ ${p}getgcpp — Download group profile pic\n` +
+            `┃❍ ${p}delete — Delete message (reply to it)\n` +
+            `┃❍ ${p}mute / ${p}unmute — Lock/unlock group\n` +
+            `┃❍ ${p}disapp on/off/1/7/90 — Disappearing msgs\n` +
+            `┃❍ ${p}onlyadmins / ${p}allusers — Info edit control\n` +
+            `┃❍ ${p}antilink on/off — Block invite links\n` +
             `┃❍ ${p}antispam on/off — Auto-kick spammers\n` +
-            `┃❍ ${p}poll Q | Opt1 | Opt2 — Create a poll\n` +
+            `┃❍ ${p}antibadwords on/off — Block bad words\n` +
+            `┃❍ ${p}badwords add/remove/list — Manage ban list\n` +
+            `┃❍ ${p}antipromote / ${p}antidemote on/off\n` +
+            `┃❍ ${p}welcome on/off — Welcome new members\n` +
+            `┃❍ ${p}setwelcomemsg <msg> — Custom welcome\n` +
+            `┃❍ ${p}setgoodbye <msg> — Goodbye message\n` +
+            `┃❍ ${p}setgroupevents on/off — Join/leave alerts\n` +
+            `┃❍ ${p}poll Q|Opt1|Opt2 — Create a poll\n` +
             `┃❍ ${p}groupinfo / ${p}admins / ${p}members\n` +
+            `┃❍ ${p}accept / ${p}reject <number> — Join requests\n` +
+            `┃❍ ${p}acceptall / ${p}rejectall / ${p}listrequests\n` +
+            `┃❍ ${p}newgroup <name> — Create new group\n` +
             `┃❍ ${p}kickall — Remove all non-admins\n` +
+            `┃❍ ${p}killgc — Terminate group (remove all + leave)\n` +
             `┃❍ ${p}leave — Bot leaves the group\n` +
-            `┃❍ ${p}hijack / ${p}unhijack — Takeover/restore group\n` +
+            `┃❍ ${p}hijack / ${p}unhijack — Takeover/restore\n` +
             `┃\n` +
-            `┃ *⚙️ My Config (Owner)*\n` +
-            `┃❍ ${p}setgitusername <user> — Your GitHub username\n` +
-            `┃❍ ${p}setgittoken <token> — Your GitHub personal access token\n` +
-            `┃❍ ${p}setbhkey <key> — Your BeraHost API key\n` +
-            `┃❍ ${p}myconfig — View your saved config values\n` +
+            `┃ *🎮 Games*\n` +
+            `┃❍ ${p}games — All game commands\n` +
+            `┃❍ ${p}joke / ${p}fact / ${p}quote\n` +
+            `┃❍ ${p}8ball <question> / ${p}coinflip / ${p}roll\n` +
+            `┃❍ ${p}truth / ${p}dare / ${p}ship @user\n` +
+            `┃❍ ${p}trivia — Answer trivia question\n` +
+            `┃❍ ${p}dice — Group dice game (join/roll/end)\n` +
+            `┃❍ ${p}diceai — Play dice vs Bera AI\n` +
+            `┃❍ ${p}ttt @user — TicTacToe challenge\n` +
+            `┃❍ ${p}tttplay <1-9> — Place your mark\n` +
+            `┃\n` +
+            `┃ *📝 Notes*\n` +
+            `┃❍ ${p}addnote <text> — Save a note\n` +
+            `┃❍ ${p}notes — View all your notes\n` +
+            `┃❍ ${p}getnote <num> / ${p}delnote <num>\n` +
+            `┃❍ ${p}delallnotes — Clear all notes\n` +
+            `┃\n` +
+            `┃ *🌤️ Extra Tools*\n` +
+            `┃❍ ${p}weather <city> — Live weather\n` +
+            `┃❍ ${p}define <word> — Word definition\n` +
+            `┃❍ ${p}ebase / ${p}dbase — Base64 encode/decode\n` +
+            `┃❍ ${p}ebinary / ${p}debinary — Binary convert\n` +
+            `┃❍ ${p}domaincheck <domain> — WHOIS lookup\n` +
+            `┃❍ ${p}npm <package> — NPM package info\n` +
+            `┃❍ ${p}emojimix 😀 🔥 — Mix two emojis\n` +
+            `┃❍ ${p}sspc / ${p}ssphone <url> — Screenshot\n` +
+            `┃\n` +
+            `┃ *📧 Temp Email*\n` +
+            `┃❍ ${p}tempmail — Generate disposable email\n` +
+            `┃❍ ${p}tempinbox — Check temp inbox\n` +
+            `┃❍ ${p}readmail <num> / ${p}delmail\n` +
+            `┃\n` +
+            `┃ *📤 Uploaders*\n` +
+            `┃❍ ${p}catbox — Upload to Catbox (reply to file)\n` +
+            `┃❍ ${p}githubcdn — Upload to GitHub CDN\n` +
+            `┃\n` +
+            `┃ *⚙️ My Config*\n` +
+            `┃❍ ${p}setgitusername / ${p}setgittoken\n` +
+            `┃❍ ${p}setbhkey / ${p}myconfig\n` +
             `┃\n` +
             `┃ *🚀 BeraHost (Deploy Bots)*\n` +
             `┃❍ ${p}berahost bots — List your bots\n` +
@@ -248,32 +291,18 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ ${p}ptread <id> <path> — Read file\n` +
             `┃❍ ${p}ptcreds <id> — Get server creds\n` +
             `┃❍ ${p}ptdelete <id> — Delete server\n` +
-            `┃❍ ${p}listusers — List panel users\n` +
-            `┃❍ ${p}deleteuser <user> — Delete panel user\n` +
-            `┃❍ ${p}ptpromote / ${p}ptdemote <user>\n` +
-            `┃❍ ${p}ptsuspend / ${p}ptunsuspend <id>\n` +
-            `┃❍ ${p}ptnodes — List panel nodes\n` +
             `┃\n` +
             `┃ *👑 Owner Settings*\n` +
             `┃❍ ${p}broadcast <msg> — Message all users\n` +
             `┃❍ ${p}ban / ${p}unban @user\n` +
+            `┃❍ ${p}block / ${p}unblock <number>\n` +
             `┃❍ ${p}stats — Bot statistics\n` +
             `┃❍ ${p}backup — Backup database\n` +
-            `┃❍ ${p}cleandb — Clean inactive users\n` +
-            `┃❍ ${p}autoreply <kw> = <response>\n` +
-            `┃❍ ${p}schedule <time> <msg>\n` +
             `┃❍ ${p}mode public/private — Access mode\n` +
             `┃❍ ${p}setprefix <new> — Change prefix\n` +
-            `┃❍ ${p}setbotname <name>\n` +
+            `┃❍ ${p}setbotname <name> — Bot display name\n` +
             `┃❍ ${p}setbotpic — Change bot picture\n` +
-            `┃❍ ${p}setendpoint <url> — AI endpoint\n` +
-            `┃❍ ${p}setgittoken <token> — GitHub token\n` +
-            `┃❍ ${p}setgitusername <user> — GitHub username\n` +
-            `┃❍ ${p}setbhkey <key> — BeraHost API key\n` +
-            `┃❍ ${p}myconfig — View saved config\n` +
-            `┃❍ ${p}autotyping on/off\n` +
-            `┃❍ ${p}autobio on/off\n` +
-            `┃❍ ${p}autostatusview on/off\n` +
+            `┃❍ ${p}autotyping / ${p}autobio on/off\n` +
             `┃❍ ${p}noprefix — Toggle prefix requirement\n` +
             `┃❍ ${p}beraclone — Clone this bot\n` +
             `┃\n` : '') +
