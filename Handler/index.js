@@ -4,7 +4,7 @@ const { getUser } = require('../Database')
 const fs = require('fs')
 const path = require('path')
 
-const commandFiles = ['general', 'key', 'bera', 'group', 'admin', 'media'] // 'pterodactyl' — disabled, re-enable when needed
+const commandFiles = ['general', 'key', 'bera', 'group', 'admin', 'media', 'pterodactyl']
 const handlers = commandFiles.map(f => require(`../Commands/${f}`))
 
 const loadPlugins = () => {
