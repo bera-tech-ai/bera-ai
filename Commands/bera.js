@@ -249,8 +249,12 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
             return reply(`*Your repos (${res.length}):*\n${lines}`)
         }
         if (/\b(create|make|new)\b.{0,10}\b(repo|repository)\b/.test(t)) {
-            const nameMatch = text.match(/(?:create|make|new)\s+(?:repo|repository)\s+["']?([^\s"']+)["']?/i)
-            if (!nameMatch) return reply(`❌ Specify repo name. E.g: "create repo my-project"`)
+            // Extract repo name: handles "create repo X", "create a repo named X", "name it X", "called X"
+            const nameMatch =
+                text.match(/(?:name(?:d)?s+it|named?|called?)s+["']?([a-zA-Z0-9_.-]+)["']?/i) ||
+                text.match(/(?:create|make|new)s+(?:as+)?(?:repo|repository)s+["']?([a-zA-Z0-9_.-]+)["']?/i) ||
+                text.match(/repo(?:sitory)?s+(?:called?|named?)s+["']?([a-zA-Z0-9_.-]+)["']?/i)
+            if (!nameMatch) return reply(`❌ Specify repo name. E.g: "create repo my-project" or "create a repo named cloudtechs"`)
             const isPrivate = /private/.test(t)
             const res = await createRepo(nameMatch[1], isPrivate)
             if (res.error) return reply(`❌ GitHub: ${res.error}`)
@@ -258,7 +262,8 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
             return reply(`✅ Created: ${res.html_url}`)
         }
         if (/\b(delete|remove)\b.{0,10}\b(repo|repository)\b/.test(t)) {
-            const nameMatch = text.match(/(?:delete|remove)\s+(?:repo|repository)\s+["']?([^\s"']+)["']?/i)
+            const nameMatch = text.match(/(?:delete|remove|drop)\s+(?:a\s+)?(?:repo|repository|this)\s+["']?([a-zA-Z0-9_.-]+)["']?/i) ||
+                text.match(/(?:name(?:d)?\s+it|named?|called?)\s+["']?([a-zA-Z0-9_.-]+)["']?/i)
             if (!nameMatch) return reply(`❌ Specify repo name.`)
             const ghUsername = process.env.GITHUB_USERNAME || (await ghUser().then(u => u.login).catch(() => null))
             if (!ghUsername) return reply(`❌ GitHub username not set.`)
@@ -272,7 +277,7 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
             const res = await listRepos().catch(() => null)
             const count = Array.isArray(res) ? res.length : '?'
             await react(conn, m, '✅')
-            return reply(`Yes, I have full GitHub access as *bera-tech-tech* 🐙\n\nI can:\n• List your repos (${count} so far)\n• Create or delete repos\n• Clone any repo\n• Push code\n\nWhat do you need?`)
+            return reply(`Yes, I have full GitHub access as *bera-tech-ai* 🐙\n\nI can:\n• List your repos (${count} so far)\n• Create or delete repos\n• Clone any repo\n• Push code\n\nWhat do you need?`)
         }
         await react(conn, m, '❌')
         return reply(`❌ Try: "list repos", "create repo <name>", "delete repo <name>"`)
