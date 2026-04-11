@@ -7,7 +7,7 @@ const APP_KEY    = () => config.pterodactylAppKey || process.env.PTERODACTYL_APP
 
 const NODE_ID      = 1
 const EGG_ID       = 15
-const EMAIL_DOMAIN = 'bera-tech.tech'
+const EMAIL_DOMAIN = 'lordeagle.tech'
 
 const PLANS = {
     '1gb': { memory: 1024,  disk: 10240,  cpu: 100, label: '1 GB RAM' },
