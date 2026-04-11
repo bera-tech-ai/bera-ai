@@ -485,7 +485,32 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
         return reply(`🦅 I can manage your Pterodactyl panel. Try:\n• "list my servers"\n• "status of [server name]"\n• "restart [server name]"\n• "start/stop [server name]"\n\nOr use ${config.prefix}ptall for the full command list.`)
     }
 
-    return askNick(m, conn, reply, sender, text, imageBuffer)
+
+    if (intent === 'menu') {
+        return reply(
+            '╭══〘 *🤖 BERA AI — CAPABILITIES* 〙═⊷\n' +
+            '┃\n' +
+            '┃ I\'m Bera AI — your intelligent WhatsApp assistant.\n' +
+            '┃ Here\'s a quick overview of what I can do:\n' +
+            '┃\n' +
+            '┃ 🎵 *Music* — play/find any song by name\n' +
+            '┃ 🎨 *AI Images* — generate images from descriptions\n' +
+            '┃ 👁️ *Vision* — analyze & describe images you send\n' +
+            '┃ 🌐 *Web Search* — look up anything live online\n' +
+            '┃ 🌍 *Translate* — translate to/from any language\n' +
+            '┃ 📦 *Git/GitHub* — clone, push, create/delete repos\n' +
+            '┃ 💻 *Shell* — run terminal commands directly\n' +
+            '┃ 📁 *Files* — read, create, edit workspace files\n' +
+            '┃ 📥 *Download* — TikTok, Instagram, Twitter videos\n' +
+            '┃ 🖥️ *Panel* — control your Pterodactyl servers\n' +
+            '┃ 🤖 *AI Chat* — code, writing, math, anything\n' +
+            '┃\n' +
+            '┃ 📋 *Full command list:* Type *.menu*\n' +
+            '╰══════════════════⊷'
+        )
+    }
+
+        return askNick(m, conn, reply, sender, text, imageBuffer)
 }
 
 const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }) => {
