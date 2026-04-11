@@ -396,12 +396,67 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
             `\n╰══════════════════⊷`
         )
     }
+    // ── SET GITHUB USERNAME ─────────────────────────────────────────────
+    if (command === 'setgitusername') {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        if (!text) return reply(`❌ Usage: ${prefix}setgitusername <your-github-username>`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings.githubUsername = text.trim()
+        await global.db.write()
+        return reply(`✅ GitHub username saved: *${text.trim()}*
+Bera AI GitHub commands will now use this account.`)
+    }
+
+    // ── SET GITHUB TOKEN ────────────────────────────────────────────────
+    if (command === 'setgittoken') {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        if (!text) return reply(`❌ Usage: ${prefix}setgittoken <your-github-token>
+Generate at: https://github.com/settings/tokens`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings.githubToken = text.trim()
+        await global.db.write()
+        return reply(`✅ GitHub token saved!\nToken: ghp_***${text.trim().slice(-4)}\n⚠️ Keep this private — it grants access to your GitHub.`)
+    }
+
+    // ── SET BERAHOST API KEY ─────────────────────────────────────────────
+    if (command === 'setbhkey') {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        if (!text) return reply(`❌ Usage: ${prefix}setbhkey <your-berahost-api-key>
+Get yours at: https://berahost.com`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings.berahostApiKey = text.trim()
+        await global.db.write()
+        return reply(`✅ BeraHost API key saved!\nKey: bh_***${text.trim().slice(-4)}\nAll BeraHost commands will now use your key.`)
+    }
+
+    // ── VIEW MY CONFIG ───────────────────────────────────────────────────
+    if (['myconfig', 'mykeys', 'configs'].includes(command)) {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        const ghUser = global.db?.data?.settings?.githubUsername || 'Not set'
+        const ghTok  = global.db?.data?.settings?.githubToken
+            ? `ghp_***${global.db.data.settings.githubToken.slice(-4)}`
+            : 'Not set'
+        const bhKey  = global.db?.data?.settings?.berahostApiKey
+            ? `bh_***${global.db.data.settings.berahostApiKey.slice(-4)}`
+            : 'Not set (using default)'
+        return reply(
+            `╭══〘 *⚙️ MY CONFIG* 〙═⊷\n` +
+            `┃❍ *GitHub User:* ${ghUser}\n` +
+            `┃❍ *GitHub Token:* ${ghTok}\n` +
+            `┃❍ *BeraHost Key:* ${bhKey}\n` +
+            `┃\n` +
+            `┃ Use .setgitusername, .setgittoken, .setbhkey\n` +
+            `┃ to update these values.\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
 }
 
 handle.command = ['broadcast', 'backup', 'stats', 'ban', 'unban', 'premium', 'depremium',
     'autoreply', 'schedule', 'listusers', 'resetlimit', 'cleandb', 'mode',
     'autostatusview', 'statusview', 'autotyping', 'autobio',
-    'addbio', 'setbio', 'listbios', 'clearbio', 'noprefix']
+    'addbio', 'setbio', 'listbios', 'clearbio', 'noprefix', 'setgitusername', 'setgittoken', 'setbhkey', 'myconfig', 'mykeys', 'configs']
 handle.tags = ['admin']
 
 module.exports = handle
