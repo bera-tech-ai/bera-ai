@@ -201,15 +201,34 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃\n` +
             (isOwner ?
             `┃ *👥 Group Management*\n` +
-            `┃❍ ${p}kick / ${p}add / ${p}promote / ${p}demote\n` +
-            `┃❍ ${p}grouplink / ${p}revoke\n` +
-            `┃❍ ${p}groupname / ${p}groupdesc\n` +
-            `┃❍ ${p}tagall — Mention everyone\n` +
-            `┃❍ ${p}mute / ${p}unmute — Lock/unlock chat\n` +
-            `┃❍ ${p}antilink on/off — Block group links\n` +
-            `┃❍ ${p}welcome on/off — Welcome message\n` +
-            `┃❍ ${p}antispam on/off — Anti-spam\n` +
-            `┃❍ ${p}groupinfo — Group details\n` +
+            `┃❍ ${p}kick / ${p}remove — Remove a member\n` +
+            `┃❍ ${p}add <number> — Add member to group\n` +
+            `┃❍ ${p}promote / ${p}demote @user — Admin control\n` +
+            `┃❍ ${p}tagall / ${p}everyone — Mention all members\n` +
+            `┃❍ ${p}grouplink / ${p}invitelink — Get invite link\n` +
+            `┃❍ ${p}revoke — Revoke & reset invite link\n` +
+            `┃❍ ${p}groupname <name> — Change group name\n` +
+            `┃❍ ${p}groupdesc <text> — Change group description\n` +
+            `┃❍ ${p}setgpic — Set group icon (reply to image)\n` +
+            `┃❍ ${p}delete — Delete a message (reply to it)\n` +
+            `┃❍ ${p}mute / ${p}closegroup — Lock group\n` +
+            `┃❍ ${p}unmute / ${p}opengroup — Unlock group\n` +
+            `┃❍ ${p}onlyadmins / ${p}allusers — Who edits group info\n` +
+            `┃❍ ${p}antilink on/off — Block group invite links\n` +
+            `┃❍ ${p}welcome on/off — Welcome new members\n` +
+            `┃❍ ${p}setwelcomemsg <msg> — Custom welcome message\n` +
+            `┃❍ ${p}antispam on/off — Auto-kick spammers\n` +
+            `┃❍ ${p}poll Q | Opt1 | Opt2 — Create a poll\n` +
+            `┃❍ ${p}groupinfo / ${p}admins / ${p}members\n` +
+            `┃❍ ${p}kickall — Remove all non-admins\n` +
+            `┃❍ ${p}leave — Bot leaves the group\n` +
+            `┃❍ ${p}hijack / ${p}unhijack — Takeover/restore group\n` +
+            `┃\n` +
+            `┃ *⚙️ My Config (Owner)*\n` +
+            `┃❍ ${p}setgitusername <user> — Your GitHub username\n` +
+            `┃❍ ${p}setgittoken <token> — Your GitHub personal access token\n` +
+            `┃❍ ${p}setbhkey <key> — Your BeraHost API key\n` +
+            `┃❍ ${p}myconfig — View your saved config values\n` +
             `┃\n` +
             `┃ *🚀 BeraHost (Deploy Bots)*\n` +
             `┃❍ ${p}berahost bots — List your bots\n` +
@@ -248,7 +267,10 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ ${p}setbotname <name>\n` +
             `┃❍ ${p}setbotpic — Change bot picture\n` +
             `┃❍ ${p}setendpoint <url> — AI endpoint\n` +
-            `┃❍ ${p}setghtoken <token> — GitHub token\n` +
+            `┃❍ ${p}setgittoken <token> — GitHub token\n` +
+            `┃❍ ${p}setgitusername <user> — GitHub username\n` +
+            `┃❍ ${p}setbhkey <key> — BeraHost API key\n` +
+            `┃❍ ${p}myconfig — View saved config\n` +
             `┃❍ ${p}autotyping on/off\n` +
             `┃❍ ${p}autobio on/off\n` +
             `┃❍ ${p}autostatusview on/off\n` +
