@@ -141,31 +141,51 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ ${p}diceduel @user — Dice duel\n` +
             `┃\n` +
             `┃ *🔗 Utilities*\n` +
-            `┃❍ ${p}shorten <url> — Shorten URL\n` +
+            `┃❍ ${p}shorten <url> — Shorten URL (TinyURL/Bitly)\n` +
             `┃❍ ${p}qr <text> — Generate QR code\n` +
             `┃❍ ${p}calc <expr> — Calculator\n` +
             `┃❍ ${p}password <length> — Strong password\n` +
             `┃❍ ${p}uuid — Generate UUID\n` +
+            `┃❍ ${p}ip <address> — IP address lookup\n` +
             `┃❍ ${p}ping — Latency check\n` +
             `┃❍ ${p}uptime — Bot uptime\n` +
             `┃❍ ${p}myprofile — Your bot profile\n` +
             `┃\n` +
-            `┃ *🛠️ Tools & AI Extras*\n` +
-            `┃❍ ${p}ascii <text> — ASCII art\n` +
-            `┃❍ ${p}fancy <text> — Random fancy style\n` +
-            `┃❍ ${p}fancystyles <text> — All 10 text styles\n` +
-            `┃❍ ${p}wacheck <num> — Check if num is on WhatsApp\n` +
-            `┃❍ ${p}search <query> — Web search\n` +
-            `┃❍ ${p}ghfollowers <user> — GitHub profile info\n` +
-            `┃❍ ${p}imagine <desc> — AI image generation\n` +
+            `┃ *✨ Text & Style Tools*\n` +
+            `┃❍ ${p}fancy <text> — Random fancy Unicode style\n` +
+            `┃❍ ${p}fancystyles <text> — All 35 fancy styles\n` +
+            `┃❍ ${p}ascii <text> — ASCII art generator\n` +
             `┃❍ ${p}tr <lang> <text> — Translate to any language\n` +
+            `┃❍ ${p}encrypt <js code> — Encrypt JavaScript code\n` +
+            `┃\n` +
+            `┃ *📱 WhatsApp Tools*\n` +
+            `┃❍ ${p}wacheck <number> — Check if number is on WhatsApp\n` +
+            `┃❍ ${p}wapfp <number> — Download WhatsApp profile picture\n` +
+            `┃❍ ${p}walink <number> [msg] — Create WhatsApp link\n` +
+            `┃❍ ${p}wagroups <topic> — Search WhatsApp groups\n` +
+            `┃\n` +
+            `┃ *🔍 Search Commands*\n` +
+            `┃❍ ${p}search <query> — Google/Brave web search\n` +
+            `┃❍ ${p}imgsearch <query> — Image search\n` +
             `┃❍ ${p}yts <query> — YouTube search\n` +
-            `┃❍ ${p}roast <name> — Roast someone\n` +
+            `┃❍ ${p}movie <title> — Movie info & details\n` +
+            `┃❍ ${p}lyrics <song> — Song lyrics\n` +
+            `┃❍ ${p}bible <ref> — Bible verse (e.g John 3:16)\n` +
+            `┃❍ ${p}sc <query> — SoundCloud search\n` +
+            `┃❍ ${p}ttsearch <query> — TikTok video search\n` +
+            `┃❍ ${p}apk <app> — APK/app search\n` +
+            `┃\n` +
+            `┃ *🤖 AI-Powered*\n` +
+            `┃❍ ${p}imagine <desc> — AI image generation\n` +
+            `┃❍ ${p}codegen <task> — AI code generator\n` +
+            `┃❍ ${p}dream <dream> — Dream interpretation\n` +
             `┃❍ ${p}story <topic> — AI short story\n` +
             `┃❍ ${p}rap <topic> — Rap bars\n` +
             `┃❍ ${p}riddle — Get a riddle\n` +
             `┃❍ ${p}recipe <dish> — Get a recipe\n` +
+            `┃❍ ${p}roast <name> — Roast someone\n` +
             `┃❍ ${p}motivate <name> — Motivational message\n` +
+            `┃❍ ${p}ghfollowers <user> — GitHub profile stats\n` +
             `┃\n` +
             `┃ *⚽ Sports*\n` +
             `┃❍ ${p}livescore — Live football scores\n` +
