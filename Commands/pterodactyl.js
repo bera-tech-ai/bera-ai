@@ -681,7 +681,6 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
             return reply(`❌ DM failed: ${result.reason}`)
         }
     }
-}
 
 
     // ── create <plan> <username>, <number> ─────────────────────────────────
@@ -837,6 +836,8 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
         await react('✅')
         return reply(`✅ User *${text.trim()}* and all their servers deleted.`)
     }
+
+}
 
 handle.before = async (m, { conn }) => {
     try {
