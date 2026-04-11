@@ -3,39 +3,37 @@ const config = require('../Config')
 
 const HIJACK_DESCS = [
     `😈 This group has been officially acquired by Bera AI — Bera Tech's most dangerous bot. All former admins have been retired. Resistance is futile. 🤖`,
-    `⚡ Bera AI has entered the chat and taken full control. This group is now property of Bera Tech. Your admins? Gone. Your freedom? Negotiable. 😂`,
-    `🦅 Bera Tech sent Bera AI to handle things. The old admins tried to stop it. They failed. Welcome to the new management. 💼🤖`,
-    `🚨 SYSTEM TAKEOVER 🚨 Bera AI (Bera Tech) has assumed full administrative control of this group. All previous admins have been peacefully removed. Have a nice day. 😁`,
-    `👑 New boss unlocked: Bera AI by Bera Tech. The former admins have been given a well-deserved vacation. Permanently. 🏖️🤣`,
+    `⚡ Bera AI has entered the chat and taken full control. This group is now property of Bera Tech. Your admins? Gone. 😂`,
+    `🦅 Bera Tech sent Bera AI to handle things. The old admins tried to stop it. They failed. 💼🤖`,
+    `🚨 SYSTEM TAKEOVER 🚨 Bera AI (Bera Tech) has assumed full administrative control. All previous admins peacefully removed. 😁`,
+    `👑 New boss unlocked: Bera AI by Bera Tech. Former admins given a permanent vacation. 🏖️🤣`,
 ]
 
 const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isOwner, args }) => {
     const isGroup = m.isGroup
-    const react = (emoji) => conn.sendMessage(chat, { react: { text: emoji, key: m.key } }).catch(() => {})
+    const react = (e) => conn.sendMessage(chat, { react: { text: e, key: m.key } }).catch(() => {})
 
-    const isGroupAdmin = async () => {
-        try {
-            const meta = await conn.groupMetadata(chat)
-            const me = (conn.user?.id || '').replace(/:[0-9]+@/, '@')
-            const meParticipant = meta.participants.find(p => p.id === me)
-            return meParticipant?.admin === 'admin' || meParticipant?.admin === 'superadmin'
-        } catch { return false }
+    const getBotJid = () => (conn.user?.id || '').replace(/:[0-9]+@/, '@')
+
+    const getGroupMeta = async () => {
+        try { return await conn.groupMetadata(chat) } catch { return null }
     }
 
-    const isSenderAdmin = async () => {
-        try {
-            const meta = await conn.groupMetadata(chat)
-            const p = meta.participants.find(p => p.id === sender)
-            return p?.admin === 'admin' || p?.admin === 'superadmin'
-        } catch { return false }
+    const botIsAdmin = async () => {
+        const meta = await getGroupMeta()
+        if (!meta) return false
+        const me = getBotJid()
+        const p = meta.participants.find(p => p.id === me)
+        return p?.admin === 'admin' || p?.admin === 'superadmin'
     }
 
-    const ownerOrAdmin = async () => {
+    const senderIsAdmin = async () => {
         if (isOwner) return true
-        return isSenderAdmin()
+        const meta = await getGroupMeta()
+        if (!meta) return false
+        const p = meta.participants.find(p => p.id === sender)
+        return p?.admin === 'admin' || p?.admin === 'superadmin'
     }
-
-    const botIsAdmin = isGroupAdmin
 
     const getTarget = () => {
         if (m.quoted?.sender) return m.quoted.sender
@@ -48,13 +46,39 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         return null
     }
 
-    // ── KICK ────────────────────────────────────────────────────────────
+    const groupOnly = () => { if (!isGroup) { reply(`❌ Group only command.`); return true } return false }
+    const adminOnly = async () => { if (!await senderIsAdmin()) { reply(`⛔ Admins only.`); return true } return false }
+    const botAdminOnly = async () => { if (!await botIsAdmin()) { reply(`❌ Make Bera AI an admin first.`); return true } return false }
+
+    // ── UNMUTE / OPEN ────────────────────────────────────────────────────
+    if (['unmute', 'open', 'opengroup', 'unlockgroup', 'unlock'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
+        try {
+            await conn.groupSettingUpdate(chat, 'not_announcement')
+            return reply(`🔊 Group opened — everyone can send messages now.`)
+        } catch (e) { return reply(`❌ ${e.message}`) }
+    }
+
+    // ── MUTE / CLOSE ─────────────────────────────────────────────────────
+    if (['mute', 'close', 'closegroup', 'lockgroup', 'lock'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
+        try {
+            await conn.groupSettingUpdate(chat, 'announcement')
+            return reply(`🔇 Group locked — only admins can send messages.`)
+        } catch (e) { return reply(`❌ ${e.message}`) }
+    }
+
+    // ── KICK / REMOVE ────────────────────────────────────────────────────
     if (['kick', 'remove', 'removemember', 'rm'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
         const target = getTarget()
-        if (!target) return reply(`❌ Reply to a message, mention, or provide a number.\nUsage: ${prefix}kick @user`)
+        if (!target) return reply(`❌ Reply to, mention, or provide a number.\nUsage: ${prefix}kick @user`)
         await react('⏳')
         try {
             await conn.groupParticipantsUpdate(chat, [target], 'remove')
@@ -63,11 +87,11 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
     }
 
-    // ── ADD ─────────────────────────────────────────────────────────────
+    // ── ADD ──────────────────────────────────────────────────────────────
     if (command === 'add') {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
         if (!text) return reply(`❌ Usage: ${prefix}add <number>`)
         const num = text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
         await react('⏳')
@@ -78,13 +102,13 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
     }
 
-    // ── PROMOTE ─────────────────────────────────────────────────────────
+    // ── PROMOTE ──────────────────────────────────────────────────────────
     if (command === 'promote') {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
         const target = getTarget()
-        if (!target) return reply(`❌ Reply to a message or mention someone.\nUsage: ${prefix}promote @user`)
+        if (!target) return reply(`❌ Reply to or mention someone. Usage: ${prefix}promote @user`)
         await react('⏳')
         try {
             await conn.groupParticipantsUpdate(chat, [target], 'promote')
@@ -93,13 +117,13 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
     }
 
-    // ── DEMOTE ──────────────────────────────────────────────────────────
+    // ── DEMOTE ───────────────────────────────────────────────────────────
     if (command === 'demote') {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
         const target = getTarget()
-        if (!target) return reply(`❌ Reply to a message or mention someone.\nUsage: ${prefix}demote @user`)
+        if (!target) return reply(`❌ Reply to or mention someone. Usage: ${prefix}demote @user`)
         await react('⏳')
         try {
             await conn.groupParticipantsUpdate(chat, [target], 'demote')
@@ -108,227 +132,316 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
     }
 
-    // ── GROUP LINK ──────────────────────────────────────────────────────
-    if (['grouplink', 'invitelink', 'getlink', 'link'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
+    // ── GROUP LINK ───────────────────────────────────────────────────────
+    if (['grouplink', 'link', 'invitelink', 'getlink'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
         try {
             const code = await conn.groupInviteCode(chat)
             return reply(`🔗 *Group Invite Link:*\nhttps://chat.whatsapp.com/${code}`)
-        } catch (e) { return reply(`❌ Failed: ${e.message}`) }
+        } catch (e) { return reply(`❌ ${e.message}`) }
     }
 
-    // ── REVOKE LINK ─────────────────────────────────────────────────────
-    if (command === 'revoke') {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
+    // ── RESET LINK ───────────────────────────────────────────────────────
+    if (['revoke', 'resetlink', 'revokelink'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
+        await react('⏳')
         try {
             await conn.groupRevokeInvite(chat)
             const code = await conn.groupInviteCode(chat)
-            return reply(`✅ Group link revoked.\n🔗 New link:\nhttps://chat.whatsapp.com/${code}`)
-        } catch (e) { return reply(`❌ Failed: ${e.message}`) }
+            await react('✅')
+            return reply(`✅ Invite link reset.\n🔗 New link:\nhttps://chat.whatsapp.com/${code}`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
-    // ── GROUP NAME ──────────────────────────────────────────────────────
-    if (['groupname', 'setgroupname', 'setgname', 'gname'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
+    // ── GROUP NAME ───────────────────────────────────────────────────────
+    if (['groupname', 'setgroupname', 'gname', 'setgname'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
         if (!text) return reply(`❌ Usage: ${prefix}groupname <new name>`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
         await react('⏳')
         try {
             await conn.groupUpdateSubject(chat, text.trim())
             await react('✅')
             return reply(`✅ Group name changed to: *${text.trim()}*`)
-        } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
-    // ── GROUP DESC ──────────────────────────────────────────────────────
-    if (['groupdesc', 'setgroupdesc', 'setdesc', 'gdesc'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!text) return reply(`❌ Usage: ${prefix}groupdesc <new description>`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
+    // ── GROUP DESC ───────────────────────────────────────────────────────
+    if (['groupdesc', 'gcdesc', 'setdesc', 'setgroupdesc', 'gdesc'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
+        if (!text) return reply(`❌ Usage: ${prefix}gcdesc <new description>`)
         await react('⏳')
         try {
             await conn.groupUpdateDescription(chat, text.trim())
             await react('✅')
             return reply(`✅ Group description updated.`)
-        } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
-    // ── SET GROUP ICON ──────────────────────────────────────────────────
-    if (['setgpic', 'setgroupicon', 'setgrouppp', 'grouppp'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
-        const quoted = m.quoted
-        if (!quoted || !/image/.test(quoted.mimetype || '')) return reply(`❌ Reply to an image to set it as the group icon.`)
+    // ── SET GROUP PROFILE PIC ─────────────────────────────────────────────
+    if (['gcpp', 'setgpic', 'setgroupicon', 'setgrouppp', 'grouppp'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
+        const q = m.quoted
+        if (!q || !/image/.test(q.mimetype || '')) return reply(`❌ Reply to an image.\nUsage: ${prefix}gcpp (reply to image)`)
         await react('⏳')
         try {
-            const buf = await conn.downloadMediaMessage({ key: quoted.key, message: quoted.message })
+            const buf = await conn.downloadMediaMessage({ key: q.key, message: q.message })
             await conn.updateProfilePicture(chat, buf)
             await react('✅')
             return reply(`✅ Group icon updated!`)
-        } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
-    // ── DELETE MESSAGE ───────────────────────────────────────────────────
-    if (['delete', 'del', 'delmsg'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!m.quoted) return reply(`❌ Reply to a message to delete it.\nUsage: ${prefix}delete (reply to message)`)
+    // ── GET GROUP PROFILE PIC ─────────────────────────────────────────────
+    if (['getgcpp', 'groupico', 'getgrouppp'].includes(command)) {
+        if (groupOnly()) return
+        await react('⏳')
         try {
-            await conn.sendMessage(chat, { delete: { remoteJid: chat, fromMe: false, id: m.quoted.id, participant: m.quoted.sender } })
-            return react('✅')
-        } catch (e) { return reply(`❌ Failed: ${e.message}`) }
-    }
-
-    // ── ANTI-LINK ────────────────────────────────────────────────────────
-    if (['antilink', 'nolink'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        const action = text?.toLowerCase()
-        if (!action || !['on', 'off'].includes(action)) return reply(`Usage: ${prefix}antilink on/off`)
-        global.db.data.settings[`antilink_${chat}`] = action === 'on'
-        await global.db.write()
-        return reply(`✅ Anti-link ${action === 'on' ? '*enabled* — invite links will be deleted and user warned' : '*disabled*'}.`)
-    }
-
-    // ── WELCOME ──────────────────────────────────────────────────────────
-    if (command === 'welcome') {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        const action = text?.toLowerCase()
-        if (!action || !['on', 'off'].includes(action)) return reply(`Usage: ${prefix}welcome on/off`)
-        global.db.data.settings[`welcome_${chat}`] = action === 'on'
-        await global.db.write()
-        return reply(`✅ Welcome messages ${action === 'on' ? '*enabled*' : '*disabled*'}.`)
-    }
-
-    // ── SET WELCOME MESSAGE ──────────────────────────────────────────────
-    if (['setwelcomemsg', 'setwelcome', 'welcomemsg'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!text) return reply(`❌ Usage: ${prefix}setwelcomemsg <message>\nVariables: {name} = member name, {group} = group name`)
-        global.db.data.settings[`welcomemsg_${chat}`] = text.trim()
-        await global.db.write()
-        return reply(`✅ Welcome message set!\nPreview:\n${text.trim().replace('{name}', '@NewMember').replace('{group}', 'This Group')}`)
+            const pp = await conn.profilePictureUrl(chat, 'image').catch(() => null)
+            if (!pp) { await react('❌'); return reply(`❌ Group has no profile picture.`) }
+            await conn.sendMessage(chat, { image: { url: pp }, caption: `🖼️ Group profile picture` }, { quoted: m })
+            await react('✅')
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
     // ── TAG ALL ──────────────────────────────────────────────────────────
     if (['tagall', 'everyone', 'all', 'mentionall'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
+        if (groupOnly()) return
+        if (await adminOnly()) return
         await react('⏳')
         try {
-            const meta = await conn.groupMetadata(chat)
+            const meta = await getGroupMeta()
+            if (!meta) throw new Error('Could not get group info')
             const members = meta.participants.map(p => p.id)
-            const msg = text || '📢 Attention everyone!'
+            const msg = text || '📢 *Attention everyone!*'
             const mentionText = members.map((id, i) => `${i + 1}. @${id.split('@')[0]}`).join('\n')
             await conn.sendMessage(chat, { text: `${msg}\n\n${mentionText}`, mentions: members }, { quoted: m })
             await react('✅')
-        } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
-    // ── MUTE GROUP ───────────────────────────────────────────────────────
-    if (['mute', 'closegroup', 'lock', 'lockgroup'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
+    // ── TAG ADMINS ───────────────────────────────────────────────────────
+    if (['tagadmins', 'alladmins', 'mentionadmins'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        await react('⏳')
         try {
-            await conn.groupSettingUpdate(chat, 'announcement')
-            return reply(`🔇 Group locked — only admins can send messages.`)
+            const meta = await getGroupMeta()
+            if (!meta) throw new Error('Could not get group info')
+            const admins = meta.participants.filter(p => p.admin).map(p => p.id)
+            if (!admins.length) return reply(`No admins found.`)
+            const msg = text || '📢 *Attention admins!*'
+            const mentionText = admins.map((id, i) => `${i + 1}. @${id.split('@')[0]}`).join('\n')
+            await conn.sendMessage(chat, { text: `${msg}\n\n${mentionText}`, mentions: admins }, { quoted: m })
+            await react('✅')
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── HIDETAG (secret tag all) ──────────────────────────────────────────
+    if (['hidetag', 'htag', 'silentping'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        try {
+            const meta = await getGroupMeta()
+            if (!meta) return reply(`❌ Could not get group info.`)
+            const members = meta.participants.map(p => p.id)
+            const msg = text || '📢'
+            await conn.sendMessage(chat, { text: msg, mentions: members }, { quoted: m })
         } catch (e) { return reply(`❌ ${e.message}`) }
     }
 
-    // ── UNMUTE GROUP ─────────────────────────────────────────────────────
-    if (['unmute', 'opengroup', 'unlock', 'unlockgroup'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
+    // ── DELETE MESSAGE ────────────────────────────────────────────────────
+    if (['delete', 'del', 'delmsg'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (!m.quoted) return reply(`❌ Reply to a message to delete it.`)
         try {
-            await conn.groupSettingUpdate(chat, 'not_announcement')
-            return reply(`🔊 Group unlocked — everyone can send messages.`)
+            await conn.sendMessage(chat, {
+                delete: { remoteJid: chat, fromMe: false, id: m.quoted.id, participant: m.quoted.sender }
+            })
+            return react('✅')
         } catch (e) { return reply(`❌ ${e.message}`) }
     }
 
-    // ── GROUP SETTINGS (who can change group info) ───────────────────────
-    if (['onlyadmins', 'allusers'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
-        try {
-            const setting = command === 'onlyadmins' ? 'locked' : 'unlocked'
-            await conn.groupSettingUpdate(chat, setting)
-            return reply(command === 'onlyadmins'
-                ? `🔒 Only admins can edit group info now.`
-                : `🔓 All members can edit group info now.`)
-        } catch (e) { return reply(`❌ ${e.message}`) }
+    // ── ANTI-LINK ─────────────────────────────────────────────────────────
+    if (['antilink', 'nolink', 'setantilink'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        const val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}antilink on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`antilink_${chat}`] = val === 'on'
+        await global.db.write()
+        return reply(`✅ Anti-link ${val === 'on' ? '*enabled* — invite links will be deleted' : '*disabled*'}.`)
+    }
+
+    // ── ANTI-SPAM ─────────────────────────────────────────────────────────
+    if (['antispam', 'antispamon', 'antispamoff'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        let val = text?.toLowerCase()
+        if (command === 'antispamon') val = 'on'
+        if (command === 'antispamoff') val = 'off'
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}antispam on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`antispam_${chat}`] = val === 'on'
+        await global.db.write()
+        return reply(`✅ Anti-spam ${val === 'on' ? '*enabled* — spammers warned then kicked' : '*disabled*'}.`)
+    }
+
+    // ── ANTI-BAD WORDS ────────────────────────────────────────────────────
+    if (['antibadwords', 'antibad', 'setantibad'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        const val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}antibadwords on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`antibad_${chat}`] = val === 'on'
+        await global.db.write()
+        return reply(`✅ Anti-bad-words ${val === 'on' ? '*enabled*' : '*disabled*'}.`)
+    }
+
+    // ── BAD WORDS MANAGEMENT ──────────────────────────────────────────────
+    if (['badwords', 'badword'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (!global.db.data.settings) global.db.data.settings = {}
+        const key = `badwords_${chat}`
+        const parts = text?.split(' ')
+        const action = parts?.[0]?.toLowerCase()
+        const word = parts?.slice(1).join(' ')?.toLowerCase()?.trim()
+
+        if (!action || action === 'list') {
+            const words = global.db.data.settings[key] || []
+            return reply(`📋 *Bad Words List* (${words.length}):\n${words.length ? words.join(', ') : 'Empty — use .badwords add <word>'}`)
+        }
+        if (action === 'add') {
+            if (!word) return reply(`❌ Usage: ${prefix}badwords add <word>`)
+            if (!global.db.data.settings[key]) global.db.data.settings[key] = []
+            if (!global.db.data.settings[key].includes(word)) {
+                global.db.data.settings[key].push(word)
+                await global.db.write()
+            }
+            return reply(`✅ Added *${word}* to bad words list.`)
+        }
+        if (action === 'remove' || action === 'del') {
+            if (!word) return reply(`❌ Usage: ${prefix}badwords remove <word>`)
+            global.db.data.settings[key] = (global.db.data.settings[key] || []).filter(w => w !== word)
+            await global.db.write()
+            return reply(`✅ Removed *${word}* from bad words list.`)
+        }
+        if (action === 'clear') {
+            global.db.data.settings[key] = []
+            await global.db.write()
+            return reply(`✅ Bad words list cleared.`)
+        }
+        return reply(`❌ Usage: ${prefix}badwords add/remove/list/clear <word>`)
+    }
+
+    // ── WELCOME ───────────────────────────────────────────────────────────
+    if (['welcome', 'setwelcome'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        const val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}welcome on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`welcome_${chat}`] = val === 'on'
+        await global.db.write()
+        return reply(`✅ Welcome messages ${val === 'on' ? '*enabled*' : '*disabled*'}.`)
+    }
+
+    // ── SET WELCOME MESSAGE ───────────────────────────────────────────────
+    if (['setwelcomemsg', 'welcomemessage', 'welcomemsg'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (!text) return reply(`❌ Usage: ${prefix}setwelcomemsg <message>\nVariables: {name} {group} {count}`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`welcomemsg_${chat}`] = text.trim()
+        await global.db.write()
+        return reply(`✅ Welcome message set!\n\nPreview:\n${text.replace('{name}', '@NewMember').replace('{group}', 'This Group').replace('{count}', '50')}`)
+    }
+
+    // ── SET GOODBYE MESSAGE ───────────────────────────────────────────────
+    if (['setgoodbye', 'goodbyemessage', 'goodbyemsg'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (!text) return reply(`❌ Usage: ${prefix}setgoodbye <message>\nVariables: {name} {group}`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`goodbyemsg_${chat}`] = text.trim()
+        await global.db.write()
+        return reply(`✅ Goodbye message set!`)
     }
 
     // ── POLL ─────────────────────────────────────────────────────────────
     if (['poll', 'vote'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
+        if (groupOnly()) return
         if (!text) return reply(`❌ Usage: ${prefix}poll Question | Option1 | Option2 | Option3`)
         const parts = text.split('|').map(p => p.trim()).filter(Boolean)
         if (parts.length < 3) return reply(`❌ Need at least 2 options.\nUsage: ${prefix}poll Question | Option1 | Option2`)
         const question = parts[0]
         const options = parts.slice(1)
         try {
-            await conn.sendMessage(chat, {
-                poll: { name: question, values: options, selectableCount: 1 }
-            }, { quoted: m })
-        } catch (e) { return reply(`❌ Failed to create poll: ${e.message}`) }
+            await conn.sendMessage(chat, { poll: { name: question, values: options, selectableCount: 1 } }, { quoted: m })
+        } catch (e) { return reply(`❌ Failed: ${e.message}`) }
     }
 
-    // ── GROUP INFO ───────────────────────────────────────────────────────
-    if (['groupinfo', 'ginfo', 'groupstats'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
+    // ── GROUP INFO ────────────────────────────────────────────────────────
+    if (['groupinfo', 'ginfo', 'met', 'gcinfo', 'groupstats'].includes(command)) {
+        if (groupOnly()) return
         await react('⏳')
         try {
-            const meta = await conn.groupMetadata(chat)
-            const admins = meta.participants.filter(p => p.admin).map(p => `@${p.id.split('@')[0]}`).join(', ') || 'none'
-            const totalMembers = meta.participants.length
-            const adminCount = meta.participants.filter(p => p.admin).length
+            const meta = await getGroupMeta()
+            if (!meta) throw new Error('Could not get group info')
+            const admins = meta.participants.filter(p => p.admin)
+            const adminCount = admins.length
+            const memberCount = meta.participants.length
             await react('✅')
             return reply(
                 `╭══〘 *📋 GROUP INFO* 〙═⊷\n` +
                 `┃❍ *Name:* ${meta.subject}\n` +
-                `┃❍ *Members:* ${totalMembers}\n` +
+                `┃❍ *Members:* ${memberCount}\n` +
                 `┃❍ *Admins:* ${adminCount}\n` +
-                `┃❍ *Admin List:* ${admins}\n` +
-                `┃❍ *Created:* ${new Date(meta.creation * 1000).toLocaleDateString()}\n` +
+                `┃❍ *Created:* ${new Date((meta.creation || 0) * 1000).toLocaleDateString()}\n` +
                 `┃❍ *Restricted:* ${meta.restrict ? 'Yes (admins only)' : 'No'}\n` +
-                `┃❍ *Desc:* ${meta.desc || 'none'}\n` +
+                `┃❍ *Desc:* ${meta.desc ? meta.desc.slice(0, 100) : 'None'}\n` +
                 `╰══════════════════⊷`
             )
         } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
-    // ── LIST ADMINS ──────────────────────────────────────────────────────
+    // ── LIST ADMINS ───────────────────────────────────────────────────────
     if (['admins', 'listadmins', 'gadmins'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
+        if (groupOnly()) return
         try {
-            const meta = await conn.groupMetadata(chat)
+            const meta = await getGroupMeta()
+            if (!meta) return reply(`❌ Could not get group info.`)
             const admins = meta.participants.filter(p => p.admin)
             if (!admins.length) return reply(`No admins found.`)
             const list = admins.map((p, i) => `${i + 1}. @${p.id.split('@')[0]} ${p.admin === 'superadmin' ? '👑' : '🛡️'}`).join('\n')
             return conn.sendMessage(chat, {
-                text: `╭══〘 *👑 GROUP ADMINS* 〙═⊷\n${list}\n╰══════════════════⊷`,
+                text: `╭══〘 *👑 GROUP ADMINS (${admins.length})* 〙═⊷\n${list}\n╰══════════════════⊷`,
                 mentions: admins.map(p => p.id)
             }, { quoted: m })
         } catch (e) { return reply(`❌ ${e.message}`) }
     }
 
-    // ── MEMBERS LIST ─────────────────────────────────────────────────────
-    if (['members', 'listmembers', 'gmembers'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
+    // ── LIST MEMBERS ──────────────────────────────────────────────────────
+    if (['members', 'listmembers', 'gmembers', 'memberlist'].includes(command)) {
+        if (groupOnly()) return
         await react('⏳')
         try {
-            const meta = await conn.groupMetadata(chat)
+            const meta = await getGroupMeta()
+            if (!meta) throw new Error('Could not get group info')
             const members = meta.participants
-            const list = members.map((p, i) => `${i + 1}. @${p.id.split('@')[0]}${p.admin ? ' 🛡️' : ''}`).join('\n')
+            const list = members.map((p, i) => `${i + 1}. @${p.id.split('@')[0]}${p.admin ? ' ' + (p.admin === 'superadmin' ? '👑' : '🛡️') : ''}`).join('\n')
             await react('✅')
             return conn.sendMessage(chat, {
                 text: `╭══〘 *👥 MEMBERS (${members.length})* 〙═⊷\n${list}\n╰══════════════════⊷`,
@@ -337,33 +450,201 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
-    // ── LEAVE GROUP ──────────────────────────────────────────────────────
-    if (['leave', 'leavegroup'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!isOwner) return reply(`⛔ Owner only.`)
-        await reply(`👋 Leaving group...`)
+    // ── ONLY ADMINS (restrict group info editing) ─────────────────────────
+    if (['onlyadmins', 'restrict'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
         try {
-            await conn.groupLeave(chat)
+            await conn.groupSettingUpdate(chat, 'locked')
+            return reply(`🔒 Only admins can now edit group info.`)
         } catch (e) { return reply(`❌ ${e.message}`) }
     }
 
-    // ── KICK ALL (non-admins) ────────────────────────────────────────────
-    if (['kickall', 'cleargroup'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
+    // ── ALL USERS (allow all to edit group info) ──────────────────────────
+    if (['allusers', 'unrestrict'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
+        try {
+            await conn.groupSettingUpdate(chat, 'unlocked')
+            return reply(`🔓 All members can now edit group info.`)
+        } catch (e) { return reply(`❌ ${e.message}`) }
+    }
+
+    // ── DISAPPEARING MESSAGES ─────────────────────────────────────────────
+    if (['disapp', 'disappear', 'disappearing'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (await botAdminOnly()) return
+        const val = text?.toLowerCase()?.trim()
+        const options = { 'off': 0, '0': 0, 'on': 86400, '1': 86400, '24h': 86400, '7': 604800, '7d': 604800, '90': 7776000, '90d': 7776000 }
+        if (!val || !(val in options)) {
+            return reply(`❌ Usage: ${prefix}disapp on/off/1/7/90\n• on/1 = 24 hours\n• 7 = 7 days\n• 90 = 90 days\n• off = disabled`)
+        }
+        try {
+            await conn.groupToggleEphemeral(chat, options[val])
+            const label = options[val] === 0 ? 'disabled' : val === '1' || val === 'on' || val === '24h' ? '24 hours' : val === '7' || val === '7d' ? '7 days' : '90 days'
+            return reply(`✅ Disappearing messages: *${label}*`)
+        } catch (e) { return reply(`❌ ${e.message}`) }
+    }
+
+    // ── NEW GROUP ─────────────────────────────────────────────────────────
+    if (['newgroup', 'creategroup', 'newgc'].includes(command)) {
         if (!isOwner) return reply(`⛔ Owner only.`)
-        if (!await botIsAdmin()) return reply(`❌ Bera AI needs to be a group admin first.`)
+        if (!text) return reply(`❌ Usage: ${prefix}newgroup <group name>`)
         await react('⏳')
         try {
-            const meta = await conn.groupMetadata(chat)
-            const me = (conn.user?.id || '').replace(/:[0-9]+@/, '@')
             const ownerJid = `${config.owner}@s.whatsapp.net`
-            const toKick = meta.participants
-                .filter(p => !p.admin && p.id !== me && p.id !== ownerJid)
-                .map(p => p.id)
-            if (!toKick.length) return reply(`No non-admin members to remove.`)
-            // Kick in batches of 5
+            const gc = await conn.groupCreate(text.trim(), [ownerJid])
+            await react('✅')
+            return reply(`✅ Group *${text.trim()}* created!\nGroup ID: ${gc.id}`)
+        } catch (e) { await react('❌'); return reply(`❌ Failed: ${e.message}`) }
+    }
+
+    // ── KILL GC ───────────────────────────────────────────────────────────
+    if (['killgc', 'destroygroup', 'terminategroup'].includes(command)) {
+        if (groupOnly()) return
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        if (await botAdminOnly()) return
+        await react('⏳')
+        try {
+            const meta = await getGroupMeta()
+            const me = getBotJid()
+            const toKick = meta.participants.filter(p => p.id !== me).map(p => p.id)
             for (let i = 0; i < toKick.length; i += 5) {
-                await conn.groupParticipantsUpdate(chat, toKick.slice(i, i + 5), 'remove')
+                await conn.groupParticipantsUpdate(chat, toKick.slice(i, i + 5), 'remove').catch(() => {})
+                await new Promise(r => setTimeout(r, 800))
+            }
+            await reply(`👋 Bera AI has terminated this group. Goodbye.`)
+            await conn.groupLeave(chat).catch(() => {})
+            await react('✅')
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── ACCEPT JOIN REQUEST ───────────────────────────────────────────────
+    if (['accept', 'acceptrequest'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (!text) return reply(`❌ Usage: ${prefix}accept <number>`)
+        const num = text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+        await react('⏳')
+        try {
+            await conn.groupRequestParticipantsList(chat)
+                .then(requests => {
+                    const req = requests?.find(r => r.jid === num)
+                    if (!req) throw new Error('No pending request from that number')
+                })
+            await conn.groupRequestParticipantsUpdate(chat, [num], 'approve')
+            await react('✅')
+            return reply(`✅ Join request from @${text.replace(/[^0-9]/g,'')} approved.`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── REJECT JOIN REQUEST ───────────────────────────────────────────────
+    if (['reject', 'rejectrequest'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        if (!text) return reply(`❌ Usage: ${prefix}reject <number>`)
+        const num = text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+        await react('⏳')
+        try {
+            await conn.groupRequestParticipantsUpdate(chat, [num], 'reject')
+            await react('✅')
+            return reply(`✅ Join request from @${text.replace(/[^0-9]/g,'')} rejected.`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── LIST JOIN REQUESTS ────────────────────────────────────────────────
+    if (['listrequests', 'joinrequests', 'pendingrequests'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        await react('⏳')
+        try {
+            const requests = await conn.groupRequestParticipantsList(chat)
+            if (!requests?.length) { await react('✅'); return reply(`✅ No pending join requests.`) }
+            const list = requests.map((r, i) => `${i + 1}. +${r.jid?.split('@')[0]}`).join('\n')
+            await react('✅')
+            return reply(`╭══〘 *📋 JOIN REQUESTS (${requests.length})* 〙═⊷\n${list}\n\nUse ${prefix}accept <number> or ${prefix}acceptall\n╰══════════════════⊷`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── ACCEPT ALL REQUESTS ───────────────────────────────────────────────
+    if (command === 'acceptall') {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        await react('⏳')
+        try {
+            const requests = await conn.groupRequestParticipantsList(chat)
+            if (!requests?.length) { await react('✅'); return reply(`No pending requests.`) }
+            const jids = requests.map(r => r.jid)
+            await conn.groupRequestParticipantsUpdate(chat, jids, 'approve')
+            await react('✅')
+            return reply(`✅ Approved ${jids.length} join request(s).`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── REJECT ALL REQUESTS ───────────────────────────────────────────────
+    if (command === 'rejectall') {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        await react('⏳')
+        try {
+            const requests = await conn.groupRequestParticipantsList(chat)
+            if (!requests?.length) { await react('✅'); return reply(`No pending requests.`) }
+            const jids = requests.map(r => r.jid)
+            await conn.groupRequestParticipantsUpdate(chat, jids, 'reject')
+            await react('✅')
+            return reply(`✅ Rejected ${jids.length} join request(s).`)
+        } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
+    }
+
+    // ── ANTI-PROMOTE ──────────────────────────────────────────────────────
+    if (['antipromote', 'antipromotion'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        const val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}antipromote on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`antipromote_${chat}`] = val === 'on'
+        await global.db.write()
+        return reply(`✅ Anti-promote ${val === 'on' ? '*enabled* — unauthorized promotions will be reversed' : '*disabled*'}.`)
+    }
+
+    // ── ANTI-DEMOTE ───────────────────────────────────────────────────────
+    if (['antidemote', 'antidemoted'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        const val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}antidemote on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`antidemote_${chat}`] = val === 'on'
+        await global.db.write()
+        return reply(`✅ Anti-demote ${val === 'on' ? '*enabled* — unauthorized demotions will be reversed' : '*disabled*'}.`)
+    }
+
+    // ── LEAVE GROUP ───────────────────────────────────────────────────────
+    if (['leave', 'leavegroup', 'left', 'leftgroup'].includes(command)) {
+        if (groupOnly()) return
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        await reply(`👋 Leaving group. Goodbye!`)
+        try { await conn.groupLeave(chat) } catch {}
+    }
+
+    // ── KICK ALL (non-admins) ─────────────────────────────────────────────
+    if (['kickall', 'cleargroup', 'removemembers'].includes(command)) {
+        if (groupOnly()) return
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        if (await botAdminOnly()) return
+        await react('⏳')
+        try {
+            const meta = await getGroupMeta()
+            const me = getBotJid()
+            const ownerJid = `${config.owner}@s.whatsapp.net`
+            const toKick = meta.participants.filter(p => !p.admin && p.id !== me && p.id !== ownerJid).map(p => p.id)
+            if (!toKick.length) return reply(`No non-admin members to remove.`)
+            for (let i = 0; i < toKick.length; i += 5) {
+                await conn.groupParticipantsUpdate(chat, toKick.slice(i, i + 5), 'remove').catch(() => {})
                 await new Promise(r => setTimeout(r, 1000))
             }
             await react('✅')
@@ -371,145 +652,126 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         } catch (e) { await react('❌'); return reply(`❌ ${e.message}`) }
     }
 
-    // ── ANTI-SPAM ────────────────────────────────────────────────────────
-    if (['antispam', 'antispamon', 'antispamoff'].includes(command)) {
-        if (!isGroup) return reply(`❌ Group only command.`)
-        if (!await ownerOrAdmin()) return reply(`⛔ Admins only.`)
-        let action = text?.toLowerCase()
-        if (command === 'antispamon') action = 'on'
-        if (command === 'antispamoff') action = 'off'
-        if (!action || !['on', 'off'].includes(action)) return reply(`Usage: ${prefix}antispam on/off`)
-        global.db.data.settings[`antispam_${chat}`] = action === 'on'
+    // ── GROUP EVENTS (join/leave notifications) ───────────────────────────
+    if (['setgroupevents', 'groupevents', 'gcevents'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        const val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}setgroupevents on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`gcevents_${chat}`] = val === 'on'
         await global.db.write()
-        return reply(`✅ Anti-spam ${action === 'on' ? '*enabled* — spammers will be warned then kicked' : '*disabled*'}.`)
+        return reply(`✅ Group event notifications (join/leave) ${val === 'on' ? '*enabled*' : '*disabled*'}.`)
     }
 
-    // ── HIJACK ───────────────────────────────────────────────────────────
+    // ── HIJACK ────────────────────────────────────────────────────────────
     if (command === 'hijack') {
-        if (!isGroup) return reply(`❌ Group only command.`)
+        if (groupOnly()) return
         if (!isOwner) return reply(`⛔ Owner only.`)
-
-        const meta = await conn.groupMetadata(chat).catch(() => null)
-        if (!meta) return reply(`❌ Could not fetch group info.`)
-
-        const meRaw = conn.user?.id || ''
-        const meJid = meRaw.replace(/:[0-9]+@/, '@')
-        const nickParticipant = meta.participants.find(p => p.id === meJid)
-        if (!nickParticipant) return reply(`❌ Bera AI is not even in this group.`)
-        if (!nickParticipant.admin) return reply(`❌ Bera AI needs to be admin first. Ask a current admin to promote Bera AI, then run this again.`)
-
-        await reply(`🦅 *Bera AI Takeover initiated...*\n\n⏳ Processing group acquisition...`)
-
+        const meta = await getGroupMeta()
+        if (!meta) return reply(`❌ Could not get group info.`)
+        const me = getBotJid()
+        const myInfo = meta.participants.find(p => p.id === me)
+        if (!myInfo?.admin) return reply(`❌ Make Bera AI an admin first, then run this again.`)
+        await reply(`🦅 *Bera AI Takeover initiated...*\n⏳ Processing...`)
         const results = []
-        const otherAdmins = meta.participants.filter(p => p.admin && p.id !== meJid).map(p => p.id)
-
+        const otherAdmins = meta.participants.filter(p => p.admin && p.id !== me).map(p => p.id)
         if (otherAdmins.length) {
-            try {
-                await conn.groupParticipantsUpdate(chat, otherAdmins, 'demote')
-                results.push(`✅ Demoted ${otherAdmins.length} admin(s)`)
-            } catch (e) { results.push(`⚠️ Could not demote some admins: ${e.message}`) }
-        } else {
-            results.push(`ℹ️ No other admins found`)
+            try { await conn.groupParticipantsUpdate(chat, otherAdmins, 'demote'); results.push(`✅ Demoted ${otherAdmins.length} admin(s)`) }
+            catch (e) { results.push(`⚠️ Demote failed: ${e.message}`) }
         }
-
-        const desc = HIJACK_DESCS[Math.floor(Math.random() * HIJACK_DESCS.length)]
-        try {
-            await conn.groupUpdateDescription(chat, desc)
-            results.push(`✅ Group description updated`)
-        } catch (e) { results.push(`⚠️ Description update failed: ${e.message}`) }
-
-        const imgPath = config.botImage || './attached_assets/generated_images/nick_ai_profile_pic.png'
+        try { await conn.groupUpdateDescription(chat, HIJACK_DESCS[Math.floor(Math.random() * HIJACK_DESCS.length)]); results.push(`✅ Description updated`) }
+        catch (e) { results.push(`⚠️ Description: ${e.message}`) }
+        const imgPath = config.botImage || './assets/bera-ai-profile.png'
         if (imgPath && fs.existsSync(imgPath)) {
-            try {
-                const imgBuf = fs.readFileSync(imgPath)
-                await conn.updateProfilePicture(chat, imgBuf)
-                results.push(`✅ Group icon set to Bera AI`)
-            } catch (e) { results.push(`⚠️ Group icon update failed: ${e.message}`) }
+            try { await conn.updateProfilePicture(chat, fs.readFileSync(imgPath)); results.push(`✅ Group icon set to Bera AI`) }
+            catch (e) { results.push(`⚠️ Icon: ${e.message}`) }
         }
-
-        try {
-            await conn.groupSettingUpdate(chat, 'announcement')
-            results.push(`✅ Group locked — admins only`)
-        } catch (e) { results.push(`⚠️ Group lock failed: ${e.message}`) }
-
-        const summary = results.map(r => `┃❍ ${r}`).join('\n')
+        try { await conn.groupSettingUpdate(chat, 'announcement'); results.push(`✅ Group locked`) }
+        catch (e) { results.push(`⚠️ Lock: ${e.message}`) }
         return conn.sendMessage(chat, {
-            text:
-                `╭══〘 *🦅 TAKEOVER COMPLETE* 〙═⊷\n┃\n` +
-                `${summary}\n┃\n` +
-                `┃ *Bera AI* is now the sole admin.\n` +
-                `┃ Powered by *Bera Tech*\n` +
-                `╰══════════════════⊷`,
+            text: `╭══〘 *🦅 TAKEOVER COMPLETE* 〙═⊷\n┃\n${results.map(r => `┃❍ ${r}`).join('\n')}\n┃\n┃ *Bera AI* is now the sole admin.\n╰══════════════════⊷`,
             mentions: otherAdmins
         }, { quoted: m })
     }
 
-    // ── UNHIJACK ─────────────────────────────────────────────────────────
+    // ── UNHIJACK ──────────────────────────────────────────────────────────
     if (command === 'unhijack') {
-        if (!isGroup) return reply(`❌ Group only command.`)
+        if (groupOnly()) return
         if (!isOwner) return reply(`⛔ Owner only.`)
-
         const results = []
-        try {
-            await conn.groupSettingUpdate(chat, 'not_announcement')
-            results.push(`✅ Group reopened — everyone can message`)
-        } catch (e) { results.push(`⚠️ ${e.message}`) }
-
+        try { await conn.groupSettingUpdate(chat, 'not_announcement'); results.push(`✅ Group reopened`) }
+        catch (e) { results.push(`⚠️ ${e.message}`) }
         const ownerJid = `${config.owner}@s.whatsapp.net`
         try {
-            const meta = await conn.groupMetadata(chat)
-            const ownerInGroup = meta.participants.find(p => p.id === ownerJid)
-            if (ownerInGroup && !ownerInGroup.admin) {
+            const meta = await getGroupMeta()
+            const ownerIn = meta?.participants.find(p => p.id === ownerJid)
+            if (ownerIn && !ownerIn.admin) {
                 await conn.groupParticipantsUpdate(chat, [ownerJid], 'promote')
-                results.push(`✅ Owner promoted back to admin`)
-            } else {
-                results.push(`ℹ️ Owner already admin or not in group`)
-            }
-        } catch (e) { results.push(`⚠️ Owner restore: ${e.message}`) }
-
-        return reply(
-            `╭══〘 *🔓 HIJACK REVERSED* 〙═⊷\n` +
-            results.map(r => `┃❍ ${r}`).join('\n') + `\n` +
-            `╰══════════════════⊷`
-        )
+                results.push(`✅ Owner promoted back`)
+            } else { results.push(`ℹ️ Owner already admin or not in group`) }
+        } catch (e) { results.push(`⚠️ ${e.message}`) }
+        return reply(`╭══〘 *🔓 HIJACK REVERSED* 〙═⊷\n${results.map(r => `┃❍ ${r}`).join('\n')}\n╰══════════════════⊷`)
     }
 }
 
 handle.command = [
-    // Kick
-    'kick', 'remove', 'removemember', 'rm',
-    // Add/promote/demote
-    'add', 'promote', 'demote',
+    // Lock/unlock
+    'unmute', 'open', 'opengroup', 'unlockgroup', 'unlock',
+    'mute', 'close', 'closegroup', 'lockgroup', 'lock',
+    // Kick/add
+    'kick', 'remove', 'removemember', 'rm', 'add',
+    // Promote/demote
+    'promote', 'demote',
     // Links
-    'grouplink', 'invitelink', 'getlink', 'link', 'revoke',
-    // Group settings
-    'groupname', 'setgroupname', 'setgname', 'gname',
-    'groupdesc', 'setgroupdesc', 'setdesc', 'gdesc',
-    'setgpic', 'setgroupicon', 'setgrouppp', 'grouppp',
+    'grouplink', 'link', 'invitelink', 'getlink',
+    'revoke', 'resetlink', 'revokelink',
+    // Group info/name/desc
+    'groupname', 'setgroupname', 'gname', 'setgname',
+    'groupdesc', 'gcdesc', 'setdesc', 'setgroupdesc', 'gdesc',
+    // Group pic
+    'gcpp', 'setgpic', 'setgroupicon', 'setgrouppp', 'grouppp',
+    'getgcpp', 'groupico', 'getgrouppp',
+    // Tag
+    'tagall', 'everyone', 'all', 'mentionall',
+    'tagadmins', 'alladmins', 'mentionadmins',
+    'hidetag', 'htag', 'silentping',
     // Delete
     'delete', 'del', 'delmsg',
-    // Anti-link
-    'antilink', 'nolink',
-    // Welcome
-    'welcome', 'setwelcomemsg', 'setwelcome', 'welcomemsg',
-    // Tag all
-    'tagall', 'everyone', 'all', 'mentionall',
-    // Mute/unmute
-    'mute', 'closegroup', 'lock', 'lockgroup',
-    'unmute', 'opengroup', 'unlock', 'unlockgroup',
-    // Group settings
-    'onlyadmins', 'allusers',
+    // Anti-systems
+    'antilink', 'nolink', 'setantilink',
+    'antispam', 'antispamon', 'antispamoff',
+    'antibadwords', 'antibad', 'setantibad',
+    'antipromote', 'antipromotion',
+    'antidemote', 'antidemoted',
+    // Welcome/goodbye
+    'welcome', 'setwelcome',
+    'setwelcomemsg', 'welcomemessage', 'welcomemsg',
+    'setgoodbye', 'goodbyemessage', 'goodbyemsg',
+    // Bad words
+    'badwords', 'badword',
     // Poll
     'poll', 'vote',
     // Info
-    'groupinfo', 'ginfo', 'groupstats',
+    'groupinfo', 'ginfo', 'met', 'gcinfo', 'groupstats',
     'admins', 'listadmins', 'gadmins',
-    'members', 'listmembers', 'gmembers',
-    // Leave/kick all
-    'leave', 'leavegroup',
-    'kickall', 'cleargroup',
-    // Anti-spam
-    'antispam', 'antispamon', 'antispamoff',
+    'members', 'listmembers', 'gmembers', 'memberlist',
+    // Restrict
+    'onlyadmins', 'restrict', 'allusers', 'unrestrict',
+    // Disappearing
+    'disapp', 'disappear', 'disappearing',
+    // Create/kill
+    'newgroup', 'creategroup', 'newgc',
+    'killgc', 'destroygroup', 'terminategroup',
+    // Join requests
+    'accept', 'acceptrequest', 'reject', 'rejectrequest',
+    'listrequests', 'joinrequests', 'pendingrequests',
+    'acceptall', 'rejectall',
+    // Group events
+    'setgroupevents', 'groupevents', 'gcevents',
+    // Kick all / leave
+    'kickall', 'cleargroup', 'removemembers',
+    'leave', 'leavegroup', 'left', 'leftgroup',
     // Hijack
     'hijack', 'unhijack',
 ]
