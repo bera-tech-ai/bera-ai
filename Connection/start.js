@@ -292,7 +292,7 @@ const startBot = async () => {
         if (connection === 'open') {
             if (fs.existsSync(PHONE_FILE)) fs.unlinkSync(PHONE_FILE)
             const botJid = jidNormalizedUser(conn.user?.id || '')
-            console.log(chalk.green(`\n[BOT] ✅ Connected as ${conn.user?.name || 'Nick'} (${botJid})`))
+            console.log(chalk.green(`\n[BOT] ✅ Connected as ${conn.user?.name || 'Bera AI'} (${botJid})`))
             console.log(chalk.green(`[BOT] 🤖 ${config.botName} is online and ready!\n`))
             startReminderLoop(conn)
             startBioLoop(conn)
