@@ -268,50 +268,48 @@ const generateStyleReply = async (incomingText, styleData) => {
 
         const sysPrompt = getSystemPrompt(profile)
 
-        // Try Claude endpoint
+        // ── Primary: apiskeith.top/ai/gpt with correct ?q= param ──────────
         try {
-            const response = await axios.get(`${KEITH}/api/claude`, {
-                params: { prompt: incomingText, system: sysPrompt },
+            const res = await axios.get('https://apiskeith.top/ai/gpt', {
+                params: { q: incomingText, system: sysPrompt },
                 timeout: 20000
             })
-            if (response.data?.result || response.data?.response || response.data?.message) {
-                return {
-                    success: true,
-                    reply: response.data.result || response.data.response || response.data.message
-                }
+            const reply = res.data?.result || res.data?.response || res.data?.message
+            if (reply && res.data?.status !== false) {
+                console.log('[CHATBERA] AI replied via apiskeith ✅')
+                return { success: true, reply }
+            }
+        } catch (e) {
+            console.log('[CHATBERA] apiskeith failed:', e.message)
+        }
+
+        // ── Secondary: apiskeith gpt4 endpoint ────────────────────────────
+        try {
+            const res = await axios.get('https://apiskeith.top/ai/gpt4', {
+                params: { q: incomingText, system: sysPrompt },
+                timeout: 20000
+            })
+            const reply = res.data?.result || res.data?.response
+            if (reply && res.data?.status !== false) {
+                console.log('[CHATBERA] AI replied via apiskeith gpt4 ✅')
+                return { success: true, reply }
             }
         } catch {}
 
-        // Fallback to GPT4
-        try {
-            const gptRes = await axios.get(`${KEITH}/api/gpt4`, {
-                params: {
-                    prompt: sysPrompt + '\n\nMessage to reply to: "' + incomingText + '"\n\nYour reply:'
-                },
-                timeout: 20000
-            })
-            if (gptRes.data?.result || gptRes.data?.response) {
-                return { success: true, reply: gptRes.data.result || gptRes.data.response }
-            }
-        } catch {}
+        // ── Last resort: pick a real message from the style profile ────────
+        console.log('[CHATBERA] All AI failed — using message fallback')
+        const msgs = (profile.myMessages || PREBUILT_PROFILE.myMessages || [])
+            .filter(msg => msg && msg.length > 2 && msg.length < 80)
+        if (msgs.length > 0) {
+            const pick = msgs[Math.floor(Math.random() * msgs.length)]
+            return { success: true, reply: pick }
+        }
 
-        // Second fallback - try mixtral
-        try {
-            const mixRes = await axios.get(`${KEITH}/api/mixtral`, {
-                params: { prompt: incomingText, system: sysPrompt },
-                timeout: 20000
-            })
-            if (mixRes.data?.result || mixRes.data?.response) {
-                return { success: true, reply: mixRes.data.result || mixRes.data.response }
-            }
-        } catch {}
-
-        return { success: false, error: 'AI API unavailable. Check internet.' }
+        return { success: false, error: 'AI unavailable and no fallback messages.' }
     } catch (e) {
         return { success: false, error: e.message }
     }
 }
-
 const analyzeStyle = async (myMessages, myName) => {
     try {
         const sample = myMessages.slice(0, 50).map((t, i) => i + 1 + '. "' + t + '"').join('\n')
