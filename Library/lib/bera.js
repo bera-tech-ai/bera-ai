@@ -46,10 +46,10 @@ const buildQuery = (userText, history = []) => {
 }
 
 const AI_ENDPOINTS = [
-    'https://apiskeith.top/ai/gpt4',
+    'https://apiskeith.top/ai/gpt',
     'https://api.siputzx.my.id/api/ai/chatgpt',
     'https://api.ryzendesu.vip/api/ai/chatgpt',
-    'https://bk9.fun/ai/gpt4',
+    'https://bk9.fun/ai/gpt',
     'https://api.vreden.my.id/api/openai',
 ]
 
