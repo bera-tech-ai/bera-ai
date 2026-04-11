@@ -375,6 +375,51 @@ const handleMessage = async (conn, rawMsg) => {
             // Auto-reply (DM and group)
             await checkAutoReply(conn, m, text)
 
+
+            // ── GitHub Download — natural language + bare URL ─────────────────
+            // Fires when message contains a github.com link + download intent
+            const ghUrlMatch = text && text.match(/https?:\/\/github\.com\/[\w.\-]+\/[\w.\-]+(?:\/[^\s]*)*/i)
+            const ghDownloadIntent = text && /\b(download|get|send|fetch|grab|zip|clone|dl)\b/i.test(text)
+            if (ghUrlMatch && (ghDownloadIntent || /github\.com\/[\w.\-]+\/[\w.\-]+\/blob\//.test(text))) {
+                const ghUrl = ghUrlMatch[0]
+                const isFile = ghUrl.includes('/blob/')
+                try {
+                    await conn.sendMessage(chat, { react: { text: '⏳', key: m.key } })
+                    const makeReq = (urlStr) => new Promise((resolve, reject) => {
+                        const u = new URL(urlStr)
+                        const req = require('https').request({ hostname: u.hostname, path: u.pathname + u.search, headers: { 'User-Agent': 'Bera-AI' } }, res => {
+                            if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) return resolve(makeReq(res.headers.location))
+                            if (res.statusCode !== 200) return reject(new Error('HTTP ' + res.statusCode))
+                            const chunks = []; res.on('data', c => chunks.push(c)); res.on('end', () => resolve(Buffer.concat(chunks)))
+                        })
+                        req.on('error', reject); req.setTimeout(60000, () => { req.destroy(); reject(new Error('timeout')) }); req.end()
+                    })
+                    let buf, fileName, mimetype, caption
+                    if (isFile) {
+                        const rawUrl = ghUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
+                        fileName = rawUrl.split('/').pop()
+                        buf = await makeReq(rawUrl)
+                        mimetype = 'application/octet-stream'
+                        caption = '📄 *' + fileName + '*\n🔗 ' + ghUrl
+                    } else {
+                        const parts = ghUrl.replace('https://github.com/', '').split('/')
+                        const owner = parts[0]; const repo = (parts[1] || '').replace('.git', '')
+                        if (!owner || !repo) throw new Error('Invalid repo URL')
+                        const branch = parts[3] || 'main'
+                        const zipUrl = 'https://github.com/' + owner + '/' + repo + '/archive/refs/heads/' + branch + '.zip'
+                        fileName = repo + '.zip'; mimetype = 'application/zip'
+                        buf = await makeReq(zipUrl)
+                        caption = '📦 *' + owner + '/' + repo + '* (' + branch + ')\n📏 ' + (buf.length / 1024).toFixed(1) + ' KB\n🔗 ' + ghUrl
+                    }
+                    await conn.sendMessage(chat, { react: { text: '✅', key: m.key } })
+                    await conn.sendMessage(chat, { document: buf, fileName, mimetype, caption }, { quoted: m })
+                } catch (e) {
+                    await conn.sendMessage(chat, { react: { text: '❌', key: m.key } })
+                    await conn.sendMessage(chat, { text: '❌ Download failed: ' + e.message }, { quoted: m })
+                }
+                return
+            }
+            // ─────────────────────────────────────────────────────────────────
             // ── ChatBera mode: reply as the owner when activated ──────────────
             // ChatBera: global mode OR per-chat mode
             const chatberaGlobal = global.db?.data?.chatbera?.globalEnabled
