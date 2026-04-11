@@ -310,6 +310,12 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ ${p}delsudo @user — Remove sudo user\n` +
             `┃❍ ${p}getpp <number> — Get profile picture\n` +
             `┃\n` +
+            `┃ *🎭 ChatBera (Talk As You)*\n` +
+            `┃❍ ${p}trainbera — Upload WhatsApp chat export\n` +
+            `┃❍ ${p}chatbera on/off — Activate in this chat\n` +
+            `┃❍ ${p}testbera <msg> — Test a reply in your style\n` +
+            `┃❍ ${p}mystyle — View your texting style analysis\n` +
+            `┃❍ ${p}clearstyle — Delete training data\n +
             `┃ *💻 Shell & Eval (Owner)*\n` +
             `┃❍ ${p}$ <cmd> / ${p}bash <cmd> — Run shell command\n` +
             `┃❍ ${p}> <js> / ${p}eval <js> — Evaluate JavaScript\n` +
