@@ -2,7 +2,6 @@ const axios = require('axios')
 const config = require('../../Config')
 
 const MAX_HISTORY = config.maxHistory || 20
-const BASE_URL = 'https://apiskeith.top'
 
 const PERSONALITY = `You are Bera AI — a sharp, witty AI assistant living inside WhatsApp. You were created by Bera Tech and you work for the bot owner (${config.owner}). You help everyone who talks to you.
 
@@ -45,79 +44,78 @@ const buildQuery = (userText, history = []) => {
     return `${PERSONALITY}${ctxBlock}User: ${userText}\nBera AI:`
 }
 
-const AI_ENDPOINTS = [
-    'https://apiskeith.top/ai/gpt',
-    'https://api.siputzx.my.id/api/ai/chatgpt',
-    'https://api.ryzendesu.vip/api/ai/chatgpt',
-    'https://bk9.fun/ai/gpt',
-    'https://api.vreden.my.id/api/openai',
-]
-
-const VISION_ENDPOINTS = [
-    `https://apiskeith.top/ai/vision`,
-    `https://api.siputzx.my.id/api/ai/gemini-vision`,
-]
-
 const cleanAnswer = (raw) => {
     let clean = String(raw).trim()
-    clean = clean.replace(/^(Nick|ChatGPT|GPT|AI):\s*/i, '').trim()
+    clean = clean.replace(/^(Nick|ChatGPT|GPT|AI|Keith AI):\s*/i, '').trim()
     clean = clean.replace(/\bI'?m Nick\b/gi, "I'm Bera AI")
     clean = clean.replace(/\bNick AI\b/gi, 'Bera AI')
+    clean = clean.replace(/\bKeith AI\b/gi, 'Bera AI')
     clean = clean.replace(/keithkeizzah/gi, 'Bera Tech')
     return clean
 }
 
-const tryEndpoints = async (endpoints, paramsFn, timeout = 25000) => {
-    let lastError = null
-    for (const url of endpoints) {
-        try {
-            const res = await axios.get(url, { params: paramsFn(url), timeout })
-            const data = res.data
-            if (data?.status === false || data?.success === false) {
-                lastError = new Error(data?.error || 'API returned failure')
-                continue
-            }
-            const answer = data?.result || data?.reply || data?.message || data?.response || data?.answer || data?.text || data?.data
-            if (!answer || typeof answer !== 'string') {
-                lastError = new Error('Empty response')
-                continue
-            }
-            return cleanAnswer(answer)
-        } catch (e) {
-            const status = e?.response?.status
-            if (status === 404 || status === 403 || status === 500 || status === 502 || status === 503) {
-                lastError = new Error(`Endpoint ${url} returned ${status}`)
-                continue
-            }
-            lastError = e
-        }
-    }
-    throw lastError || new Error('All AI endpoints failed')
+// Pollinations.ai — free, no API key, very reliable
+const tryPollinations = async (query) => {
+    const encoded = encodeURIComponent(query)
+    const res = await axios.get(`https://text.pollinations.ai/${encoded}`, {
+        timeout: 30000,
+        headers: { 'User-Agent': 'BeraBot/2.0' }
+    })
+    const text = typeof res.data === 'string' ? res.data.trim() : null
+    if (!text || text.length < 2) throw new Error('Empty pollinations response')
+    return text
 }
 
-const nickAi = async (userText, history = [], onAction = null, imageBuffer = null) => {
-    // Custom endpoint override
-    let customEndpoint = config.nickApiEndpoint
-    if (customEndpoint && !customEndpoint.includes('/api/nick')) {
-        AI_ENDPOINTS.unshift(customEndpoint)
-    }
+// Keith AI API
+const tryKeithAI = async (query) => {
+    const res = await axios.get('https://apiskeith.top/ai/gpt', {
+        params: { q: query },
+        timeout: 25000
+    })
+    const data = res.data
+    if (data?.status === false) throw new Error(data?.error || 'Keith API error')
+    const answer = data?.result || data?.reply || data?.message || data?.response
+    if (!answer || typeof answer !== 'string') throw new Error('Empty Keith response')
+    return answer
+}
 
+const VISION_ENDPOINTS = [
+    'https://apiskeith.top/ai/vision',
+    'https://api.siputzx.my.id/api/ai/gemini-vision',
+]
+
+const nickAi = async (userText, history = [], onAction = null, imageBuffer = null) => {
     if (imageBuffer) {
         const imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`
-        return tryEndpoints(VISION_ENDPOINTS, (url) => ({
-            image: imageBase64,
-            q: userText || 'Describe and analyse this image in detail.'
-        }))
+        for (const url of VISION_ENDPOINTS) {
+            try {
+                const res = await axios.get(url, {
+                    params: { image: imageBase64, q: userText || 'Describe and analyse this image in detail.' },
+                    timeout: 30000
+                })
+                const data = res.data
+                const answer = data?.result || data?.reply || data?.message || data?.response || data?.text
+                if (answer && typeof answer === 'string') return cleanAnswer(answer)
+            } catch { continue }
+        }
+        throw new Error('Image analysis is temporarily unavailable. Try again.')
     }
 
     const query = buildQuery(userText, history)
-    return tryEndpoints(AI_ENDPOINTS, (url) => {
-        // Different APIs use different param names
-        if (url.includes('siputzx') || url.includes('ryzendesu') || url.includes('vreden')) {
-            return { text: query, prompt: query }
+
+    // Try Keith AI first (fastest, best quality)
+    try {
+        const answer = await tryKeithAI(query)
+        return cleanAnswer(answer)
+    } catch (e1) {
+        // Fallback to Pollinations (always available)
+        try {
+            const answer = await tryPollinations(query)
+            return cleanAnswer(answer)
+        } catch (e2) {
+            throw new Error('Bera AI is temporarily busy. Please try again in a moment.')
         }
-        return { q: query, prompt: query, text: query }
-    })
+    }
 }
 
 module.exports = { nickAi, MAX_HISTORY }
