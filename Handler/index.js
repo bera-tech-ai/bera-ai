@@ -4,7 +4,7 @@ const { getUser } = require('../Database')
 const fs = require('fs')
 const path = require('path')
 
-const commandFiles = ['general', 'key', 'bera', 'group', 'admin', 'media', 'pterodactyl']
+const commandFiles = ['general', 'bera', 'group', 'admin', 'media', 'pterodactyl']
 const handlers = commandFiles.map(f => require(`../Commands/${f}`))
 
 const loadPlugins = () => {
@@ -95,14 +95,6 @@ const smsg = (conn, m) => {
 }
 
 const checkLimit = (user, isOwner) => {
-    if (isOwner || user.premium) return { ok: true }
-    const today = new Date().toDateString()
-    if (user.limitReset !== today) {
-        user.limit = 10
-        user.limitReset = today
-    }
-    if (user.limit <= 0) return { ok: false }
-    user.limit -= 1
     return { ok: true }
 }
 
@@ -404,23 +396,18 @@ const handleMessage = async (conn, rawMsg) => {
         const handler = commandMap.get(command)
         if (!handler) return
 
-        const publicCmds = ['activate', 'checkkey', 'ping', 'menu', 'help', 'info']
-        if (!authorized && !publicCmds.includes(command)) {
+        if (!authorized) {
             return ctx.reply(
-                `╭══〘 *🔒 ACCESS DENIED* 〙═⊷\n` +
-                `┃❍ You don't have access to Bera Bot.\n` +
-                `┃❍ Contact the owner to get a key.\n` +
-                `┃❍ Then use: ${prefix}activate <KEY>\n` +
+                `╭══〘 *🔒 PRIVATE MODE* 〙═⊷\n` +
+                `┃❍ Bera AI is currently in private mode.\n` +
+                `┃❍ Only the owner can use the bot right now.\n` +
                 `╰══════════════════⊷`
             )
         }
 
         const user = getUser(sender)
 
-        const limitCheck = checkLimit(user, isOwner)
-        if (!limitCheck.ok) {
-            return ctx.reply(`⚠️ *Daily limit reached (10/day).*\n\nCome back tomorrow or ask the owner for premium access — unlimited commands.`)
-        }
+        checkLimit(user, isOwner)
 
         user.commandCount = (user.commandCount || 0) + 1
         if (!global.db.data.stats) global.db.data.stats = { totalCommands: 0 }
