@@ -1,330 +1,202 @@
 // Plugins/chatbera.js
-// ChatBera — talks exactly like you when you're away
+// ChatBera — trained on Developer Bera's real chats (Carl Tech, Grace H, Marisel, iddahtelewa)
+// 433 messages | Auto-initialises with prebuilt profile
 
-const { parseExport, getSenders, buildStylePrompt, generateStyleReply, analyzeStyle } = require('../Library/actions/chatbera')
+const { parseExport, getSenders, buildStylePrompt, generateStyleReply, analyzeStyle, getPrebuiltProfile, PREBUILT_PROFILE } = require('../Library/actions/chatbera')
+
+// Auto-load prebuilt profile into DB if not already there
+const ensurePrebuilt = async () => {
+    if (!global.db?.data?.chatbera?.profile?.myMessages?.length) {
+        if (!global.db.data.chatbera) global.db.data.chatbera = {}
+        global.db.data.chatbera.profile = getPrebuiltProfile()
+        await global.db.write().catch(() => {})
+    }
+}
 
 const handle = async (m, { conn, text, reply, command, sender, chat, prefix, isOwner }) => {
-
     const react = (emoji) => conn.sendMessage(chat, { react: { text: emoji, key: m.key } }).catch(() => {})
+
+    // Auto-load prebuilt on any chatbera command
+    await ensurePrebuilt()
 
     // ── .chatbera on/off ──────────────────────────────────────────────────────
     if (command === 'chatbera') {
         if (!isOwner) return reply('❌ Only the bot owner can control ChatBera mode.')
-
         const arg = text?.trim().toLowerCase()
 
         if (arg === 'on') {
-            const profile = global.db?.data?.chatbera?.profile
-            if (!profile?.systemPrompt || !profile?.myMessages?.length) {
-                return reply(
-                    '⚠️ *No training data found!*\n\n' +
-                    'First train the bot with your chat export:\n' +
-                    '1️⃣ Open WhatsApp → chat with your girl/friend\n' +
-                    '2️⃣ Tap ⋮ → More → Export chat → Without media\n' +
-                    `3️⃣ Send the .txt file here and type *${prefix}trainbera*`
-                )
-            }
             if (!global.db.data.chatbera) global.db.data.chatbera = {}
-            global.db.data.chatbera.enabled = global.db.data.chatbera.enabled || {}
+            if (!global.db.data.chatbera.enabled) global.db.data.chatbera.enabled = {}
             global.db.data.chatbera.enabled[chat] = true
             await global.db.write()
-
-            const name = profile.myName || 'you'
+            const profile = global.db.data.chatbera.profile
             return reply(
-                `╭══〘 *🤖 CHATBERA ON* 〙═⊷\n` +
-                `┃❍ I'm now replying as *${name}*\n` +
-                `┃❍ Trained on *${profile.myMessages.length}* of your real messages\n` +
-                `┃❍ Anyone messaging here gets a reply in your exact style\n` +
-                `┃\n` +
+                '╭══〘 *🎭 CHATBERA ON* 〙═⊷\n' +
+                '┃\n' +
+                `┃ I\'m now replying as *${profile?.myName || 'Developer Bera'}*\n` +
+                `┃ Trained on *${profile?.myMessages?.length || 412} real messages*\n` +
+                '┃ from 4 different chats (Carl, Grace, Marisel, Iddah)\n' +
+                '┃\n' +
+                '┃ Anyone who messages here gets a reply\n' +
+                '┃ in your exact texting style 🎭\n' +
+                '┃\n' +
                 `┃ Turn off: *${prefix}chatbera off*\n` +
-                `╰══════════════════⊷`
+                '╰══════════════════⊷'
             )
         }
 
         if (arg === 'off') {
             if (!global.db.data.chatbera) global.db.data.chatbera = {}
-            global.db.data.chatbera.enabled = global.db.data.chatbera.enabled || {}
+            if (!global.db.data.chatbera.enabled) global.db.data.chatbera.enabled = {}
             global.db.data.chatbera.enabled[chat] = false
             await global.db.write()
-            return reply('🔴 *ChatBera OFF* — bot will no longer reply as you in this chat.')
+            return reply('🔴 *ChatBera OFF* — Bera is back to normal in this chat.')
         }
 
-        // Status check
-        const isOn = global.db?.data?.chatbera?.enabled?.[chat]
-        const profile = global.db?.data?.chatbera?.profile
-        const trained = profile?.myMessages?.length || 0
+        if (arg === 'status' || !arg) {
+            const isOn = global.db?.data?.chatbera?.enabled?.[chat]
+            const profile = global.db?.data?.chatbera?.profile
+            const allActive = Object.entries(global.db?.data?.chatbera?.enabled || {})
+                .filter(([, v]) => v).map(([k]) => k.split('@')[0]).join(', ')
 
-        return reply(
-            `╭══〘 *🤖 CHATBERA STATUS* 〙═⊷\n` +
-            `┃❍ Status in this chat: *${isOn ? '🟢 ON' : '🔴 OFF'}*\n` +
-            `┃❍ Trained on: *${trained} messages*\n` +
-            `┃❍ Style name: *${profile?.myName || 'Not set'}*\n` +
-            `┃\n` +
-            `┃ *Commands:*\n` +
-            `┃❍ ${prefix}chatbera on/off — Toggle in this chat\n` +
-            `┃❍ ${prefix}trainbera — Upload chat export\n` +
-            `┃❍ ${prefix}mystyle — See your style analysis\n` +
-            `┃❍ ${prefix}testbera <message> — Test a reply\n` +
-            `┃❍ ${prefix}clearstyle — Delete training data\n` +
-            `╰══════════════════⊷`
-        )
+            return reply(
+                '╭══〘 *🎭 CHATBERA STATUS* 〙═⊷\n' +
+                `┃ This chat: *${isOn ? '🟢 ON' : '🔴 OFF'}*\n` +
+                `┃ Name: *${profile?.myName || 'Developer Bera'}*\n` +
+                `┃ Messages trained: *${profile?.myMessages?.length || 412}*\n` +
+                `┃ Sources: Carl Tech, Grace H, Marisel, Iddah\n` +
+                `┃ Active chats: ${allActive || 'none'}\n` +
+                '┃\n' +
+                '┃ *Commands:*\n' +
+                `┃ ${prefix}chatbera on/off — Toggle\n` +
+                `┃ ${prefix}testbera <msg> — Test a reply\n` +
+                `┃ ${prefix}mystyle — View style analysis\n` +
+                `┃ ${prefix}trainbera — Upload more chat exports\n` +
+                '╰══════════════════⊷'
+            )
+        }
     }
 
-    // ── .trainbera — upload a WhatsApp chat export .txt ───────────────────────
+    // ── .trainbera — upload additional chat export ────────────────────────────
     if (command === 'trainbera') {
-        if (!isOwner) return reply('❌ Only the bot owner can train ChatBera.')
-
-        // Check for document/text file in quoted or current message
+        if (!isOwner) return reply('❌ Owner only.')
         const hasDoc = m.mtype === 'documentMessage' || m.mtype === 'documentWithCaptionMessage'
         const quotedDoc = m.quoted?.mtype === 'documentMessage'
 
         if (!hasDoc && !quotedDoc) {
             return reply(
-                `╭══〘 *📚 TRAINBERA* 〙═⊷\n` +
-                `┃\n` +
-                `┃ Send your WhatsApp chat export and\n` +
-                `┃ type *${prefix}trainbera* as the caption.\n` +
-                `┃\n` +
-                `┃ *How to export:*\n` +
-                `┃ 1. Open the chat (your girl/friend)\n` +
-                `┃ 2. Tap ⋮ → More → Export chat\n` +
-                `┃ 3. Choose "Without media"\n` +
-                `┃ 4. Send the .txt file here with\n` +
-                `┃    .trainbera as the caption\n` +
-                `┃\n` +
-                `┃ The bot learns your texting style\n` +
-                `┃ and replies as you when away!\n` +
-                `╰══════════════════⊷`
+                '╭══〘 *📚 TRAINBERA* 〙═⊷\n' +
+                '┃\n' +
+                '┃ ChatBera is already trained on your\n' +
+                '┃ real chats with Carl, Grace, Marisel\n' +
+                '┃ and Iddah (412 messages total).\n' +
+                '┃\n' +
+                '┃ To add MORE training data:\n' +
+                '┃ Export another chat from WhatsApp\n' +
+                '┃ (⋮ → More → Export chat → Without media)\n' +
+                '┃ Then send the .txt file here with\n' +
+                `┃ caption: *${prefix}trainbera YourName*\n` +
+                '╰══════════════════⊷'
             )
         }
 
         await react('⏳')
-        await conn.sendMessage(chat, { text: '📖 Reading your chat export...' }, { quoted: m })
-
         try {
-            // Download the document
-            const msgToDownload = hasDoc ? m : m.quoted
             const buf = await conn.downloadMediaMessage(hasDoc ? m : {
                 key: m.quoted.key,
                 message: { documentMessage: m.quoted.message }
             })
-
-            if (!buf) {
-                await react('❌')
-                return reply('❌ Could not download the file. Make sure you sent a .txt file.')
-            }
+            if (!buf) { await react('❌'); return reply('❌ Could not download file.') }
 
             const fileContent = buf.toString('utf8')
-
-            // Check it looks like a WhatsApp export
-            if (!fileContent.includes(':') || fileContent.length < 100) {
-                await react('❌')
-                return reply('❌ This doesn\'t look like a WhatsApp chat export. Make sure to export as .txt')
-            }
-
-            // Detect senders
             const senders = getSenders(fileContent)
-            if (senders.length < 2) {
-                await react('❌')
-                return reply('❌ Couldn\'t detect any contacts in this file. Export the correct chat.')
-            }
-
-            // Who are you in the chat?
-            // Use the text after the command, or first sender if name provided
-            let myName = text?.trim() || ''
-
-            if (!myName) {
-                // Ask user which name is theirs
-                const senderList = senders.slice(0, 10).map((s, i) => `${i + 1}. ${s}`).join('\n')
-                await global.db.write && null
-
-                // Store file temporarily and ask user to pick their name
-                if (!global.db.data.chatbera) global.db.data.chatbera = {}
-                global.db.data.chatbera._pendingExport = fileContent
-                global.db.data.chatbera._pendingSenders = senders
-                await global.db.write()
-
-                await react('❓')
-                return reply(
-                    `╭══〘 *📚 TRAINBERA* 〙═⊷\n` +
-                    `┃ Chat export loaded!\n` +
-                    `┃\n` +
-                    `┃ *Who are you in this chat?*\n` +
-                    `┃ Type your name as it appears:\n` +
-                    `┃\n` +
-                    `${senderList.split('\n').map(l => `┃ ${l}`).join('\n')}\n` +
-                    `┃\n` +
-                    `┃ Reply: *${prefix}setmyname <name>*\n` +
-                    `╰══════════════════⊷`
-                )
-            }
-
-            // Process with the given name
-            await conn.sendMessage(chat, { text: `🔍 Finding your messages as "${myName}"...` }, { quoted: m })
+            const myName = text?.trim() || 'Developer Bera'
             const { myMessages } = parseExport(fileContent, myName)
 
-            if (myMessages.length < 10) {
+            if (myMessages.length < 5) {
                 await react('❌')
-                return reply(
-                    `❌ Only found *${myMessages.length}* messages from "${myName}".\n` +
-                    `That's not enough to learn your style.\n\n` +
-                    `Make sure the name matches exactly. Try:\n` +
-                    `*${prefix}trainbera ${senders[0]}* or *${prefix}trainbera ${senders[1] || 'YourName'}*\n\n` +
-                    `Senders found: ${senders.slice(0,5).join(', ')}`
-                )
+                return reply(`❌ Only found ${myMessages.length} messages from "${myName}".\nSenders found: ${senders.join(', ')}`)
             }
 
-            await conn.sendMessage(chat, { text: `📊 Analysing your style from ${myMessages.length} messages...` }, { quoted: m })
+            await conn.sendMessage(chat, { text: `📊 Found ${myMessages.length} messages. Merging with existing training data...` }, { quoted: m })
 
-            // Build style profile
-            const systemPrompt = buildStylePrompt(myMessages, myName)
+            // Merge with existing
+            const existing = global.db.data.chatbera.profile?.myMessages || []
+            const merged = [...new Set([...existing, ...myMessages])].slice(0, 300)
+            const newSystemPrompt = buildStylePrompt(merged, myName)
 
-            // Run style analysis
-            const styleAnalysis = await analyzeStyle(myMessages, myName)
-
-            // Save to database
-            if (!global.db.data.chatbera) global.db.data.chatbera = {}
             global.db.data.chatbera.profile = {
                 myName,
-                myMessages: myMessages.slice(0, 150), // store up to 150 examples
-                systemPrompt,
-                styleAnalysis,
+                myMessages: merged,
+                systemPrompt: newSystemPrompt,
+                styleAnalysis: global.db.data.chatbera.profile?.styleAnalysis || PREBUILT_PROFILE.styleAnalysis,
                 trainedAt: new Date().toISOString(),
-                totalFound: myMessages.length
+                totalFound: merged.length
             }
-            delete global.db.data.chatbera._pendingExport
-            delete global.db.data.chatbera._pendingSenders
             await global.db.write()
-
             await react('✅')
             return reply(
-                `╭══〘 *✅ CHATBERA TRAINED!* 〙═⊷\n` +
-                `┃\n` +
-                `┃ 📚 Name: *${myName}*\n` +
-                `┃ 💬 Messages trained on: *${myMessages.length}*\n` +
-                `┃\n` +
-                `┃ *📝 Your texting style:*\n` +
-                `${styleAnalysis.split('\n').slice(0,8).map(l => `┃ ${l}`).join('\n')}\n` +
-                `┃\n` +
-                `┃ Now activate: *${prefix}chatbera on*\n` +
-                `╰══════════════════⊷`
+                `✅ *Training updated!*\n` +
+                `Added ${myMessages.length} new messages\n` +
+                `Total training data: *${merged.length} messages*`
             )
         } catch (e) {
             await react('❌')
-            return reply(`❌ Error reading file: ${e.message}`)
+            return reply('❌ Error: ' + e.message)
         }
     }
 
-    // ── .setmyname — set which name is you after upload ───────────────────────
-    if (command === 'setmyname') {
-        if (!isOwner) return reply('❌ Owner only.')
-        const pending = global.db?.data?.chatbera?._pendingExport
-        if (!pending) return reply(`❌ No pending export. Send your chat file first with *${prefix}trainbera*`)
-
-        const myName = text?.trim()
-        if (!myName) return reply(`❌ Usage: ${prefix}setmyname YourName`)
-
-        await react('⏳')
-
-        const { myMessages } = parseExport(pending, myName)
-        if (myMessages.length < 10) {
-            return reply(
-                `❌ Only found ${myMessages.length} messages from "${myName}".\n` +
-                `Names in chat: ${(global.db.data.chatbera._pendingSenders || []).join(', ')}`
-            )
-        }
-
-        await conn.sendMessage(chat, { text: `📊 Analysing ${myMessages.length} messages as "${myName}"...` }, { quoted: m })
-
-        const systemPrompt = buildStylePrompt(myMessages, myName)
-        const styleAnalysis = await analyzeStyle(myMessages, myName)
-
-        global.db.data.chatbera.profile = {
-            myName,
-            myMessages: myMessages.slice(0, 150),
-            systemPrompt,
-            styleAnalysis,
-            trainedAt: new Date().toISOString(),
-            totalFound: myMessages.length
-        }
-        delete global.db.data.chatbera._pendingExport
-        delete global.db.data.chatbera._pendingSenders
-        await global.db.write()
-
-        await react('✅')
-        return reply(
-            `╭══〘 *✅ CHATBERA TRAINED!* 〙═⊷\n` +
-            `┃ Name: *${myName}*\n` +
-            `┃ Messages: *${myMessages.length}*\n` +
-            `┃\n` +
-            `┃ *Style summary:*\n` +
-            `${styleAnalysis.split('\n').slice(0,8).map(l => `┃ ${l}`).join('\n')}\n` +
-            `┃\n` +
-            `┃ Activate: *${prefix}chatbera on*\n` +
-            `╰══════════════════⊷`
-        )
-    }
-
-    // ── .mystyle — view your current style analysis ───────────────────────────
+    // ── .mystyle ──────────────────────────────────────────────────────────────
     if (command === 'mystyle' || command === 'chatstyle') {
         const profile = global.db?.data?.chatbera?.profile
-        if (!profile) return reply(`❌ No style data yet. Train first with *${prefix}trainbera*`)
-
+        const analysis = profile?.styleAnalysis || PREBUILT_PROFILE.styleAnalysis
         return reply(
-            `╭══〘 *🪞 YOUR TEXTING STYLE* 〙═⊷\n` +
-            `┃ Name: *${profile.myName}*\n` +
-            `┃ Trained on: *${profile.myMessages.length} messages*\n` +
-            `┃ Trained: ${new Date(profile.trainedAt).toLocaleDateString()}\n` +
-            `┃\n` +
-            `${(profile.styleAnalysis || 'No analysis available').split('\n').map(l => `┃ ${l}`).join('\n')}\n` +
-            `╰══════════════════⊷`
+            '╭══〘 *🪞 YOUR TEXTING STYLE* 〙═⊷\n' +
+            `┃ Name: *${profile?.myName || 'Developer Bera'}*\n` +
+            `┃ Trained on: *${profile?.myMessages?.length || 412} messages*\n` +
+            '┃ Sources: Carl Tech, Grace H, Marisel, Iddah\n' +
+            '┃\n' +
+            analysis.split('\n').map(l => '┃ ' + l).join('\n') + '\n' +
+            '╰══════════════════⊷'
         )
     }
 
-    // ── .testbera — test a reply in your style ────────────────────────────────
+    // ── .testbera ──────────────────────────────────────────────────────────────
     if (command === 'testbera') {
-        const profile = global.db?.data?.chatbera?.profile
-        if (!profile) return reply(`❌ No training data. Use *${prefix}trainbera* first.`)
-
         const testMsg = text?.trim()
-        if (!testMsg) return reply(`❌ Usage: ${prefix}testbera <message to test>`)
+        if (!testMsg) return reply(`❌ Usage: ${prefix}testbera <message>`)
 
         await react('⏳')
-        await conn.sendMessage(chat, { text: `🎭 Generating reply as *${profile.myName}*...` }, { quoted: m })
+        const profile = global.db?.data?.chatbera?.profile
+        await conn.sendMessage(chat, { text: `🎭 Generating reply as *${profile?.myName || 'Developer Bera'}*...` }, { quoted: m })
 
         const result = await generateStyleReply(testMsg, profile)
         await react(result.success ? '✅' : '❌')
-
-        if (!result.success) return reply(`❌ ${result.error}`)
+        if (!result.success) return reply('❌ ' + result.error)
 
         return reply(
-            `╭══〘 *🎭 CHATBERA TEST* 〙═⊷\n` +
-            `┃ *Incoming:* "${testMsg}"\n` +
-            `┃\n` +
-            `┃ *Reply as ${profile.myName}:*\n` +
-            `┃ ${result.reply}\n` +
-            `╰══════════════════⊷`
+            '╭══〘 *🎭 CHATBERA TEST* 〙═⊷\n' +
+            `┃ *Them:* "${testMsg}"\n` +
+            '┃\n' +
+            `┃ *${profile?.myName || 'Developer Bera'} (AI):* ${result.reply}\n` +
+            '╰══════════════════⊷'
         )
     }
 
-    // ── .clearstyle — wipe training data ─────────────────────────────────────
+    // ── .clearstyle ───────────────────────────────────────────────────────────
     if (command === 'clearstyle' || command === 'clearbera') {
         if (!isOwner) return reply('❌ Owner only.')
-        if (!global.db.data.chatbera) return reply('Nothing to clear.')
-        global.db.data.chatbera = {}
-        await global.db.write()
-        return reply('🗑️ ChatBera training data cleared. Bot will no longer reply as you.')
+        if (global.db.data.chatbera) {
+            delete global.db.data.chatbera.profile
+            await global.db.write()
+        }
+        // Reload prebuilt
+        await ensurePrebuilt()
+        return reply('🔄 Style reset to prebuilt profile (412 real messages from 4 chats).')
     }
 }
 
-handle.command = [
-    'chatbera',
-    'trainbera',
-    'setmyname',
-    'mystyle', 'chatstyle',
-    'testbera',
-    'clearstyle', 'clearbera'
-]
+handle.command = ['chatbera', 'trainbera', 'setmyname', 'mystyle', 'chatstyle', 'testbera', 'clearstyle', 'clearbera']
 handle.tags = ['chatbera']
 
 module.exports = handle
