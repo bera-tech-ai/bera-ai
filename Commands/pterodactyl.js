@@ -280,7 +280,7 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
     }
 
     // ── ptcreate <plan> <username> [whatsapp] — or reply to user's message ──
-    if (command === 'ptcreate') {
+    if (command === 'ptcreate' || command === 'pcreate') {
         if (args.length < 2) return reply(
             `❌ *Usage:*\n` +
             `• In their private chat: ${prefix}ptcreate <plan> <username>\n` +
@@ -711,7 +711,7 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
             waNum    = text.slice(commaIdx + 1).trim().replace(/[^0-9]/g, '')
             mainPart = text.slice(0, commaIdx).trim()
         }
-        const parts    = mainPart.trim().split(/s+/)
+        const parts    = mainPart.trim().split(/\s+/)
         const plan     = parts[0]?.toLowerCase()
         const username = parts.slice(1).join('').trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
 
@@ -860,7 +860,7 @@ handle.command = [
     'ptlist', 'servers', 'listservers', 'myservers',
     'ptstatus', 'ptstart', 'ptstop', 'ptrestart', 'ptkill',
     'ptcmd', 'ptcommand', 'ptfiles', 'ptread', 'ptcat', 'ptwrite',
-    'ptcreate', 'create',
+    'ptcreate', 'pcreate', 'create',
     'ptaddserver', 'ptadmin', 'ptreset', 'ptcreds', 'ptdelete',
     'ptusers', 'listusers', 'ptdeluser', 'deleteuser', 'deluser',
     'ptpromote', 'ptdemote', 'ptpurgeusers',
