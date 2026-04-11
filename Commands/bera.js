@@ -50,7 +50,7 @@ const askNick = async (m, conn, reply, sender, userText, imageBuffer = null) => 
         answer = await nickAi(userText, history, null, imageBuffer)
     } catch (e) {
         await react(conn, m, '❌')
-        return reply(`❌ *Nick is unavailable right now.*\n\n_${e.message}_`)
+        return reply(`❌ *Bera AI is unavailable right now.*\n\n_${e.message}_`)
     }
 
     history.push({ role: 'user', content: imageBuffer ? `[image] ${userText}` : userText })
@@ -515,7 +515,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
         const key = `chatbot_${m.chat}`
         global.db.data.settings[key] = action === 'on'
         await global.db.write()
-        return reply(action === 'on' ? `✅ Auto-mode ON — Nick listens to everything.` : `✅ Auto-mode OFF.`)
+        return reply(action === 'on' ? `✅ Auto-mode ON — Bera AI listens to everything.` : `✅ Auto-mode OFF.`)
     }
 
     if (command === 'berareset') {
@@ -540,12 +540,12 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
     if (command === 'beraclone') {
         const history = getUserHistory(nickSender)
         if (history.length === 0) return reply(`Nothing to export yet.`)
-        const lines = history.map(h => `[${h.role === 'user' ? '👤 YOU' : '🤖 NICK'}]\n${h.content}`).join('\n\n' + '─'.repeat(30) + '\n\n')
-        const doc = `🤖 NICK AI — CONVERSATION\n${'═'.repeat(35)}\nTurns: ${Math.floor(history.length / 2)}\nDate: ${new Date().toUTCString()}\n${'═'.repeat(35)}\n\n${lines}`
+        const lines = history.map(h => `[${h.role === 'user' ? '👤 YOU' : '🤖 BERA AI'}]\n${h.content}`).join('\n\n' + '─'.repeat(30) + '\n\n')
+        const doc = `🤖 BERA AI AI — CONVERSATION\n${'═'.repeat(35)}\nTurns: ${Math.floor(history.length / 2)}\nDate: ${new Date().toUTCString()}\n${'═'.repeat(35)}\n\n${lines}`
         return conn.sendMessage(m.chat, {
             document: Buffer.from(doc, 'utf-8'),
             mimetype: 'text/plain',
-            fileName: `Nick_${Date.now()}.txt`,
+            fileName: `Bera_AI_${Date.now()}.txt`,
             caption: `✅ *${Math.floor(history.length / 2)} exchange(s)* exported.`
         }, { quoted: m })
     }
@@ -572,7 +572,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
         global.db.data.settings[key] = action === 'on'
         await global.db.write()
         return reply(action === 'on'
-            ? `✅ Tag-reply ON — Nick responds when someone @mentions you.`
+            ? `✅ Tag-reply ON — Bera AI responds when someone @mentions you.`
             : `✅ Tag-reply OFF.`
         )
     }
@@ -617,7 +617,7 @@ handle.before = async (m, { conn, reply, prefix }) => {
             const msgText = m.text?.trim() || ''
             if (msgText.startsWith(pfx)) return
             const senderName = m.pushName || sender.split('@')[0]
-            const context = `${senderName} just tagged the owner in a group and said: "${msgText || '(no message)'}" — The owner is not available right now. Respond as Nick, their AI assistant. Greet them briefly, introduce yourself, and help them or offer to pass the message along.`
+            const context = `${senderName} just tagged the owner in a group and said: "${msgText || '(no message)'}" — The owner is not available right now. Respond as Bera AI, their AI assistant. Greet them briefly, introduce yourself, and help them or offer to pass the message along.`
             await askNick(m, conn, reply, sender, context)
             return
         }
@@ -632,7 +632,7 @@ handle.before = async (m, { conn, reply, prefix }) => {
         const userText = m.text?.trim() || ''
         await handleAction(m, conn, reply, userText, sender, imageBuffer)
     } catch (e) {
-        console.error('[NICK BEFORE ERROR]', e.message)
+        console.error('[BERA BEFORE ERROR]', e.message)
     }
 }
 
