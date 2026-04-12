@@ -837,6 +837,331 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
         return reply(`✅ User *${text.trim()}* and all their servers deleted.`)
     }
 
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  BERAHOST NATIVE API COMMANDS
+    // ════════════════════════════════════════════════════════════════════════════
+    const bh = require('../Library/actions/berahost')
+
+    // ── .deploy bot <botId> <sessionId> ──────────────────────────────────────
+    if (['deploy', 'bhd', 'botdeploy', 'newdeploy'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        // Flexible parsing: .deploy bot 1 Gifted~session  OR  .deploy 1 Gifted~session
+        const rawArgs = text.trim().split(/\s+/)
+        const firstIsBot = rawArgs[0]?.toLowerCase() === 'bot'
+        const botId = firstIsBot ? rawArgs[1] : rawArgs[0]
+        const sessionId = firstIsBot ? rawArgs.slice(2).join(' ') : rawArgs.slice(1).join(' ')
+
+        if (!botId || !sessionId) {
+            const botsRes = await bh.listBots()
+            const botList = botsRes.success
+                ? botsRes.bots.map(b => `  ${b.id}. ${b.name || b.id}`).join('\n')
+                : '  1. Atassa-MD\n  2. (check .bots for full list)'
+            return reply(
+                `❓ *Usage:* ${prefix}deploy bot <id> <session_id>\n\n` +
+                `*Example:*\n${prefix}deploy bot 1 Gifted~yourSessionHere\n\n` +
+                `*Available Bots:*\n${botList}\n\n` +
+                `💡 Get your session ID from the bot's QR page or existing deployment.`
+            )
+        }
+
+        await conn.sendMessage(chat, { react: { text: '🚀', key: m.key } })
+        await reply(`🚀 Deploying bot *${botId}* with your session...\n⏳ This may take 1-2 minutes.`)
+
+        const r = await bh.deployBot(botId, sessionId)
+        if (!r.success) {
+            await conn.sendMessage(chat, { react: { text: '❌', key: m.key } })
+            return reply(`❌ Deploy failed: ${r.error}`)
+        }
+
+        // Poll until running
+        await reply(`🔄 Deployment *${r.id}* created — polling status...`)
+        const final = await bh.pollDeployment(r.id, 120000, 5000)
+        const dep = final.deployment || {}
+
+        await conn.sendMessage(chat, { react: { text: dep.status === 'running' ? '✅' : '⚠️', key: m.key } })
+        return reply(
+            `╭══〘 *🚀 DEPLOYMENT READY* 〙═⊷\n` +
+            `${bh.fmtDeploy(dep).split('\n').map(l => '┃ ' + l).join('\n')}\n` +
+            `┃\n` +
+            `┃ 💡 Use: *${prefix}botlogs ${r.id}* to see logs\n` +
+            `┃        *${prefix}stopbot ${r.id}* to stop\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
+    // ── .deployments / .mybots ────────────────────────────────────────────────
+    if (['deployments', 'mybots', 'listdeploy', 'bhdlist', 'mydeployments'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        await conn.sendMessage(chat, { react: { text: '📋', key: m.key } })
+        const r = await bh.listDeployments()
+        if (!r.success) return reply(`❌ ${r.error}`)
+        const deploys = r.deployments
+        if (!deploys.length) return reply(`📋 No deployments yet.\n\nUse *${prefix}deploy bot 1 <session>* to deploy one.`)
+        const rows = deploys.map((d, i) =>
+            `┃ ${i+1}. ID ${d.id} — Bot ${d.botId||d.bot_id||'?'} — ${bh.statusEmoji(d.status)}`
+        ).join('\n')
+        return reply(
+            `╭══〘 *📋 MY DEPLOYMENTS (${deploys.length})* 〙═⊷\n${rows}\n┃\n` +
+            `┃ Use: ${prefix}botlogs <id>  |  ${prefix}startbot <id>  |  ${prefix}stopbot <id>\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
+    // ── .startbot <id> ────────────────────────────────────────────────────────
+    if (['startbot', 'bhstart', 'depstart'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        if (!text) return reply(`❓ Usage: ${prefix}startbot <deployment_id>`)
+        await conn.sendMessage(chat, { react: { text: '▶️', key: m.key } })
+        const r = await bh.startDeployment(text.trim())
+        await conn.sendMessage(chat, { react: { text: r.success ? '✅' : '❌', key: m.key } })
+        return reply(r.success ? `✅ ${r.output}` : `❌ ${r.error}`)
+    }
+
+    // ── .stopbot <id> ─────────────────────────────────────────────────────────
+    if (['stopbot', 'bhstop', 'depstop'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        if (!text) return reply(`❓ Usage: ${prefix}stopbot <deployment_id>`)
+        await conn.sendMessage(chat, { react: { text: '⏹️', key: m.key } })
+        const r = await bh.stopDeployment(text.trim())
+        await conn.sendMessage(chat, { react: { text: r.success ? '✅' : '❌', key: m.key } })
+        return reply(r.success ? `✅ ${r.output}` : `❌ ${r.error}`)
+    }
+
+    // ── .deletedeploy <id> ────────────────────────────────────────────────────
+    if (['deletedeploy', 'deldeploy', 'bhdel', 'removedeploy'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        if (!text) return reply(`❓ Usage: ${prefix}deletedeploy <deployment_id>`)
+        await conn.sendMessage(chat, { react: { text: '🗑️', key: m.key } })
+        const r = await bh.deleteDeployment(text.trim())
+        await conn.sendMessage(chat, { react: { text: r.success ? '✅' : '❌', key: m.key } })
+        return reply(r.success ? `✅ ${r.output}` : `❌ ${r.error}`)
+    }
+
+    // ── .botlogs <id> ─────────────────────────────────────────────────────────
+    if (['botlogs', 'bhlogs', 'deplogs', 'logbot'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        if (!text) return reply(`❓ Usage: ${prefix}botlogs <deployment_id>`)
+        await conn.sendMessage(chat, { react: { text: '📄', key: m.key } })
+        const r = await bh.getDeploymentLogs(text.trim())
+        if (!r.success) return reply(`❌ ${r.error}`)
+        const logText = r.logs?.slice(-3000) || 'No logs yet'
+        return reply(`╭══〘 *📄 LOGS: Deploy ${text.trim()}* 〙═⊷\n\n${logText}\n╰══════════════════⊷`)
+    }
+
+    // ── .botmetrics / .botstats <id> ──────────────────────────────────────────
+    if (['botmetrics', 'botstats', 'bhmetrics', 'depmetrics', 'depstats'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        if (!text) return reply(`❓ Usage: ${prefix}botmetrics <deployment_id>`)
+        await conn.sendMessage(chat, { react: { text: '📊', key: m.key } })
+        const r = await bh.getDeploymentMetrics(text.trim())
+        if (!r.success) return reply(`❌ ${r.error}`)
+        return reply(
+            `╭══〘 *📊 METRICS: Deploy ${text.trim()}* 〙═⊷\n` +
+            `┃ 🔥 CPU:    ${r.cpu}\n` +
+            `┃ 💾 RAM:    ${r.ram}\n` +
+            `┃ ⏱️ Uptime: ${r.uptime}\n` +
+            `┃ 📊 Status: ${bh.statusEmoji(r.status)}\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
+    // ── .depinfo <id> ─────────────────────────────────────────────────────────
+    if (['depinfo', 'bhinfo', 'deployinfo', 'botinfo'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        if (!text) return reply(`❓ Usage: ${prefix}depinfo <deployment_id>`)
+        await conn.sendMessage(chat, { react: { text: 'ℹ️', key: m.key } })
+        const r = await bh.getDeployment(text.trim())
+        if (!r.success) return reply(`❌ ${r.error}`)
+        return reply(`╭══〘 *ℹ️ DEPLOYMENT ${text.trim()}* 〙═⊷\n${bh.fmtDeploy(r.deployment).split('\n').map(l=>'┃ '+l).join('\n')}\n╰══════════════════⊷`)
+    }
+
+    // ── .updateenv <id> KEY=VALUE KEY2=VALUE2 ─────────────────────────────────
+    if (['updateenv', 'setenv', 'bhenv', 'depenv'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        const parts = text.trim().split(/\s+/)
+        const depId = parts[0]
+        const envPairs = parts.slice(1)
+        if (!depId || !envPairs.length) return reply(`❓ Usage: ${prefix}updateenv <id> KEY=VALUE SESSION_ID=newSession`)
+        const envVars = {}
+        for (const pair of envPairs) {
+            const [k, ...v] = pair.split('=')
+            if (k) envVars[k] = v.join('=')
+        }
+        await conn.sendMessage(chat, { react: { text: '⚙️', key: m.key } })
+        const r = await bh.updateEnv(depId, envVars)
+        await conn.sendMessage(chat, { react: { text: r.success ? '✅' : '❌', key: m.key } })
+        return reply(r.success ? `✅ ${r.output}\n\nUpdated: ${Object.keys(envVars).join(', ')}` : `❌ ${r.error}`)
+    }
+
+    // ── .coins ────────────────────────────────────────────────────────────────
+    if (['coins', 'bhcoins', 'mycoins', 'balance'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        await conn.sendMessage(chat, { react: { text: '🪙', key: m.key } })
+        const r = await bh.getCoins()
+        if (!r.success) return reply(`❌ ${r.error}`)
+        return reply(
+            `╭══〘 *🪙 BERAHOST COINS* 〙═⊷\n` +
+            `┃ Balance: *${r.balance} coins*\n` +
+            `┃\n` +
+            `┃ 💡 Claim daily: ${prefix}claimcoins\n` +
+            `┃    Buy plan:    ${prefix}plans\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
+    // ── .claimcoins ───────────────────────────────────────────────────────────
+    if (['claimcoins', 'dailycoins', 'claim', 'bhclaim'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        await conn.sendMessage(chat, { react: { text: '🪙', key: m.key } })
+        const r = await bh.claimDailyCoins()
+        await conn.sendMessage(chat, { react: { text: r.success ? '✅' : '❌', key: m.key } })
+        if (r.success) return reply(`✅ *Daily coins claimed!*\n${r.output}${r.amount ? '\n+' + r.amount + ' coins' : ''}${r.balance ? '\nNew balance: ' + r.balance : ''}`)
+        return reply(`❌ ${r.error}`)
+    }
+
+    // ── .redeem <voucher> ─────────────────────────────────────────────────────
+    if (['redeem', 'voucher', 'bhredeem'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        if (!text) return reply(`❓ Usage: ${prefix}redeem <voucher_code>`)
+        await conn.sendMessage(chat, { react: { text: '🎟️', key: m.key } })
+        const r = await bh.redeemVoucher(text.trim())
+        await conn.sendMessage(chat, { react: { text: r.success ? '✅' : '❌', key: m.key } })
+        return reply(r.success ? `✅ ${r.output}` : `❌ ${r.error}`)
+    }
+
+    // ── .plans ────────────────────────────────────────────────────────────────
+    if (['plans', 'bhplans', 'hostingplans', 'pricelist'].includes(command)) {
+        await conn.sendMessage(chat, { react: { text: '📦', key: m.key } })
+        const r = await bh.getPlans()
+        if (!r.success) return reply(`❌ ${r.error}`)
+        const plans = r.plans
+        if (!plans.length) return reply('No plans found.')
+        const rows = plans.map(p =>
+            `┃ ${p.id || p.name} — ${p.label || p.name || '?'}\n┃   💰 ${p.price || p.cost || '?'} | 🪙 ${p.coins || '?'} coins`
+        ).join('\n┃\n')
+        return reply(`╭══〘 *📦 BERAHOST PLANS* 〙═⊷\n${rows}\n┃\n┃ Pay via: ${prefix}mpesa <phone> <planId>\n╰══════════════════⊷`)
+    }
+
+    // ── .mpesa <phone> <planId> [amount] ─────────────────────────────────────
+    if (['mpesa', 'pay', 'bhpay', 'bhmoney', 'stk'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        const parts = text.trim().split(/\s+/)
+        const phone = parts[0]?.replace(/\D/g, '')
+        const planId = parts[1]
+        const amount = parts[2]
+        if (!phone || !planId) return reply(`❓ Usage: ${prefix}mpesa <phone> <planId> [amount]\n\nExample: ${prefix}mpesa 254712345678 basic\n\nSee plans: ${prefix}plans`)
+        await conn.sendMessage(chat, { react: { text: '💳', key: m.key } })
+        const r = await bh.initiateMpesa(phone, planId, amount)
+        await conn.sendMessage(chat, { react: { text: r.success ? '📲' : '❌', key: m.key } })
+        if (r.success) {
+            return reply(
+                `╭══〘 *📲 M-PESA STK SENT* 〙═⊷\n` +
+                `┃ Phone: ${phone}\n` +
+                `┃ Plan: ${planId}\n` +
+                `┃ ${r.output}\n` +
+                `┃ Payment ID: ${r.paymentId || 'N/A'}\n` +
+                `┃\n` +
+                `┃ Check status: ${prefix}paystatus ${r.paymentId || ''}\n` +
+                `╰══════════════════⊷`
+            )
+        }
+        return reply(`❌ M-Pesa failed: ${r.error}`)
+    }
+
+    // ── .paystatus <paymentId> ────────────────────────────────────────────────
+    if (['paystatus', 'checkpay', 'paycheck'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        if (!text) return reply(`❓ Usage: ${prefix}paystatus <payment_id>`)
+        await conn.sendMessage(chat, { react: { text: '💳', key: m.key } })
+        const r = await bh.getPaymentStatus(text.trim())
+        if (!r.success) return reply(`❌ ${r.error}`)
+        return reply(`💳 Payment *${text.trim()}*: ${r.status?.toUpperCase() || 'unknown'}`)
+    }
+
+    // ── .payhistory ───────────────────────────────────────────────────────────
+    if (['payhistory', 'payments', 'bhpayments', 'mypayments'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        await conn.sendMessage(chat, { react: { text: '🧾', key: m.key } })
+        const r = await bh.getPaymentHistory()
+        if (!r.success) return reply(`❌ ${r.error}`)
+        const h = r.history.slice(0, 10)
+        if (!h.length) return reply('No payment history yet.')
+        const rows = h.map(p => `┃ ${p.id} — ${p.plan || '?'} — ${p.status || '?'} — ${p.amount || '?'}`).join('\n')
+        return reply(`╭══〘 *🧾 PAYMENT HISTORY* 〙═⊷\n${rows}\n╰══════════════════⊷`)
+    }
+
+    // ── .bots — list available bots ───────────────────────────────────────────
+    if (['bots', 'bhbots', 'botlist', 'availablebots'].includes(command)) {
+        await conn.sendMessage(chat, { react: { text: '🤖', key: m.key } })
+        const r = await bh.listBots()
+        if (!r.success) return reply(`❌ ${r.error}`)
+        const botRows = r.bots.map(b =>
+            `┃ *${b.id}*. ${b.name || 'Bot ' + b.id}${b.description ? '\n┃    ' + b.description : ''}`
+        ).join('\n')
+        return reply(`╭══〘 *🤖 AVAILABLE BOTS* 〙═⊷\n${botRows || '┃ No bots listed yet'}\n┃\n┃ Deploy: ${prefix}deploy bot <id> <session_id>\n╰══════════════════⊷`)
+    }
+
+    // ── .transactions / .coinhistory ──────────────────────────────────────────
+    if (['transactions', 'coinhistory', 'bhhistory', 'cointx'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        await conn.sendMessage(chat, { react: { text: '📋', key: m.key } })
+        const r = await bh.getTransactions()
+        if (!r.success) return reply(`❌ ${r.error}`)
+        const txs = r.transactions.slice(0, 10)
+        if (!txs.length) return reply('No transactions yet.')
+        const rows = txs.map(t => `┃ ${t.type || '?'} ${t.amount > 0 ? '+' : ''}${t.amount} — ${t.description || t.reason || '?'}`).join('\n')
+        return reply(`╭══〘 *📋 COIN HISTORY* 〙═⊷\n${rows}\n╰══════════════════⊷`)
+    }
+
+    // ── .setbhkey <key> — update BeraHost API key ─────────────────────────────
+    if (['setbhkey', 'bhkey', 'setberakey', 'bhsetkey'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        const newKey = text?.trim()
+        if (!newKey?.startsWith('bh_')) return reply(`❓ Usage: ${prefix}setbhkey bh_yourKeyHere\n\nGet from: https://berahost.com → API Access`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings.bhApiKey = newKey
+        await global.db.write()
+        await conn.sendMessage(chat, { react: { text: '✅', key: m.key } })
+        return reply(`✅ BeraHost API key saved!\n\n🧪 Test with: ${prefix}coins`)
+    }
+
+    // ── .bhhelp ───────────────────────────────────────────────────────────────
+    if (['bhhelp', 'deployhelp', 'berahost'].includes(command)) {
+        return reply(
+            `╭══〘 *🖥️ BERAHOST COMMANDS* 〙═⊷\n` +
+            `┃\n` +
+            `┃ *🚀 Deployments*\n` +
+            `┃ ${prefix}deploy bot <id> <session>\n` +
+            `┃ ${prefix}deployments — list all\n` +
+            `┃ ${prefix}depinfo <id> — deployment info\n` +
+            `┃ ${prefix}startbot <id>  |  ${prefix}stopbot <id>\n` +
+            `┃ ${prefix}botlogs <id>   |  ${prefix}botmetrics <id>\n` +
+            `┃ ${prefix}updateenv <id> KEY=VAL\n` +
+            `┃ ${prefix}deletedeploy <id>\n` +
+            `┃\n` +
+            `┃ *🪙 Coins*\n` +
+            `┃ ${prefix}coins — check balance\n` +
+            `┃ ${prefix}claimcoins — claim daily\n` +
+            `┃ ${prefix}transactions — coin history\n` +
+            `┃ ${prefix}redeem <voucher>\n` +
+            `┃\n` +
+            `┃ *💳 Payments (M-Pesa)*\n` +
+            `┃ ${prefix}plans — see available plans\n` +
+            `┃ ${prefix}mpesa <phone> <planId>\n` +
+            `┃ ${prefix}paystatus <id>\n` +
+            `┃ ${prefix}payhistory\n` +
+            `┃\n` +
+            `┃ *🤖 Bots*\n` +
+            `┃ ${prefix}bots — available bot types\n` +
+            `┃\n` +
+            `┃ *⚙️ Config*\n` +
+            `┃ ${prefix}setbhkey bh_xxx — update API key\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
+
 }
 
 handle.before = async (m, { conn }) => {
@@ -867,6 +1192,27 @@ handle.command = [
     'ptallservers', 'ptdelserver', 'deleteserver', 'delserver',
     'ptsuspend', 'ptunsuspend', 'ptnodes',
     'ptall', 'pthelp', 'ptdmtest'
+,
+    'deploy','bhd','botdeploy','newdeploy',
+    'deployments','mybots','listdeploy','bhdlist','mydeployments',
+    'startbot','bhstart','depstart',
+    'stopbot','bhstop','depstop',
+    'deletedeploy','deldeploy','bhdel','removedeploy',
+    'botlogs','bhlogs','deplogs','logbot',
+    'botmetrics','botstats','bhmetrics','depmetrics','depstats',
+    'depinfo','bhinfo','deployinfo','botinfo',
+    'updateenv','setenv','bhenv','depenv',
+    'coins','bhcoins','mycoins','balance',
+    'claimcoins','dailycoins','claim','bhclaim',
+    'redeem','voucher','bhredeem',
+    'plans','bhplans','hostingplans','pricelist',
+    'mpesa','pay','bhpay','bhmoney','stk',
+    'paystatus','checkpay','paycheck',
+    'payhistory','payments','bhpayments','mypayments',
+    'bots','bhbots','botlist','availablebots',
+    'transactions','coinhistory','bhhistory','cointx',
+    'setbhkey','bhkey','setberakey','bhsetkey',
+    'bhhelp','deployhelp','berahost'
 ]
 handle.tags = ['pterodactyl']
 
