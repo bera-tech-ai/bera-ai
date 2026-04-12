@@ -466,6 +466,17 @@ const detectIntent = (text) => {
     if (/\b(profile\s*panel|user\s*panel)\b/i.test(t)) return 'profilepanel'
     if (/\b(what.?s\s*new|new\s*commands?|latest\s*features?)\b/i.test(t)) return 'newcmds'
     if (/\b(all\s*panels?|list\s*(all\s*)?panels?|show\s*(me\s*)?panels?)\b/i.test(t)) return 'allpanels'
+    if (/\b(toggle\s*buttons?|buttons?\s*(on|off)|button\s*mode|btn\s*(on|off|toggle|mode))\b/i.test(t)) return 'btns'
+    if (/\b(yt\s*download|youtube\s*download|download\s*(from\s*)?youtube)\b/i.test(t)) return 'yt'
+    if (/\b(tiktok\s*(download|dl)|download\s*(from\s*)?tiktok)\b/i.test(t)) return 'tiktok2'
+    if (/\b(spotify\s*(download|dl)|download\s*(from\s*)?spotify)\b/i.test(t)) return 'spotify2'
+    if (/\b(instagram\s*(download|dl|reel)|ig\s*(download|dl))\b/i.test(t)) return 'ig2'
+    if (/\b(get\s*lyrics|find\s*lyrics|song\s*lyrics)\b/i.test(t)) return 'lyrics2'
+    if (/\b(define\s+\w+|what\s+does\s+\w+\s+mean|meaning\s+of)\b/i.test(t)) return 'define2'
+    if (/\b(weather\s+in|current\s+weather|temperature\s+in)\b/i.test(t)) return 'weather2'
+    if (/\b(calculate|math\s*(calculation|problem)|what\s*is\s*\d)\b/i.test(t)) return 'calc2'
+    if (/\b(generate\s*(a\s*)?qr|create\s*(a\s*)?qr\s*code|qr\s*code\s*for)\b/i.test(t)) return 'qr2'
+    if (/\b(search\s*(the\s*)?(web|google|internet)|find\s+info\s+about)\b/i.test(t)) return 'search2'
     return 'chat'
 }
 
