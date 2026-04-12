@@ -189,6 +189,19 @@ const detectIntent = (text) => {
     if (/\b(server (info|config|details)|show server|info of server)\b/.test(t)) return 'bh_server_info'
     if (/\b(setbhclientkey|set client key|pterodactyl client key)\b/.test(t)) return 'bh_set_client_key'
 
+    if (/\bdeploy\s+(?:bot\s+)?\d+\b/.test(t)) return 'bh_deploy'
+    if (/\b(list|show|my)\b.{0,10}\b(deployments?|running bots)\b/.test(t)) return 'bh_list_deploys'
+    if (/\b(start|restart)\b.{0,15}\b(deployment|bot)\b/.test(t)) return 'bh_start_deploy'
+    if (/\b(stop|kill|halt)\b.{0,15}\b(deployment|bot)\b/.test(t)) return 'bh_stop_deploy'
+    if (/\b(logs?|output)\b.{0,15}\b(deployment|bot)\b/.test(t)) return 'bh_get_logs'
+    if (/\b(metrics?|stats?|usage)\b.{0,15}\b(deployment|bot)\b/.test(t)) return 'bh_get_metrics'
+    if (/\b(delete|remove)\b.{0,15}\b(deployment|bot)\b.{0,15}\b(deploy|id|number)\b/.test(t)) return 'bh_del_deploy'
+    if (/\b(my coins?|coin balance|check coins|how many coins)\b/.test(t)) return 'bh_coins'
+    if (/\b(claim|daily)\b.{0,10}\b(coins?|reward)\b/.test(t)) return 'bh_claim_coins'
+    if (/\bberahost plans?\b/.test(t) || /\b(hosting plans?|pricing)\b.{0,10}\bberahost\b/.test(t)) return 'bh_plans'
+    if (/\b(pay|mpesa|stk)\b.{0,20}\b(bera|berahost|plan)\b/.test(t)) return 'bh_mpesa'
+    if (/\b(available|list)\b.{0,10}\bbots?\b.{0,20}\b(berahost|deploy)\b/.test(t)) return 'bh_list_bots'
+
     return 'chat'
 }
 
