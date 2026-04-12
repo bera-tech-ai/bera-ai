@@ -126,7 +126,11 @@ const pollDeployment = async (id, maxWait = 120000, interval = 5000) => {
 const getCoins = async () => {
     try {
         const r = await bh().get('/coins/balance')
-        return { success: true, balance: r.data?.balance ?? r.data, data: r.data }
+        const raw = r.data?.balance ?? r.data?.coins ?? r.data
+        const balance = typeof raw === 'object' && raw !== null
+            ? (raw.amount ?? raw.coins ?? raw.current ?? raw.value ?? raw.balance ?? JSON.stringify(raw))
+            : raw
+        return { success: true, balance, data: r.data }
     } catch (e) { return { success: false, error: bhErr(e) } }
 }
 
@@ -217,8 +221,10 @@ const fmtDeploy = (d) => {
 
 // ── Poll deployment logs for WhatsApp pair code ───────────────────────────────
 const pollForPairCode = async (id, maxWait = 180000, interval = 6000) => {
-    const pairRegex = /\b([A-Z0-9]{4}[- ]?[A-Z0-9]{4})\b/
-    const labelRegex = /(?:pair(?:ing)?\s*code|enter this code|your code)[:\s]+([A-Z0-9 -]{6,12})/i
+    // Require hyphen so "BERAHOST", "BERATECH" etc won't match
+    const pairRegex  = /\b([A-Z0-9]{4}-[A-Z0-9]{4})\b/
+    // Look for the box-bordered label that BeraAI prints
+    const labelRegex = /PAIRING\s*CODE[:\s]+([A-Z0-9]{4}-[A-Z0-9]{4})/i
     const deadline = Date.now() + maxWait
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, interval))
@@ -226,12 +232,12 @@ const pollForPairCode = async (id, maxWait = 180000, interval = 6000) => {
         if (logsRes.success && logsRes.logs) {
             // Try labelled match first ("pairing code: XXXX-XXXX")
             const labelled = logsRes.logs.match(labelRegex)
-            if (labelled) return { success: true, code: labelled[1].trim().replace(/\s+/,'-') }
+            if (labelled) return { success: true, code: labelled[1].trim() }
             // Fallback: any standalone 8-char code on its own line
             const lines = logsRes.logs.split('\n')
             for (const line of lines.reverse()) {
                 const m = line.match(pairRegex)
-                if (m) return { success: true, code: m[1].replace(' ','-') }
+                if (m) return { success: true, code: m[1] }
             }
         }
     }
