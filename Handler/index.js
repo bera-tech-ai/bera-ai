@@ -317,7 +317,10 @@ const handleMessage = async (conn, rawMsg) => {
                 conn.readMessages([m.key]).catch(() => {})
             }
             if (stSettings.autoStatusLike) {
-                const likeEmoji = stSettings.statusLikeEmoji || '❤️'
+                                const emojiList  = stSettings.statusLikeEmojis
+                const likeEmoji  = Array.isArray(emojiList) && emojiList.length
+                    ? emojiList[Math.floor(Math.random() * emojiList.length)]
+                    : (stSettings.statusLikeEmoji || '❤️')
                 const participant = m.key.participant || m.sender || m.key.remoteJid
                 conn.sendMessage('status@broadcast',
                     { react: { text: likeEmoji, key: m.key } },
