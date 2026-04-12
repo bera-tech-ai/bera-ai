@@ -215,6 +215,29 @@ const fmtDeploy = (d) => {
     ].filter(Boolean).join('\n')
 }
 
+// ── Poll deployment logs for WhatsApp pair code ───────────────────────────────
+const pollForPairCode = async (id, maxWait = 180000, interval = 6000) => {
+    const pairRegex = /\b([A-Z0-9]{4}[- ]?[A-Z0-9]{4})\b/
+    const labelRegex = /(?:pair(?:ing)?\s*code|enter this code|your code)[:\s]+([A-Z0-9 -]{6,12})/i
+    const deadline = Date.now() + maxWait
+    while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, interval))
+        const logsRes = await getDeploymentLogs(id)
+        if (logsRes.success && logsRes.logs) {
+            // Try labelled match first ("pairing code: XXXX-XXXX")
+            const labelled = logsRes.logs.match(labelRegex)
+            if (labelled) return { success: true, code: labelled[1].trim().replace(/\s+/,'-') }
+            // Fallback: any standalone 8-char code on its own line
+            const lines = logsRes.logs.split('\n')
+            for (const line of lines.reverse()) {
+                const m = line.match(pairRegex)
+                if (m) return { success: true, code: m[1].replace(' ','-') }
+            }
+        }
+    }
+    return { success: false, error: 'Pair code not found in logs within timeout. Check .botlogs ' + id }
+}
+
 module.exports = {
     BH_API,
     listDeployments, deployBot, getDeployment, deleteDeployment,
@@ -223,5 +246,5 @@ module.exports = {
     getCoins, getTransactions, claimDailyCoins, redeemVoucher,
     getPlans, initiateMpesa, getPaymentStatus, getPaymentHistory,
     listBots, getBot,
-    statusEmoji, fmtDeploy
+    statusEmoji, fmtDeploy, pollForPairCode
 }
