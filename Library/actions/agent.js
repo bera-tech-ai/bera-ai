@@ -537,11 +537,120 @@ const summarizeResults = async (task, stepResults) => {
     } catch { return 'Task completed.' }
 }
 
+
+// ── v3 NEW TOOLS ─────────────────────────────────────────────────────────────
+const webScrape = async (url) => {
+    try {
+        const res = await axios.get(url, { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BeraBot/1.0)' }, maxContentLength: 2097152 })
+        const html = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
+        const text = html
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s{2,}/g, ' ').trim().slice(0, 3000)
+        const tm = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+        return { success: true, url, title: tm ? tm[1].trim() : url, text, length: text.length }
+    } catch (e) { return { success: false, error: e.message } }
+}
+const dnsCheck = async (host) => {
+    const d = host.replace(/https?:\/\//, '').split('/')[0]
+    const r = await runShell(`dig +short A ${d}; dig +short MX ${d}; dig +short NS ${d} | head -4`)
+    const p = await runShell(`ping -c 2 -W 3 ${d} 2>&1 | tail -3`)
+    return { success: true, domain: d, output: `DNS for ${d}:\n${r.output || 'No records found'}\n\nPing:\n${p.output}` }
+}
+const sslCheck = async (domain) => {
+    const h = domain.replace(/https?:\/\//, '').split('/')[0]
+    const r = await runShell(`echo | openssl s_client -connect ${h}:443 -servername ${h} 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>/dev/null || echo "SSL check failed"`)
+    return { success: true, domain: h, output: r.output || 'Could not retrieve SSL info' }
+}
+const codeGen = async (description, language = 'javascript') => {
+    const sys = `You are an expert ${language} developer. Write complete, working, production-ready code. Return ONLY the code with brief comments, no markdown fences, no preamble.`
+    return callPollinations(sys, `Write ${language} code for: ${description}`)
+}
+const envManager = async (action, key, value) => {
+    const envPath = './.env'
+    try {
+        let content = require('fs').existsSync(envPath) ? require('fs').readFileSync(envPath, 'utf8') : ''
+        if (action === 'list') { return { success: true, output: content.split('\n').filter(l => l.trim() && !l.startsWith('#')).join('\n') || 'No env vars set' } }
+        if (action === 'get' && key) { const m = content.match(new RegExp(`^${key}=(.*)$`, 'm')); return { success: true, output: m ? `${key}=${m[1]}` : `${key} not found` } }
+        if (action === 'set' && key) { const re = new RegExp(`^${key}=.*$`, 'm'); const nl = `${key}=${value}`; content = re.test(content) ? content.replace(re, nl) : content + '\n' + nl; require('fs').writeFileSync(envPath, content.trim() + '\n'); return { success: true, output: `Set ${key}=${value}` } }
+        if (action === 'delete' && key) { content = content.replace(new RegExp(`^${key}=.*\n?`, 'm'), ''); require('fs').writeFileSync(envPath, content.trim() + '\n'); return { success: true, output: `Deleted ${key}` } }
+        return { success: false, output: 'Usage: list | get KEY | set KEY VALUE | delete KEY' }
+    } catch (e) { return { success: false, error: e.message } }
+}
+const fileSearch = async (pattern, directory = '.', fileExt = '') => {
+    const ext = fileExt ? `--include="*.${fileExt}"` : '--include="*.js" --include="*.ts" --include="*.json" --include="*.py" --include="*.md"'
+    const files = await runShell(`grep -r "${pattern.replace(/"/g, '\\"')}" ${directory} ${ext} --exclude-dir=node_modules --exclude-dir=.git -l 2>/dev/null | head -10`)
+    const matches = await runShell(`grep -r "${pattern.replace(/"/g, '\\"')}" ${directory} ${ext} --exclude-dir=node_modules --exclude-dir=.git -n 2>/dev/null | head -15`)
+    return { success: true, output: `Files:\n${files.output || 'None'}\n\nMatches:\n${matches.output || 'No matches'}` }
+}
+const fileDiff = async (file1, file2) => {
+    const r = await runShell(`diff -u "${file1}" "${file2}" 2>&1 | head -50`)
+    return { success: true, output: r.output || 'Files are identical' }
+}
+const urlCheck = async (urls) => {
+    const list = Array.isArray(urls) ? urls : String(urls).split(/[\s,]+/).filter(u => u.startsWith('http'))
+    const results = await Promise.all(list.slice(0, 5).map(async url => {
+        try {
+            const t0 = Date.now(); const r = await axios.get(url, { timeout: 10000, validateStatus: () => true }); const ms = Date.now() - t0
+            const e = r.status >= 200 && r.status < 300 ? '🟢' : r.status >= 300 && r.status < 400 ? '🟡' : '🔴'
+            return `${e} ${url.slice(0, 50)}: HTTP ${r.status} (${ms}ms)`
+        } catch (e) { return `🔴 ${url.slice(0, 50)}: ${e.code || e.message}` }
+    }))
+    return { success: true, output: results.join('\n') }
+}
+const passwordGen = (length = 16, options = {}) => {
+    const pool = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' + (options.noSymbols ? '' : '!@#$%^&*()_+-=[]{}|;:,.<>?')
+    const bytes = require('crypto').randomBytes(length)
+    const pass  = Array.from(bytes).map(b => pool[b % pool.length]).join('')
+    return { success: true, password: pass, length: pass.length, strength: length >= 20 ? '💪 Strong' : length >= 12 ? '👍 Good' : '⚠️ Weak' }
+}
+const autoCommitCode = async (folder, message) => {
+    const cmd = ['cd ' + (folder || '.'), 'git add .', 'git commit -m "' + (message || 'auto: update').replace(/"/g, '') + '"', 'git push 2>&1'].join(' && ')
+    return runShell(cmd, 60000)
+}
+const jsonTools = (action, json) => {
+    try {
+        const parsed = JSON.parse(json)
+        if (action === 'format' || action === 'pretty') return { success: true, output: JSON.stringify(parsed, null, 2) }
+        if (action === 'minify') return { success: true, output: JSON.stringify(parsed) }
+        if (action === 'validate') return { success: true, output: `✅ Valid JSON\nType: ${Array.isArray(parsed) ? 'Array[' + parsed.length + ']' : 'Object'}\nKeys: ${typeof parsed === 'object' && !Array.isArray(parsed) ? Object.keys(parsed).join(', ') : 'N/A'}` }
+        if (action === 'keys') return { success: true, output: 'Keys: ' + Object.keys(parsed).join(', ') }
+        return { success: true, output: JSON.stringify(parsed, null, 2).slice(0, 2000) }
+    } catch (e) { return { success: false, output: `❌ Invalid JSON: ${e.message}` } }
+}
+const pingHost = async (host) => {
+    const h = host.replace(/https?:\/\//, '').split('/')[0]
+    const r = await runShell(`ping -c 4 -W 3 ${h} 2>&1`)
+    return { success: true, host: h, output: r.output }
+}
+const whoisLookup = async (domain) => {
+    const h = domain.replace(/https?:\/\//, '').split('/')[0]
+    const r = await runShell(`whois ${h} 2>/dev/null | head -25`)
+    if (!r.output || r.output.includes('command not found')) {
+        try {
+            const res = await axios.get(`https://rdap.org/domain/${h}`, { timeout: 10000 })
+            const d = res.data
+            return { success: true, output: `Domain: ${d.ldhName || h}\nStatus: ${(d.status || []).join(', ')}` }
+        } catch { return { success: false, output: 'whois not available' } }
+    }
+    return { success: true, host: h, output: r.output }
+}
+const ipLookup = async (ip) => {
+    try {
+        const r = await axios.get(`https://ipapi.co/${ip}/json/`, { timeout: 10000 })
+        const d = r.data
+        return { success: true, output: `IP: ${d.ip}\nCity: ${d.city}, ${d.region}\nCountry: ${d.country_name}\nISP: ${d.org}\nTimezone: ${d.timezone}` }
+    } catch (e) { return { success: false, error: e.message } }
+}
+
 module.exports = {
     planTask, executeStep, summarizeResults, callPollinations, runShell,
     npmStats, resolveGroupMember, createProject, pm2Manage, githubTokenRegen,
     systemInfo, portCheck, dockerManage, cronManage, processKill,
     codeReview, codeExplain, bugFinder, httpRequest, gitStatus,
     usageStats, errorLogAnalyze, scheduleMessage, backupToGithub,
-    sqliteQuery, groupAnalyzer
+    sqliteQuery, groupAnalyzer,
+    webScrape, dnsCheck, sslCheck, codeGen, envManager, fileSearch, fileDiff,
+    urlCheck, passwordGen, autoCommitCode, jsonTools, pingHost, whoisLookup, ipLookup
 }
