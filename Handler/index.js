@@ -14,9 +14,13 @@ const loadPlugins = () => {
     for (const file of files) {
         try {
             const plugin = require(path.join(pluginDir, file))
-            if (plugin && typeof plugin === 'function') {
+            const isFunc = plugin && typeof plugin === 'function'
+            const isObj  = plugin && typeof plugin === 'object' && (plugin.command || plugin.all)
+            if (isFunc || isObj) {
                 handlers.push(plugin)
                 console.log(`[PLUGIN] Loaded: ${file}`)
+            } else {
+                console.log(`[PLUGIN] Skipped (bad export): ${file}`)
             }
         } catch (e) {
             console.error(`[PLUGIN] Failed to load ${file}: ${e.message}`)
