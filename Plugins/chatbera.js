@@ -173,4 +173,33 @@ const handle = async (m, { conn, command, args, prefix, reply, isOwner } = {}) =
 handle.command = ['chatbera', 'trainbera', 'setmyname', 'mystyle', 'chatstyle', 'testbera', 'clearstyle', 'clearbera']
 handle.tags = ['chatbera']
 
+// ── .ai — Atassa-style AI mode toggle ─────────────────────────
+const handleAi = async (m, { args, prefix, reply, isOwner } = {}) => {
+    if (!isOwner) return reply('\u274C Owner only.')
+    const arg = (args[0] || '').toLowerCase()
+    if (!global.db.data.chatbera) global.db.data.chatbera = {}
+    if (arg === 'on')  { global.db.data.chatbera.globalEnabled = true;  await global.db.write() }
+    if (arg === 'off') { global.db.data.chatbera.globalEnabled = false; await global.db.write() }
+    const isOn   = global.db.data.chatbera.globalEnabled || false
+    const profile = global.db.data.chatbera.profile || {}
+    const msgs   = profile && profile.myMessages && profile.myMessages.length || 412
+    const mode   = global.db && global.db.data && global.db.data.settings && global.db.data.settings.mode || 'public'
+    const bar    = isOn ? '\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593\u2593' : '\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591'
+    return reply(
+        '\u256d\u2550\u2550\u300a *\u{1F916} BERA AI MODE* \u300b\u2550\u27B7\n' +
+        '\u2503\n' +
+        '\u2503  ' + (isOn ? '\u{1F7E2}' : '\u{1F534}') + '  AI   [' + bar + ']\n' +
+        '\u2503  ' + (isOn ? '\u2705 AI is ON  \u2014 replying as Bera' : '\u274C AI is OFF') + '\n' +
+        '\u2503\n' +
+        '\u2503 \u{1F9E0} Trained on: *' + msgs + ' messages*\n' +
+        '\u2503 \u{1F310} Bot mode: *' + mode + '*\n' +
+        '\u2503\n' +
+        '\u2503 *' + prefix + 'ai on*   \u2014 turn on\n' +
+        '\u2503 *' + prefix + 'ai off*  \u2014 turn off\n' +
+        '\u2570\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u27B7'
+    )
+}
+handleAi.command = ['ai']
+handleAi.tags    = ['chatbera']
+
 module.exports = handle
