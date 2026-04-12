@@ -177,6 +177,18 @@ const detectIntent = (text) => {
     if (/\bwhois\b/.test(t) || /\b(domain info|who owns)\b.{0,15}\bdomain\b/.test(t)) return 'whois'
     if (/\b(lookup|check|info)\b.{0,15}\b(ip|ip address)\b/.test(t) || /\bip\b.{0,10}\b(location|country|city|isp)\b/.test(t)) return 'ip_lookup'
 
+    if (/\b(clone|redeploy|copy|duplicate)\b.{0,20}\b(bot|server)\b/.test(t) || /\bdeploy\s+(?:bot\s+)?[\w-]+\b/.test(t)) return 'bh_clone'
+    if (/\b(file|files|read file|list files|file manager)\b.{0,20}\b(server|berahost)\b/.test(t)) return 'bh_files'
+    if (/\b(my bots|my servers|list my servers|show my bots|owner servers)\b/.test(t)) return 'bh_owner_list'
+    if (/\b(reinstall|fresh install|clean install)\b.{0,20}\b(server|bot)\b/.test(t)) return 'bh_reinstall'
+    if (/\bsuspend\b.{0,20}\b(server|bot)\b/.test(t)) return 'bh_suspend'
+    if (/\b(unsuspend|enable server|restore server)\b/.test(t)) return 'bh_unsuspend'
+    if (/\b(upgrade|more ram|more cpu|increase ram)\b.{0,20}\b(server|bot)\b/.test(t)) return 'bh_upgrade'
+    if (/\b(console command|run command|send command)\b.{0,20}\b(server|bot)\b/.test(t)) return 'bh_console'
+    if (/\b(server logs|console output|server output)\b/.test(t)) return 'bh_logs'
+    if (/\b(server (info|config|details)|show server|info of server)\b/.test(t)) return 'bh_server_info'
+    if (/\b(setbhclientkey|set client key|pterodactyl client key)\b/.test(t)) return 'bh_set_client_key'
+
     return 'chat'
 }
 
