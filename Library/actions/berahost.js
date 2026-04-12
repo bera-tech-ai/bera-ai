@@ -35,7 +35,7 @@ const deployBot = async (botId, sessionId, extraEnv = {}) => {
     try {
         const r = await bh().post('/deployments', {
             botId: Number(botId),
-            envVars: { SESSION_ID: sessionId, ...extraEnv }
+            envVars: { ...(sessionId != null ? { SESSION_ID: sessionId } : {}), ...extraEnv }
         })
         const d = r.data
         return { success: true, id: d.id, status: d.status, botId: d.botId, data: d }
