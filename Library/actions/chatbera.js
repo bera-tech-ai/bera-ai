@@ -403,7 +403,7 @@ function buildStylePrompt(profile, userMsg) {
 }
 
 // Generate a style-matched reply using Pollinations AI
-async function generateStyleReply(profile, userMsg) {
+async function generateStyleReply(userMsg, profile) {
     try {
         const prompt = buildStylePrompt(profile, userMsg)
         const r = await axios.post('https://text.pollinations.ai/', {
