@@ -160,7 +160,9 @@ const redeemVoucher = async (code) => {
 const getPlans = async () => {
     try {
         const r = await bh().get('/payments/plans')
-        return { success: true, plans: r.data?.plans || r.data || [] }
+        const coinPackages      = r.data?.coinPackages      || []
+        const subscriptionPlans = r.data?.subscriptionPlans || []
+        return { success: true, coinPackages, subscriptionPlans }
     } catch (e) { return { success: false, error: bhErr(e) } }
 }
 
