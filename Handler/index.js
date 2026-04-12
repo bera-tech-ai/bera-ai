@@ -563,6 +563,116 @@ const handleMessage = async (conn, rawMsg) => {
                     await reply('BeraHost client key saved! File manager + console commands are now unlocked.')
                     return
                 }
+                if (intent === 'bh_deploy') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    const botM = text.match(/\b(\d+)\b/)
+                    const sessM = text.match(/([A-Za-z][A-Za-z0-9_~:;.]{8,})/)
+                    if (!botM || !sessM) { await reply('Usage: deploy bot 1 Gifted~yourSession'); return }
+                    await react('🚀'); await reply('Deploying bot ' + botM[1] + '...')
+                    const dr = await bhr.deployBot(botM[1], sessM[1])
+                    if (!dr.success) { await react('❌'); await reply('Deploy failed: ' + dr.error); return }
+                    await reply('Deployment ' + dr.id + ' started — polling...')
+                    const fin = await bhr.pollDeployment(dr.id)
+                    const dep = fin.deployment || {}
+                    await react(dep.status === 'running' ? '✅' : '⚠️')
+                    await reply(bhr.fmtDeploy(dep))
+                    return
+                }
+                if (intent === 'bh_list_deploys') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    await react('📋')
+                    const r = await bhr.listDeployments()
+                    if (!r.success) { await reply('Error: ' + r.error); return }
+                    const rows = r.deployments.map((d,i) => (i+1) + '. ID ' + d.id + ' | ' + bhr.statusEmoji(d.status)).join('\n')
+                    await reply('My Deployments:\n' + (rows || 'None'))
+                    return
+                }
+                if (intent === 'bh_start_deploy') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    const idM = text.match(/\b(\d+)\b/)
+                    if (!idM) { await reply('Usage: start deployment 5'); return }
+                    await react('▶️')
+                    const r = await bhr.startDeployment(idM[1])
+                    await reply(r.success ? r.output : 'Error: ' + r.error)
+                    return
+                }
+                if (intent === 'bh_stop_deploy') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    const idM = text.match(/\b(\d+)\b/)
+                    if (!idM) { await reply('Usage: stop deployment 5'); return }
+                    await react('⏹️')
+                    const r = await bhr.stopDeployment(idM[1])
+                    await reply(r.success ? r.output : 'Error: ' + r.error)
+                    return
+                }
+                if (intent === 'bh_get_logs') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    const idM = text.match(/\b(\d+)\b/)
+                    if (!idM) { await reply('Usage: logs for deployment 5'); return }
+                    await react('📄')
+                    const r = await bhr.getDeploymentLogs(idM[1])
+                    await reply(r.success ? (r.logs||'No logs yet').slice(-3000) : 'Error: ' + r.error)
+                    return
+                }
+                if (intent === 'bh_get_metrics') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    const idM = text.match(/\b(\d+)\b/)
+                    if (!idM) { await reply('Usage: metrics for deployment 5'); return }
+                    await react('📊')
+                    const r = await bhr.getDeploymentMetrics(idM[1])
+                    await reply(r.success ? 'CPU: '+r.cpu+'\nRAM: '+r.ram+'\nUptime: '+r.uptime : 'Error: '+r.error)
+                    return
+                }
+                if (intent === 'bh_del_deploy') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    const idM = text.match(/\b(\d+)\b/)
+                    if (!idM) { await reply('Usage: delete deployment 5'); return }
+                    await react('🗑️')
+                    const r = await bhr.deleteDeployment(idM[1])
+                    await reply(r.success ? r.output : 'Error: ' + r.error)
+                    return
+                }
+                if (intent === 'bh_coins') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    await react('🪙')
+                    const r = await bhr.getCoins()
+                    await reply(r.success ? '🪙 Balance: ' + r.balance + ' coins' : 'Error: ' + r.error)
+                    return
+                }
+                if (intent === 'bh_claim_coins') {
+                    if (!isOwner) { await reply('Owner only.'); return }
+                    const bhr = require('../Library/actions/berahost')
+                    await react('🪙')
+                    const r = await bhr.claimDailyCoins()
+                    await reply(r.success ? '✅ ' + r.output : 'Error: ' + r.error)
+                    return
+                }
+                if (intent === 'bh_plans') {
+                    const bhr = require('../Library/actions/berahost')
+                    await react('📦')
+                    const r = await bhr.getPlans()
+                    if (!r.success) { await reply('Error: ' + r.error); return }
+                    const rows = r.plans.map(p => (p.id||'?') + '. ' + (p.label||p.name||'?') + ' — ' + (p.price||p.cost||'?')).join('\n')
+                    await reply('BeraHost Plans:\n' + rows)
+                    return
+                }
+                if (intent === 'bh_list_bots') {
+                    const bhr = require('../Library/actions/berahost')
+                    await react('🤖')
+                    const r = await bhr.listBots()
+                    if (!r.success) { await reply('Error: ' + r.error); return }
+                    const rows = r.bots.map(b => b.id + '. ' + (b.name||'Bot '+b.id)).join('\n')
+                    await reply('Available Bots:\n' + (rows || 'None listed'))
+                    return
+                }
             // ═══════════════════════════════════════════════════════════════
             // BERA AGENT — Full Intent Router (fires before ChatBera)
             // ═══════════════════════════════════════════════════════════════
