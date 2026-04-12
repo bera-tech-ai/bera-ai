@@ -361,6 +361,18 @@ const detectIntent = (text) => {
     if (/\b(bot\s*info|about\s*bera)\b/i.test(t)) return 'botinfo'
     if (/\b(settings\s*(panel|menu)|toggle\s*(panel|menu))\b/i.test(t)) return 'settingspanel'
     if (/\b(my\s*bots\s*list|deploy(ment)?\s*list)\b/i.test(t)) return 'deploylist'
+    if (/\b(warn\s+@|warn\s+member|issue\s+warn)\b/i.test(t)) return 'warn'
+    if (/\b(clear\s*warn|remove\s*warn|unwarn)\b/i.test(t)) return 'clearwarn'
+    if (/\b(warn\s*list|all\s*warns|check\s*warns)\b/i.test(t)) return 'warnlist'
+    if (/\b(report\s*member|report\s*user|flag\s*user)\b/i.test(t)) return 'groupreport'
+    if (/\b(pin\s*(message|msg|this)|pinned\s*msg)\b/i.test(t)) return 'pinmsg'
+    if (/\b(clone\s*group|duplicate\s*group|copy\s*group)\b/i.test(t)) return 'clonegroup'
+    if (/\b(group\s*backup|backup\s*group|save\s*group)\b/i.test(t)) return 'groupbackup'
+    if (/\b(group\s*announce|send\s*announcement|announce\s*to\s*group)\b/i.test(t)) return 'groupannounce'
+    if (/\b(group\s*poll|quick\s*poll|create\s*group\s*poll)\b/i.test(t)) return 'grouppoll'
+    if (/\b(demote\s*all|remove\s*all\s*admins)\b/i.test(t)) return 'demoteall'
+    if (/\b(invite\s*info|group\s*invite\s*info|check\s*invite)\b/i.test(t)) return 'inviteinfo'
+    if (/\b(lock\s*(group|feature|chat)|group\s*lock)\b/i.test(t)) return 'grouplock'
     return 'chat'
 }
 
