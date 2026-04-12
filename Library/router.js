@@ -202,6 +202,10 @@ const detectIntent = (text) => {
     if (/\b(pay|mpesa|stk)\b.{0,20}\b(bera|berahost|plan)\b/.test(t)) return 'bh_mpesa'
     if (/\b(available|list)\b.{0,10}\bbots?\b.{0,20}\b(berahost|deploy)\b/.test(t)) return 'bh_list_bots'
 
+    if (/(?:rename|change|set|update)\s+(?:group\s+)?(?:name|title|subject)\b/.test(t) || /\bgroup\s+name\s+to\b/.test(t)) return 'group_name_change'
+    if (/(?:change|set|update)\s+(?:group\s+)?(?:description|desc|bio)\b/.test(t)) return 'group_desc_change'
+    if (/(?:set|change|update)\s+(?:group\s+)?(?:icon|picture|photo|image|pp|pic)\b/.test(t)) return 'group_icon_change'
+
     return 'chat'
 }
 
