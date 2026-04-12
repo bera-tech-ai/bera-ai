@@ -320,6 +320,31 @@ const handleMessage = async (conn, rawMsg) => {
                 const params = nfr?.paramsJson ? JSON.parse(nfr.paramsJson) : {}
                 const btnId  = params.id || body || ''
                 // ─── COPY button clicks (copy_type_timestamp) ──────────────────────────
+                
+                // ─── .play pick — user selected a track ─────────────────────────
+                if (btnId.startsWith('play_pick_')) {
+                    const segs5  = btnId.split('_')
+                    const idx5   = parseInt(segs5[2]) || 0
+                    const url5   = decodeURIComponent(segs5.slice(3).join('_'))
+                    const cache5 = global.beraPlaySearch && global.beraPlaySearch[m.chat]
+                    const track5 = cache5 ? cache5[idx5] : null
+                    const name5  = track5 ? track5.title : 'Track ' + (idx5 + 1)
+                    const { getBtnMode } = require('./Library/actions/btnmode')
+                    const { sendBtn }    = require('./Library/actions/btns')
+                    const pref5          = global.prefix || '.'
+                    const head5 = '╭══〈 *🎵 ' + name5.slice(0,42) + '* 〉═╰\n┃\n┃ Choose your download format:\n╰══════════════════⊷'
+                    return sendBtn(conn, m.chat, m, head5, [
+                        { id: 'yt_audio_' + encodeURIComponent(url5), text: '🎵 Audio Only (MP3)'         },
+                        { id: 'yt_video_' + encodeURIComponent(url5), text: '🎬 Video with Sound (MP4)'   },
+                        { id: 'yt_360_'   + encodeURIComponent(url5), text: '📺 Video 360p (Medium)'      },
+                        { id: 'yt_720_'   + encodeURIComponent(url5), text: '🖥️ Video 720p (HD)'    },
+                        { id: 'play_cancel',                           text: '❌ Cancel'                      },
+                    ])
+                }
+                if (btnId === 'play_cancel') {
+                    await conn.sendMessage(m.chat, { text: '❌ Search cancelled.' }, { quoted: m }).catch(() => {})
+                    return
+                }
                 if (btnId.startsWith('copy_')) {
                     const stored = global.beraLastOutput && global.beraLastOutput[m.chat]
                     if (stored) {
