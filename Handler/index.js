@@ -419,7 +419,19 @@ const handleMessage = async (conn, rawMsg) => {
                 }
                 return
             }
-            // ─────────────────────────────────────────────────────────────────
+            // ═══════════════════════════════════════════════════════════════
+            // BERA AGENT — Full Intent Router (fires before ChatBera)
+            // ═══════════════════════════════════════════════════════════════
+            if (!m.fromMe && text) {
+                const { detectIntent } = require('../Library/router')
+                const intent = detectIntent(text)
+                const agent  = require('../Library/actions/agent')
+                const react  = (e) => conn.sendMessage(chat, { react: { text: e, key: m.key } }).catch(() => {})
+                const reply  = (t) => conn.sendMessage(chat, { text: String(t) }, { quoted: m })
+                const fmt    = (lines) => lines.split('\n').slice(0, 30).map(l => '┃ ' + l.slice(0, 90)).join('\n')
+
+
+                // ─────────────────────────────────────────────────────────────────
 
 
 
@@ -673,16 +685,7 @@ const handleMessage = async (conn, rawMsg) => {
                     await reply('Available Bots:\n' + (rows || 'None listed'))
                     return
                 }
-            // ═══════════════════════════════════════════════════════════════
-            // BERA AGENT — Full Intent Router (fires before ChatBera)
-            // ═══════════════════════════════════════════════════════════════
-            if (!m.fromMe && text) {
-                const { detectIntent } = require('../Library/router')
-                const intent = detectIntent(text)
-                const agent  = require('../Library/actions/agent')
-                const react  = (e) => conn.sendMessage(chat, { react: { text: e, key: m.key } }).catch(() => {})
-                const reply  = (t) => conn.sendMessage(chat, { text: String(t) }, { quoted: m })
-                const fmt    = (lines) => lines.split('\n').slice(0, 30).map(l => '┃ ' + l.slice(0, 90)).join('\n')
+
 
                 // ── NPM stats ───────────────────────────────────────────────
                 if (intent === 'npm_stats') {
