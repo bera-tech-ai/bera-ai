@@ -352,6 +352,15 @@ const detectIntent = (text) => {
     if (/\bturn\s+off\s+(?:auto\s+)?status\s+like/i.test(t) || /\bdisable\s+(?:auto\s+)?status\s+like/i.test(t)) return 'auto_status_like_off'
     if (/\bstatus\s*(?:settings?|info)\b/i.test(t)) return 'auto_status_info'
     if (/\bset(?:sl|\s+status\s+(?:like\s+)?emoji)\b/i.test(t)) return 'set_status_emoji'
+    if (/\b(group\s*(menu|panel|control)|manage\s*group)\b/i.test(t)) return 'groupmenu'
+    if (/\b(member\s*(panel|control|info))\b/i.test(t)) return 'memberpanel'
+    if (/\b(admin\s*(panel|control)|control\s*panel)\b/i.test(t)) return 'adminpanel'
+    if (/\b(quick\s*vote|vote\s*on|create\s*vote)\b/i.test(t)) return 'vote'
+    if (/\b(berahost\s*(panel|menu)|bh\s*(panel|menu))\b/i.test(t)) return 'bhpanel'
+    if (/\b(quick\s*help|help\s*menu)\b/i.test(t)) return 'quickhelp'
+    if (/\b(bot\s*info|about\s*bera)\b/i.test(t)) return 'botinfo'
+    if (/\b(settings\s*(panel|menu)|toggle\s*(panel|menu))\b/i.test(t)) return 'settingspanel'
+    if (/\b(my\s*bots\s*list|deploy(ment)?\s*list)\b/i.test(t)) return 'deploylist'
     return 'chat'
 }
 
