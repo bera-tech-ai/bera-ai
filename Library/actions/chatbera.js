@@ -337,4 +337,43 @@ const getPrebuiltProfile = () => ({
     systemPrompt: getSystemPrompt(null)
 })
 
+// ── Parse WhatsApp chat export (.txt) ────────────────────────────────────────
+// Accepts raw text from WhatsApp "Export Chat" feature
+// Returns { myMessages: [], otherMessages: [], raw: [] }
+function parseExport(rawText, myName) {
+    const lines = rawText.split('\n')
+    const myMessages = []
+    const otherMessages = []
+    const raw = []
+    // WhatsApp export format: "[DD/MM/YYYY, HH:MM:SS] Name: message"
+    // OR: "DD/MM/YYYY, HH:MM - Name: message"
+    const lineRe = /^(?:\[?[\d/,:\s]+\]?|[\d/]+,?\s[\d:]+\s[-–]?)\s*([^:]+?):\s*(.+)$/
+    for (const line of lines) {
+        const m = line.match(lineRe)
+        if (!m) continue
+        const sender  = m[1].trim()
+        const message = m[2].trim()
+        if (!message || message === '<Media omitted>' || message.startsWith('This message was deleted')) continue
+        raw.push({ sender, message })
+        if (myName && sender.toLowerCase().includes(myName.toLowerCase())) {
+            myMessages.push(message)
+        } else {
+            otherMessages.push(message)
+        }
+    }
+    // If no myName provided, heuristic: pick the sender with fewest messages (usually "me")
+    if (!myName && raw.length) {
+        const counts = {}
+        raw.forEach(r => { counts[r.sender] = (counts[r.sender]||0)+1 })
+        const sorted = Object.entries(counts).sort((a,b)=>a[1]-b[1])
+        const meSender = sorted[0]?.[0]
+        raw.forEach(r => {
+            if (r.sender === meSender) myMessages.push(r.message)
+            else otherMessages.push(r.message)
+        })
+    }
+    return { myMessages, otherMessages, raw }
+}
+
+
 module.exports = { parseExport, getSenders, buildStylePrompt, generateStyleReply, analyzeStyle, getPrebuiltProfile, PREBUILT_PROFILE }
