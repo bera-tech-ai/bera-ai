@@ -338,6 +338,11 @@ const detectIntent = (text) => {
     if (/\b(?:convert|turn)\s+(?:this\s+)?sticker\s+(?:to|into)\s+(?:an?\s+)?(?:image|photo|img)/i.test(t)) return 'sticker_to_img'
 
 
+    // ── AI toggle / status ────────────────────────────────────────
+    if (/\b(?:turn\s+on|enable|activate)\s+(?:the\s+)?(?:ai|chatbera|bot\s+ai)\b/i.test(t)) return 'ai_on'
+    if (/\b(?:turn\s+off|disable|deactivate)\s+(?:the\s+)?(?:ai|chatbera|bot\s+ai)\b/i.test(t)) return 'ai_off'
+    if (/\b(?:ai|chatbera)\s+(?:status|mode|state)\b/i.test(t) || /\bis\s+(?:the\s+)?(?:ai|chatbera)\s+(?:on|off|active)/i.test(t)) return 'ai_status'
+
     return 'chat'
 }
 
