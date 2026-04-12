@@ -1145,7 +1145,7 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
             `╭══〘 *🖥️ BERAHOST COMMANDS* 〙═⊷\n` +
             `┃\n` +
             `┃ *🚀 Deployments*\n` +
-            `┃ ${prefix}deploy bot <id> <session>\n` +
+            `┃ ${prefix}deploy bot 1 <session>    ← Atassa-MD\n┃ ${prefix}deploybera <phone>        ← Bera AI (pair code)\n` +
             `┃ ${prefix}deployments — list all\n` +
             `┃ ${prefix}depinfo <id> — deployment info\n` +
             `┃ ${prefix}startbot <id>  |  ${prefix}stopbot <id>\n` +
@@ -1171,6 +1171,61 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
             `┃ *⚙️ Config*\n` +
             `┃ ${prefix}setbhkey bh_xxx — update API key\n` +
             `╰══════════════════⊷`
+        )
+    }
+
+
+
+    // ── .deploybera <phone> — Deploy Bera AI (pair code, no session needed) ──
+    if (['deploybera','beradeploy','bhbera','deployai','depbera'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        const phone = text.trim().replace(/[^0-9]/g, '')
+        if (!phone || phone.length < 9) {
+            return reply(
+                '❓ *Usage:* ' + prefix + 'deploybera <phone>\n\n' +
+                '*Example:*\n' + prefix + 'deploybera 254712345678\n\n' +
+                '📱 Use your full number with country code (no + sign)\n' +
+                '💡 A pair code will be sent to you — enter it in WhatsApp\n\n' +
+                '*Cost:* 10 BeraHost coins'
+            )
+        }
+        await conn.sendMessage(chat, { react: { text: '🚀', key: m.key } })
+        await reply(
+            '🚀 *Deploying Bera AI...*\n\n' +
+            '📱 Phone: +' + phone + '\n' +
+            '⏳ Starting bot — pair code coming in ~30-60 seconds...'
+        )
+        const dr = await bh.deployBot(2, null, { OWNER_NUMBER: phone })
+        if (!dr.success) {
+            await conn.sendMessage(chat, { react: { text: '❌', key: m.key } })
+            return reply('❌ Deploy failed: ' + dr.error)
+        }
+        await reply('✅ Deployment *' + dr.id + '* created — waiting for pair code...')
+
+        // Poll logs for the pair code (bot requests it on startup)
+        const codeRes = await bh.pollForPairCode(dr.id, 180000, 7000)
+        if (!codeRes.success) {
+            return reply(
+                '⚠️ *Bot is starting but pair code not detected yet.*\n\n' +
+                'Check logs manually:\n*' + prefix + 'botlogs ' + dr.id + '*\n\n' +
+                'Look for an 8-character code like *ABCD-1234*\nand enter it in WhatsApp → Linked Devices'
+            )
+        }
+        await conn.sendMessage(chat, { react: { text: '🔑', key: m.key } })
+        return reply(
+            '╭══〘 *🔑 BERA AI PAIR CODE* 〙═⊷\n' +
+            '┃\n' +
+            '┃ Your code: *' + codeRes.code + '*\n' +
+            '┃\n' +
+            '┃ 📲 Steps to link:\n' +
+            '┃  1. Open WhatsApp on your phone\n' +
+            '┃  2. Tap ⋮ → Linked Devices\n' +
+            '┃  3. Tap *Link with phone number*\n' +
+            '┃  4. Enter: *' + codeRes.code + '*\n' +
+            '┃\n' +
+            '┃ 🆔 Deployment: ' + dr.id + '\n' +
+            '┃ 📊 Status: ' + prefix + 'depinfo ' + dr.id + '\n' +
+            '╰══════════════════⊷'
         )
     }
 
@@ -1225,7 +1280,8 @@ handle.command = [
     'bots','bhbots','botlist','availablebots',
     'transactions','coinhistory','bhhistory','cointx',
     'setbhkey','bhkey','setberakey','bhsetkey',
-    'bhhelp','deployhelp','berahost'
+    'bhhelp','deployhelp','berahost',
+    'deploybera','beradeploy','bhbera','deployai','depbera'
 ]
 handle.tags = ['pterodactyl']
 
