@@ -2403,6 +2403,10 @@ const handleMessage = async (conn, rawMsg) => {
         global.db.data.stats.totalCommands = (global.db.data.stats.totalCommands || 0) + 1
         debouncedDbWrite()  // batch DB writes — much faster than awaiting every time
 
+        const isGroup = m.isGroup || (chat && chat.includes('@g.us')) || false
+        const isAdmin = isGroup
+            ? ((await (async()=>{ try{ const meta = await conn.groupMetadata(chat); const me = conn.user?.id?.split(':')[0]+'@s.whatsapp.net'; return (meta.participants||[]).some(p=>p.id===me && p.admin) }catch{return false} })()))
+            : false
         const ctx = {
             conn,
             m,
@@ -2413,6 +2417,8 @@ const handleMessage = async (conn, rawMsg) => {
             chat,
             prefix,
             isOwner,
+            isGroup,
+            isAdmin,
             isAuthorized: authorized,
             reply: (txt) => conn.sendMessage(chat, { text: String(txt) }, { quoted: m }),
         }
@@ -2421,7 +2427,13 @@ const handleMessage = async (conn, rawMsg) => {
             conn.sendPresenceUpdate('composing', chat).catch(() => {})
         }
 
-        await handler(m, ctx)
+        if (typeof handler === 'function') {
+            await handler(m, ctx)
+        } else if (typeof handler?.all === 'function') {
+            await handler.all(m, ctx)
+        } else {
+            console.warn('[HANDLER] No callable found for command:', command)
+        }
 
         if (global.db?.data?.settings?.autoTyping !== false) {
             conn.sendPresenceUpdate('paused', chat).catch(() => {})
