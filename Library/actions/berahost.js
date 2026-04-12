@@ -7,13 +7,17 @@ const axios = require('axios')
 
 // API base — configurable via env, falls back to the documented URL
 const BH_API  = (process.env.BERAHOST_API_URL || 'https://kingvon-bot-hosting.replit.app').replace(/\/$/, '') + '/api'
-const getKey  = () => global.db?.data?.settings?.bhApiKey || process.env.BH_API_KEY || 'bh_eb7b4bc1f92c2a2141d0379da8b1dba71b546c8f7d33b169'
+const getKey  = () => global.db?.data?.settings?.bhApiKey || process.env.BH_API_KEY || null
 
-const bh = () => axios.create({
+const bh = () => {
+    const k = getKey()
+    if (!k) throw new Error('NO_BH_KEY')
+    return axios.create({
     baseURL: BH_API,
-    headers: { 'x-api-key': getKey(), 'Content-Type': 'application/json' },
+    headers: { 'x-api-key': k, 'Content-Type': 'application/json' },
     timeout: 30000
-})
+    })
+}
 
 const bhErr = (e) => e.response?.data?.error || e.response?.data?.message || e.message || 'Unknown error'
 
