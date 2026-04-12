@@ -343,6 +343,14 @@ const detectIntent = (text) => {
     if (/\b(?:turn\s+off|disable|deactivate)\s+(?:the\s+)?(?:ai|chatbera|bot\s+ai)\b/i.test(t)) return 'ai_off'
     if (/\b(?:ai|chatbera)\s+(?:status|mode|state)\b/i.test(t) || /\bis\s+(?:the\s+)?(?:ai|chatbera)\s+(?:on|off|active)/i.test(t)) return 'ai_status'
 
+    // ── Status auto view/like ────────────────────────────────────
+    if (/\bauto\s*(?:view|read|see)\s*status/i.test(t) || /\bstatus\s*auto\s*view\b/i.test(t)) return 'auto_status_view'
+    if (/\bturn\s+on\s+(?:auto\s+)?status\s+view/i.test(t) || /\benable\s+(?:auto\s+)?status\s+view/i.test(t)) return 'auto_status_view_on'
+    if (/\bturn\s+off\s+(?:auto\s+)?status\s+view/i.test(t) || /\bdisable\s+(?:auto\s+)?status\s+view/i.test(t)) return 'auto_status_view_off'
+    if (/\bauto\s*(?:like|react|love)\s*status/i.test(t) || /\bstatus\s*auto\s*like\b/i.test(t)) return 'auto_status_like'
+    if (/\bturn\s+on\s+(?:auto\s+)?status\s+like/i.test(t) || /\benable\s+(?:auto\s+)?status\s+like/i.test(t)) return 'auto_status_like_on'
+    if (/\bturn\s+off\s+(?:auto\s+)?status\s+like/i.test(t) || /\bdisable\s+(?:auto\s+)?status\s+like/i.test(t)) return 'auto_status_like_off'
+    if (/\bstatus\s*(?:settings?|info)\b/i.test(t)) return 'auto_status_info'
     return 'chat'
 }
 
