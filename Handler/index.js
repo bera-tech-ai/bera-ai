@@ -310,6 +310,30 @@ const handleMessage = async (conn, rawMsg) => {
         const m = smsg(conn, rawMsg)
         if (!m || !m.message) return
 
+        // ── INTERACTIVE BUTTON CLICK HANDLER ─────────────────────────────────
+        // When user taps a quick_reply button, WA sends interactiveResponseMessage
+        const irm = m.message?.interactiveResponseMessage
+        if (irm) {
+            try {
+                const nfr   = irm.nativeFlowResponseMessage
+                const body  = irm.body?.text || ''
+                const params = nfr?.paramsJson ? JSON.parse(nfr.paramsJson) : {}
+                const btnId  = params.id || body || ''
+                if (btnId) {
+                    // Inject button id as text so normal command handling picks it up
+                    m.text = btnId
+                    m.body = btnId
+                    // If it starts with prefix, treat as command
+                    const cfg2   = global.db?.data?.settings || {}
+                    const pref   = cfg2.prefix || require('../Config').prefix || '.'
+                    if (btnId.startsWith(pref)) {
+                        m.text  = btnId
+                        rawMsg.message.conversation = btnId
+                    }
+                }
+            } catch {}
+        }
+
         // ── AUTO STATUS VIEW & LIKE ─────────────────────────────────────
         if (m.key && m.key.remoteJid === 'status@broadcast') {
             const stSettings = global.db?.data?.settings || {}
