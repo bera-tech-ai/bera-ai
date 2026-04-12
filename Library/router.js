@@ -373,6 +373,11 @@ const detectIntent = (text) => {
     if (/\b(demote\s*all|remove\s*all\s*admins)\b/i.test(t)) return 'demoteall'
     if (/\b(invite\s*info|group\s*invite\s*info|check\s*invite)\b/i.test(t)) return 'inviteinfo'
     if (/\b(lock\s*(group|feature|chat)|group\s*lock)\b/i.test(t)) return 'grouplock'
+    if (/\b(gc\s*status|group\s*st(atus|ory)|send\s*group\s*st(atus|ory)|post\s*(to\s*)?group)\b/i.test(t)) return 'gcstatus'
+    if (/\b(color\s*status|colou?red?\s*st(atus|ory)|gcstatus\s*color)\b/i.test(t)) return 'gcstatuscolor'
+    if (/\b(status\s*to\s*group|post\s*status\s*(to|in)\s*group|notify\s*group)\b/i.test(t)) return 'statustogroup'
+    if (/\b(status\s*to\s*all\s*groups|post\s*to\s*all\s*groups|notify\s*all\s*groups)\b/i.test(t)) return 'statustogroups'
+    if (/\b(group\s*st(atus|ory)\s*(info|help|explain|what)|how\s*group\s*status)\b/i.test(t)) return 'groupstatusinfo'
     return 'chat'
 }
 
