@@ -687,6 +687,73 @@ const handleMessage = async (conn, rawMsg) => {
                 }
 
 
+
+                // ── Direct group name change ──────────────────────────────────
+                if (intent === 'group_name_change' && m.isGroup) {
+                    // Extract the new name from text: "change group name to X", "rename to X"
+                    const nameM = text.match(/(?:rename|change|set|update)\s+(?:group\s+)?(?:name|title|subject)?\s*to\s+(.+)/i) ||
+                                  text.match(/(?:group\s+name|name)\s*[:\-]?\s*(.{3,60})/i)
+                    const rawName = nameM ? nameM[1].trim().replace(/["""]/g,'') : null
+                    if (rawName && rawName.length >= 1) {
+                        // Apply fancy font if requested
+                        let finalName = rawName
+                        if (/fancy|exceptional|stylish|cool|unicode|special/i.test(text)) {
+                            const { toFancy } = require('../Library/actions/fancy').default || require('../Library/actions/fancy') || {}
+                            if (typeof toFancy === 'function') finalName = toFancy(rawName)
+                            else {
+                                // Manual fancy: bold italic unicode
+                                const bold = s => [...s].map(c => {
+                                    const code = c.charCodeAt(0)
+                                    if (code >= 65 && code <= 90) return String.fromCodePoint(code - 65 + 0x1D400)
+                                    if (code >= 97 && code <= 122) return String.fromCodePoint(code - 97 + 0x1D41A)
+                                    return c
+                                }).join('')
+                                finalName = bold(rawName)
+                            }
+                        }
+                        try {
+                            await react('✏️')
+                            await conn.groupUpdateSubject(chat, finalName)
+                            await reply('✅ Group name changed to: *' + finalName + '*')
+                        } catch(e) { await reply('❌ Failed: ' + e.message + '\n(Bot must be admin)') }
+                    } else {
+                        await reply('❓ I could not figure out the name. Say: *Bera rename group to NewName*')
+                    }
+                    return
+                }
+
+                // ── Direct group description change ───────────────────────────
+                if (intent === 'group_desc_change' && m.isGroup) {
+                    const descM = text.match(/(?:description|desc|bio|about|info)\s*(?:to|:)?\s*(.{5,})/i) ||
+                                  text.match(/(?:set|change|update)\s+(?:group\s+)?(?:description|desc|bio)\s*(?:to|:)?\s*(.{5,})/i)
+                    const rawDesc = descM ? descM[1].trim().replace(/["""]/g,'') : null
+                    if (rawDesc) {
+                        try {
+                            await react('📝')
+                            await conn.groupUpdateDescription(chat, rawDesc)
+                            await reply('✅ Group description updated!')
+                        } catch(e) { await reply('❌ Failed: ' + e.message + '\n(Bot must be admin)') }
+                    } else {
+                        await reply('❓ I could not figure out the description. Say: *Bera set group description to New Bio Here*')
+                    }
+                    return
+                }
+
+                // ── Direct group icon change ──────────────────────────────────
+                if (intent === 'group_icon_change' && m.isGroup) {
+                    const quoted = m.quoted
+                    if (!quoted || !/image/.test(quoted.mimetype || '')) {
+                        return reply('📸 Quote an image and say *Bera set this as group icon*')
+                    }
+                    try {
+                        await react('🖼️')
+                        const buf = await conn.downloadMediaMessage({ key: quoted.key, message: quoted.message })
+                        await conn.updateProfilePicture(chat, buf)
+                        await reply('✅ Group icon updated!')
+                    } catch(e) { await reply('❌ Failed: ' + e.message) }
+                    return
+                }
+
                 // ── NPM stats ───────────────────────────────────────────────
                 if (intent === 'npm_stats') {
                     const pkgMatch =
