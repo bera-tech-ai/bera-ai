@@ -31,14 +31,22 @@ const handle = async (m, { conn, command, args, prefix, reply, isOwner } = {}) =
         const arg = args[0]?.toLowerCase()
 
         if (!arg || arg === 'status') {
-            const isOn = global.db?.data?.chatbera?.globalEnabled
+            const isOn    = global.db?.data?.chatbera?.globalEnabled || false
             const profile = global.db?.data?.chatbera?.profile || {}
+            const msgs    = profile?.myMessages?.length || 412
+            const mode    = global.db?.data?.settings?.mode || 'public'
+            const bar     = isOn ? '▓▓▓▓▓▓▓▓▓▓' : '░░░░░░░░░░'
             return reply(
-                '╭══〘 *🎭 CHATBERA STATUS* 〙═⊷\n' +
-                `┃ Status: *${isOn ? '🟢 ON (all PMs)' : '🔴 OFF'}*\n` +
-                `┃ Trained on: *${profile?.myMessages?.length || 412} messages*\n` +
-                `┃ Turn on: *${prefix}chatbera on*\n` +
-                `┃ Turn off: *${prefix}chatbera off*\n` +
+                '╭══〘 *🤖 BERA AI MODE* 〙═⊷\n' +
+                '┃\n' +
+                '┃  ' + (isOn ? '🟢' : '🔴') + ' Status  [' + bar + ']\n' +
+                '┃  ' + (isOn ? '✅ AI is ON' : '❌ AI is OFF') + '\n' +
+                '┃\n' +
+                '┃ 🧠 Trained on: *' + msgs + ' messages*\n' +
+                '┃ 🌐 Bot mode: *' + mode + '*\n' +
+                '┃ 💬 Replies: *' + (isOn ? 'All DMs — as Bera' : 'Disabled') + '*\n' +
+                '┃\n' +
+                '┃ Toggle: *' + prefix + 'chatbera on* / *' + prefix + 'chatbera off*\n' +
                 '╰══════════════════⊷'
             )
         }
