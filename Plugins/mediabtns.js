@@ -10,6 +10,7 @@ const { getBtnMode } = require('../Library/actions/btnmode')
 
 const handle = {}
 handle.command = [
+    'play', 'music', 'playaudio', 'playvideo', 'playsong', 'song', 'findmusic',
     'yt', 'ytdl', 'ytdownload', 'youtube',
     'tiktok2', 'tt2', 'ttdl',
     'spotify2', 'spdl',
@@ -46,6 +47,7 @@ const fmtDur = (s) => {
 
 handle.all = async (m, { conn, command, args, prefix, reply, sender } = {}) => {
     const chat = m.chat || m.key?.remoteJid
+    const text  = args.join(' ').trim()
     const url  = args.find(a => a.startsWith('http')) || args[0]
     const useBtns = getBtnMode(chat)
 
@@ -174,6 +176,63 @@ handle.all = async (m, { conn, command, args, prefix, reply, sender } = {}) => {
             return reply('🐦 *Twitter Download*\n' + prefix + 'twitter ' + url)
         }
     }
+    // ── .PLAY — Search YouTube → pick result → Audio/Video format ─────────────
+    if (['play','music','playaudio','playvideo','playsong','song','findmusic'].includes(command)) {
+        if (!text) return reply(
+            '🎵 *Usage:* ' + prefix + 'play <song name or artist>\n\n' +
+            '*Examples:*\n' +
+            prefix + 'play Blinding Lights Weeknd\n' +
+            prefix + 'play Burna Boy Last Last\n\n' +
+            '_I will search and show you Audio + Video buttons!_'
+        )
+        await conn.sendMessage(chat, { react: { text: '🔍', key: m.key } }).catch(() => {})
+        const ytSearchUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(text)
+
+        // Try to fetch real search results from YouTube HTML
+        let results = []
+        try {
+            const r = await axios.get(ytSearchUrl, {
+                timeout: 8000,
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+            })
+            const html   = r.data
+            const regex  = /"videoId":"([^"]{5,20})","thumbnail":.*?"title":\{"runs":\[\{"text":"([^"]{3,120})"/g
+            let   match
+            while ((match = regex.exec(html)) !== null && results.length < 5) {
+                const id    = match[1], title = match[2]
+                if (!results.find(x => x.id === id)) results.push({ id, title, url: 'https://youtu.be/' + id })
+            }
+        } catch {}
+
+        const header = '╭══〈 *🎵 Music Search* 〉═╰\n┃\n┃ Query: *' + text + '*\n┃ ' + (results.length || 'Searching') + ' results' + (results.length ? ' found! Pick one 👇' : '...') + '\n╰══════════════════⊷'
+
+        if (results.length > 0 && useBtns) {
+            global.beraPlaySearch = global.beraPlaySearch || {}
+            global.beraPlaySearch[chat] = results
+            if (results.length <= 3) {
+                return sendBtn(conn, chat, m, header,
+                    results.map((r, i) => ({ id: 'play_pick_' + i + '_' + encodeURIComponent(r.url), text: (i+1) + '. ' + r.title.slice(0, 55) }))
+                    .concat([{ id: 'play_cancel', text: '❌ Cancel' }])
+                )
+            } else {
+                const rows = results.map((r, i) => ({
+                    title:       (i+1) + '. ' + r.title.slice(0, 50),
+                    description: '🎵 Tap to choose this track',
+                    rowId:       'play_pick_' + i + '_' + encodeURIComponent(r.url)
+                }))
+                rows.push({ title: '❌ Cancel', description: 'Dismiss', rowId: 'play_cancel' })
+                return sendList(conn, chat, m, header, [{ title: '🎵 Search Results', rows }], '🎵 Choose Track')
+            }
+        }
+
+        // Buttons off or no results → give direct commands
+        return reply(
+            '🎵 *Playing: ' + text + '*\n\n⏳ Use these commands:\n' +
+            prefix + 'tomp3 ' + ytSearchUrl + '\n' +
+            prefix + 'ytv ' + ytSearchUrl
+        )
+    }
+
 }
 
 module.exports = handle
