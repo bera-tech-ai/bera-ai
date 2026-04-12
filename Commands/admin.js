@@ -650,13 +650,15 @@ Get yours at: https://berahost.com`)
             }
             const result = { pluginsLoaded: _loaded, failed: _failed }
             await conn.sendMessage(chat, { react: { text: '✅', key: m.key } })
+            const gitLines = pullOut.trim().split('\n').filter(l => l.trim() && !l.includes('https://') && !l.includes('FETCH_HEAD')).slice(0, 4)
+            const gitSection = gitLines.length ? '┃\n┃ 📋 ' + gitLines.join('\n┃ ') + '\n' : ''
             return reply(
                 '╭══〘 *🔄 BOT UPDATED* 〙═⊷\n' +
                 '┃ Status: ' + (already ? '✅ Already up to date' : '🆕 ' + changed + ' file(s) updated') + '\n' +
                 '┃ Plugins loaded: *' + result.pluginsLoaded + '*\n' +
                 '┃ 🔌 Connection: *maintained*\n' +
                 (npmOut ? '┃ npm: ' + npmOut.slice(0,60) + '\n' : '') +
-                '┃\n┃ 📋 ' + pullOut.trim().split('\n').slice(0,4).join('\n┃ ') + '\n' +
+                gitSection +
                 '╰══════════════════⊷'
             )
         } catch (e) {
