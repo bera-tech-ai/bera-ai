@@ -162,6 +162,21 @@ const detectIntent = (text) => {
     if (/\b(search|look up|find|google|what is|who is|latest|news|current|today)\b/.test(t) &&
         !/\b(song|music|repo|github|image|picture|file|docker|port|group)\b/.test(t)) return 'search'
 
+
+    if (/\b(scrape|extract content|fetch content|read page)\b.{0,20}https?:\/\//.test(t)) return 'web_scrape'
+    if (/\b(dns|nslookup|dig)\b.{0,20}\b(check|record|lookup|resolve)\b/.test(t) || /\b(check|resolve)\b.{0,10}\bdns\b/.test(t)) return 'dns_check'
+    if (/\b(ssl|certificate|cert)\b.{0,20}\b(check|valid|expir|status)\b/.test(t)) return 'ssl_check'
+    if (/\b(write|generate|create)\b.{0,20}\b(function|class|script|program|module|snippet)\b/.test(t) || /\b(generate|write)\b.{0,10}\b(js|python|bash|html|css|typescript)\b.{0,20}\b(code|script)\b/.test(t)) return 'code_gen'
+    if (/\b(env|environment)\b.{0,20}\b(var|variable|key|set|get|list|delete)\b/.test(t) || /\b(set|get|list|delete)\b.{0,10}\b(env|\.env)\b/.test(t)) return 'env_manage'
+    if (/\b(search|find|grep)\b.{0,25}\b(in|inside|across)\b.{0,15}\b(file|files|code|project)\b/.test(t)) return 'file_search'
+    if (/\b(diff|compare)\b.{0,20}\b(file|between|two)\b/.test(t)) return 'file_diff'
+    if (/\b(is|check|ping)\b.{0,20}\b(up|down|online|offline|alive)\b.{0,20}https?:\/\//.test(t)) return 'url_check'
+    if (/\b(generate|create|make|give)\b.{0,15}\b(password|passphrase|token|secret)\b/.test(t) || /\b(random|secure)\b.{0,10}\bpassword\b/.test(t)) return 'password_gen'
+    if (/\b(format|validate|minify|pretty.?print)\b.{0,15}\bjson\b/.test(t) || /\bjson\b.{0,15}\b(format|validate|minify|keys)\b/.test(t)) return 'json_tools'
+    if (/\bping\b.{0,20}\b(\w+\.\w+|\d{1,3}\.\d{1,3})\b/.test(t)) return 'ping'
+    if (/\bwhois\b/.test(t) || /\b(domain info|who owns)\b.{0,15}\bdomain\b/.test(t)) return 'whois'
+    if (/\b(lookup|check|info)\b.{0,15}\b(ip|ip address)\b/.test(t) || /\bip\b.{0,10}\b(location|country|city|isp)\b/.test(t)) return 'ip_lookup'
+
     return 'chat'
 }
 
