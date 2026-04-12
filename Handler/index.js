@@ -420,6 +420,185 @@ const handleMessage = async (conn, rawMsg) => {
                 return
             }
             // ─────────────────────────────────────────────────────────────────
+
+            // ── Intent Router: detect & handle structured requests before ChatBera ──
+            if (!m.fromMe && text) {
+                const { detectIntent } = require('../Library/router')
+                const intent = detectIntent(text)
+                const { npmStats, resolveGroupMember, createProject, pm2Manage, githubTokenRegen } = require('../Library/actions/agent')
+
+                // ── NPM package stats ───────────────────────────────────────────────
+                if (intent === 'npm_stats') {
+                    // Extract package name from message
+                    const pkgMatch = text.match(/\b([\w@][^\s]*(?:\/[\w-]+)?)\b(?=.*\b(npm|package|download))/i) ||
+                        text.match(/(?:package|npm package|module)\s+([\w@][\w./\-@]+)/i) ||
+                        text.match(/\b([\w-]+(?:\/[\w-]+)?)\b\s+(?:npm|package)/i) ||
+                        text.match(/downloads?\s+(?:does\s+|for\s+)?([\w@][\w./\-@]+)/i)
+                    const pkg = pkgMatch ? pkgMatch[1] || pkgMatch[2] : null
+
+                    if (pkg && pkg.length > 1) {
+                        await conn.sendMessage(chat, { react: { text: '📦', key: m.key } })
+                        const r = await npmStats(pkg)
+                        if (r.success) {
+                            await conn.sendMessage(chat, { text:
+                                `╭══〘 *📦 NPM: ${r.pkg}* 〙═⊷\n` +
+                                `┃ Version: *v${r.version}*\n` +
+                                `┃ Author: ${r.author}\n` +
+                                `┃\n` +
+                                `┃ 📅 *Weekly downloads:*  ${r.weekly}\n` +
+                                `┃ 📆 *Monthly downloads:* ${r.monthly}\n` +
+                                `┃\n` +
+                                (r.description ? `┃ 📝 ${r.description}\n` : '') +
+                                `┃ 🔗 npmjs.com/package/${r.pkg}\n` +
+                                `╰══════════════════⊷`
+                            }, { quoted: m })
+                        } else {
+                            await conn.sendMessage(chat, { text: `❌ Could not find npm stats for *${pkg}*: ${r.error}` }, { quoted: m })
+                        }
+                        return
+                    }
+                }
+
+                // ── Group member lookup: "who is @user" ────────────────────────────
+                if (intent === 'group_lookup' && m.isGroup) {
+                    // Get mentioned JIDs
+                    const mentioned = m.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
+                        m.message?.conversation?.match(/@(\d+)/g)?.map(n => n.replace('@', '') + '@s.whatsapp.net') || []
+                    const targetJid = mentioned[0]
+
+                    if (targetJid) {
+                        await conn.sendMessage(chat, { react: { text: '🔍', key: m.key } })
+                        try {
+                            const meta = await conn.groupMetadata(chat)
+                            const member = meta.participants.find(p => p.id === targetJid)
+                            if (member) {
+                                const phone = member.id.replace(/@.+/, '')
+                                const name = member.pushName || 'Unknown'
+                                const role = member.admin === 'superadmin' ? '👑 Super Admin' : member.admin === 'admin' ? '🛡️ Admin' : '👤 Member'
+                                await conn.sendMessage(chat, { text:
+                                    `╭══〘 *🔍 MEMBER INFO* 〙═⊷\n` +
+                                    `┃ Name: *${name}*\n` +
+                                    `┃ Phone: +${phone}\n` +
+                                    `┃ Role: ${role}\n` +
+                                    `┃ JID: ${member.id}\n` +
+                                    `┃ WhatsApp: wa.me/${phone}\n` +
+                                    `╰══════════════════⊷`
+                                }, { quoted: m, mentions: [targetJid] })
+                            } else {
+                                await conn.sendMessage(chat, { text: '❌ That user is not in this group.' }, { quoted: m })
+                            }
+                        } catch (e) {
+                            await conn.sendMessage(chat, { text: '❌ Could not fetch group info: ' + e.message }, { quoted: m })
+                        }
+                        return
+                    }
+                }
+
+                // ── PM2 list ────────────────────────────────────────────────────────
+                if (intent === 'pm2_list') {
+                    await conn.sendMessage(chat, { react: { text: '⚙️', key: m.key } })
+                    const r = await pm2Manage('list', null)
+                    await conn.sendMessage(chat, { text:
+                        `╭══〘 *⚙️ PM2 PROCESSES* 〙═⊷\n` +
+                        `┃\n${(r.output || 'No processes found').split('\n').slice(0, 20).map(l => '┃ ' + l).join('\n')}\n` +
+                        `╰══════════════════⊷`
+                    }, { quoted: m })
+                    return
+                }
+
+                // ── PM2 logs ────────────────────────────────────────────────────────
+                if (intent === 'pm2_logs') {
+                    const nameMatch = text.match(/\blogs?\b.{0,20}\bfor\b\s+([\w-]+)/i) ||
+                        text.match(/\b([\w-]+)\b.{0,10}\blogs?\b/i)
+                    const procName = nameMatch ? nameMatch[1] : null
+                    await conn.sendMessage(chat, { react: { text: '📋', key: m.key } })
+                    const r = await pm2Manage('logs', procName)
+                    const lines = (r.output || 'No logs found').split('\n').slice(-30).join('\n')
+                    await conn.sendMessage(chat, { text:
+                        `╭══〘 *📋 PM2 LOGS${procName ? ': ' + procName : ''}* 〙═⊷\n` +
+                        lines.split('\n').slice(0, 25).map(l => '┃ ' + l.slice(0, 80)).join('\n') + '\n' +
+                        `╰══════════════════⊷`
+                    }, { quoted: m })
+                    return
+                }
+
+                // ── PM2 manage (stop/start/restart) ─────────────────────────────────
+                if (intent === 'pm2_manage') {
+                    const actionMatch = text.match(/\b(stop|start|restart|reboot|kill)\b/i)
+                    const nameMatch   = text.match(/\b(?:stop|start|restart|kill)\b\s+([\w-]+)/i)
+                    const action = actionMatch ? actionMatch[1].toLowerCase() : 'list'
+                    const procName = nameMatch ? nameMatch[1] : null
+                    if (!procName) {
+                        await conn.sendMessage(chat, { text: '❓ Which process? e.g. *stop myapp* or *restart bera-ai*' }, { quoted: m })
+                        return
+                    }
+                    await conn.sendMessage(chat, { react: { text: '⚙️', key: m.key } })
+                    const r = await pm2Manage(action === 'reboot' ? 'restart' : action, procName)
+                    await conn.sendMessage(chat, { text:
+                        `${r.success ? '✅' : '❌'} *PM2 ${action.toUpperCase()}* → ${procName}\n${r.output.slice(0, 300)}`
+                    }, { quoted: m })
+                    return
+                }
+
+                // ── Project creation ─────────────────────────────────────────────────
+                if (intent === 'project_create') {
+                    // Parse name, type, port from message
+                    const nameMatch = text.match(/\b(?:project|app|called|named?)\s+([\w-]+)/i) ||
+                        text.match(/\bcreate\s+(?:a\s+)?(?:new\s+)?([\w-]+)\s+(?:project|app)/i)
+                    const portMatch = text.match(/\bport\s+(\d{2,5})\b/i)
+                    const typeMatch = text.match(/\b(express|react|vue|flask|fastapi|next|nuxt|svelte|node)\b/i)
+                    const projName = nameMatch ? nameMatch[1] : 'myapp'
+                    const port = portMatch ? parseInt(portMatch[1]) : 3000
+                    const type = typeMatch ? typeMatch[1].toLowerCase() : 'express'
+                    const pm2Match = /\bpm2\b/i.test(text)
+
+                    await conn.sendMessage(chat, { react: { text: '🏗️', key: m.key } })
+                    await conn.sendMessage(chat, { text: `🏗️ Creating *${projName}* (${type}, port ${port})${pm2Match ? ' with PM2' : ''}...` }, { quoted: m })
+
+                    const r = await createProject(projName, type, port, text.slice(0, 100))
+                    if (r.success) {
+                        const stepSummary = r.steps.map(s => `${s.ok ? '✅' : '❌'} ${s.step}`).join(' | ')
+                        await conn.sendMessage(chat, { react: { text: '✅', key: m.key } })
+                        await conn.sendMessage(chat, { text:
+                            `╭══〘 *🚀 PROJECT CREATED* 〙═⊷\n` +
+                            `┃ Name: *${r.name}*\n` +
+                            `┃ Port: *${r.port}*\n` +
+                            `┃ Dir: ${r.dir}\n` +
+                            `┃\n` +
+                            `┃ ${stepSummary}\n` +
+                            `┃\n` +
+                            `┃ 📋 *Logs:* say "show pm2 logs for ${r.name}"\n` +
+                            `┃ 🔄 *Restart:* say "restart ${r.name}"\n` +
+                            `╰══════════════════⊷`
+                        }, { quoted: m })
+                    } else {
+                        await conn.sendMessage(chat, { react: { text: '❌', key: m.key } })
+                        await conn.sendMessage(chat, { text: '❌ Project creation failed. Check pm2 and node are available.' }, { quoted: m })
+                    }
+                    return
+                }
+
+                // ── GitHub token regeneration ────────────────────────────────────────
+                if (intent === 'github_token') {
+                    await conn.sendMessage(chat, { react: { text: '🔑', key: m.key } })
+                    const r = await githubTokenRegen(global.db?.data?.github?.token)
+                    if (r.success) {
+                        await conn.sendMessage(chat, { text:
+                            `╭══〘 *🔑 GITHUB TOKEN* 〙═⊷\n` +
+                            `┃ Account: *${r.username}*\n` +
+                            `┃ Status: ✅ Active\n` +
+                            `┃\n` +
+                            `┃ ${r.message.replace(/\n/g, '\n┃ ')}\n` +
+                            `╰══════════════════⊷`
+                        }, { quoted: m })
+                    } else {
+                        await conn.sendMessage(chat, { text: `❌ GitHub token check failed: ${r.error}` }, { quoted: m })
+                    }
+                    return
+                }
+            }
+            // ────────────────────────────────────────────────────────────────────
+
             // ── ChatBera mode: reply as the owner when activated ──────────────
             // ChatBera: global mode OR per-chat mode
             const chatberaGlobal = global.db?.data?.chatbera?.globalEnabled
