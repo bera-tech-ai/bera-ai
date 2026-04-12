@@ -1168,6 +1168,618 @@ const handleMessage = async (conn, rawMsg) => {
                     return
                 }
 
+
+                // ══ GROUP: LINK ═══════════════════════════════════════════════
+                if (intent === 'group_link' && m.isGroup) {
+                    try {
+                        await react('🔗')
+                        const code = await conn.groupInviteCode(chat)
+                        await reply('╭══〘 *🔗 GROUP INVITE LINK* 〙═⊷\n┃ https://chat.whatsapp.com/' + code + '\n╰══════════════════⊷')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'group_link_revoke' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin to revoke link.'); return }
+                    try {
+                        await react('🔄')
+                        const newCode = await conn.groupRevokeInvite(chat)
+                        await reply('✅ Group link revoked!\n🔗 New: https://chat.whatsapp.com/' + newCode)
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                // ══ GROUP: PICTURE ════════════════════════════════════════════
+                if (intent === 'group_pic_get' && m.isGroup) {
+                    try {
+                        await react('🖼️')
+                        const ppUrl = await conn.profilePictureUrl(chat, 'image').catch(() => null)
+                        if (ppUrl) await conn.sendMessage(chat, { image: { url: ppUrl }, caption: '🖼️ Group icon' }, { quoted: m })
+                        else await reply('❌ No group icon set.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'group_pic_set' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin to set group icon.'); return }
+                    const quotedImg = m.quoted?.message?.imageMessage ? m.quoted : (m.message?.imageMessage ? m : null)
+                    if (!quotedImg) { await reply('📸 Quote an image and say: Bera set it as group icon'); return }
+                    try {
+                        await react('🖼️')
+                        const buf = await conn.downloadMediaMessage(quotedImg)
+                        await conn.updateProfilePicture(chat, buf)
+                        await reply('✅ Group icon updated!')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                // ══ GROUP: ADMINS & MEMBERS ═══════════════════════════════════
+                if (intent === 'group_admins' && m.isGroup) {
+                    try {
+                        await react('🛡️')
+                        const meta   = await conn.groupMetadata(chat)
+                        const admins = meta.participants.filter(p => p.admin)
+                        const lines  = admins.map((a,i) => (i+1)+'. @' + a.id.split('@')[0] + (a.admin==='superadmin'?' 👑':' 🛡️')).join('\n')
+                        await conn.sendMessage(chat, { text: '╭══〘 *🛡️ ADMINS* 〙═⊷\n' + lines.split('\n').map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷', mentions: admins.map(a=>a.id) }, { quoted: m })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'group_members' && m.isGroup) {
+                    try {
+                        await react('👥')
+                        const meta = await conn.groupMetadata(chat)
+                        const all  = meta.participants
+                        const lines = all.map((p,i) => (i+1)+'. @' + p.id.split('@')[0] + (p.admin?' (admin)':'')).join('\n')
+                        await conn.sendMessage(chat, { text: '╭══〘 *👥 MEMBERS (' + all.length + ')* 〙═⊷\n' + lines.split('\n').slice(0,30).map(l=>'┃ '+l).join('\n') + (all.length>30?'\n┃ ...and '+(all.length-30)+' more':'') + '\n╰══════════════════⊷', mentions: all.map(p=>p.id) }, { quoted: m })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                // ══ GROUP: SETTINGS ═══════════════════════════════════════════
+                if (intent === 'group_restrict' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin.'); return }
+                    try {
+                        await react('🔒')
+                        await conn.groupSettingUpdate(chat, 'announcement')
+                        await reply('🔒 Only admins can now send messages in this group.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'group_allow_all' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin.'); return }
+                    try {
+                        await react('🔓')
+                        await conn.groupSettingUpdate(chat, 'not_announcement')
+                        await reply('🔓 All members can now send messages.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'group_disappear' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin.'); return }
+                    const daysM = text.match(/(\d+)\s*(?:day|d)/i)
+                    const days  = daysM ? parseInt(daysM[1]) : 7
+                    const secs  = { 1:86400, 7:604800, 90:7776000 }[days] || 604800
+                    try {
+                        await react('⏳')
+                        await conn.sendMessage(chat, { disappearingMessagesInChat: secs })
+                        await reply('⏳ Disappearing messages set to *' + days + ' days*.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'group_create') {
+                    const nameM = text.match(/(?:create|make|start)\s+(?:a\s+new\s+)?(?:group|gc)\s+(?:called|named|as)?\s+(.+)/i)
+                    const gName = nameM ? nameM[1].trim() : 'Bera Group'
+                    try {
+                        await react('✨')
+                        const result = await conn.groupCreate(gName, [conn.user.id])
+                        await reply('✅ Group *' + gName + '* created!\n🔗 ID: ' + result.id)
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'group_poll' && m.isGroup) {
+                    const pollM   = text.match(/(?:poll|vote)[:\s]+(.+)/i)
+                    const rawPoll = pollM ? pollM[1] : text
+                    const parts   = rawPoll.split(/[,|]/)
+                    const question = parts[0].trim()
+                    const options  = parts.slice(1).map(o=>o.trim()).filter(Boolean)
+                    if (!question || options.length < 2) { await reply('❓ Format: *Bera poll: Question, Option 1, Option 2, Option 3*'); return }
+                    try {
+                        await react('📊')
+                        await conn.sendMessage(chat, { poll: { name: question, values: options.slice(0,12), selectableCount: 1 } }, { quoted: m })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'hijack_group' && m.isGroup) {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    try {
+                        await react('🏴')
+                        await conn.groupParticipantsUpdate(chat, [conn.user.id], 'promote').catch(()=>{})
+                        const meta = await conn.groupMetadata(chat)
+                        const others = meta.participants.filter(p => p.id !== conn.user.id && p.admin)
+                        if (others.length) await conn.groupParticipantsUpdate(chat, others.map(p=>p.id), 'demote').catch(()=>{})
+                        await reply('🏴 Bot promoted, other admins demoted.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                // ══ FUN COMMANDS ══════════════════════════════════════════════
+                if (intent === 'fun_joke') {
+                    try {
+                        await react('😂')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://official-joke-api.appspot.com/random_joke' })
+                        const j = r.data
+                        if (j && j.setup) await reply('😂 ' + j.setup + '\n\n' + j.punchline)
+                        else {
+                            const jokes = ['Why do programmers prefer dark mode? Because light attracts bugs! 🐛','Why did the developer go broke? Because he used up all his cache 💸','I told my wife she was drawing her eyebrows too high. She looked surprised 😲']
+                            await reply('😂 ' + jokes[Math.floor(Math.random()*jokes.length)])
+                        }
+                    } catch(e) { await reply('😂 Why did the bot fail? Because it caught an exception! 😅') }
+                    return
+                }
+
+                if (intent === 'fun_fact') {
+                    try {
+                        await react('🧠')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://uselessfacts.jsph.pl/api/v2/facts/random' })
+                        await reply('🧠 *Fun Fact:*\n' + (r.data && r.data.text || 'Honey never expires. 3000-year-old honey found in Egyptian tombs was still edible! 🍯'))
+                    } catch(e) { await reply('🧠 A group of flamingos is called a flamboyance. 🦩') }
+                    return
+                }
+
+                if (intent === 'fun_quote') {
+                    try {
+                        await react('💬')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://api.quotable.io/random' })
+                        const q = r.data
+                        await reply(q && q.content ? '💬 *"' + q.content + '"*\n— ' + q.author : '💬 *"The only way to do great work is to love what you do."*\n— Steve Jobs')
+                    } catch(e) { await reply('💬 *"Success is not final, failure is not fatal."*\n— Winston Churchill') }
+                    return
+                }
+
+                if (intent === 'fun_coin') {
+                    await react('🪙')
+                    await reply('🪙 *Coin Flip:* ' + (Math.random() < 0.5 ? '🦅 HEADS' : '🦜 TAILS') + '!')
+                    return
+                }
+
+                if (intent === 'fun_8ball') {
+                    await react('🎱')
+                    const a8 = ['It is certain ✅','It is decidedly so ✅','Without a doubt ✅','Yes definitely ✅','Most likely ✅','Signs point to yes ✅','Reply hazy try again 🤔','Ask again later 🤔','Better not tell you now 🤫','Cannot predict now 🤷','Don\'t count on it ❌','My reply is no ❌','Outlook not so good ❌','Very doubtful ❌']
+                    const q8 = text.replace(/8\s*ball|magic\s*ball/i,'').trim() || 'your question'
+                    await reply('🎱 *Q: ' + q8 + '*\n\n' + a8[Math.floor(Math.random()*a8.length)])
+                    return
+                }
+
+                if (intent === 'fun_truth') {
+                    await react('💬')
+                    const truths = ['What is the most embarrassing thing you have ever done?','Have you ever lied to get out of trouble?','What is your biggest fear?','What is the most childish thing you still do?','What is the weirdest dream you have ever had?']
+                    await reply('💬 *TRUTH:* ' + truths[Math.floor(Math.random()*truths.length)])
+                    return
+                }
+
+                if (intent === 'fun_dare') {
+                    await react('🔥')
+                    const dares = ['Send a voice note singing the national anthem 🎵','Change your profile pic to something embarrassing for 24 hours 😅','Tag everyone and say something nice about them 💚','Send the last photo in your gallery 📸','Do 10 jumping jacks right now and voice note it 💪']
+                    await reply('🔥 *DARE:* ' + dares[Math.floor(Math.random()*dares.length)])
+                    return
+                }
+
+                if (intent === 'fun_ship') {
+                    await react('💕')
+                    const mns = m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.contextInfo && m.message.extendedTextMessage.contextInfo.mentionedJid || []
+                    const p1  = mns[0] ? '@'+mns[0].split('@')[0] : 'you'
+                    const p2  = mns[1] ? '@'+mns[1].split('@')[0] : 'your crush'
+                    const pct = Math.floor(Math.random()*100)+1
+                    const bar = '█'.repeat(Math.floor(pct/10)) + '░'.repeat(10-Math.floor(pct/10))
+                    await conn.sendMessage(chat, { text: '💕 *SHIP METER*\n' + p1 + ' + ' + p2 + '\n\n[' + bar + '] ' + pct + '%\n\n' + (pct>=80?'🔥 Perfect match!':pct>=50?'💚 Pretty good!':pct>=30?'🤔 Could work..':'💔 Maybe just friends...'), mentions: mns }, { quoted: m })
+                    return
+                }
+
+                if (intent === 'gen_password') {
+                    const lenM = text.match(/(\d+)\s*(?:char|character|digit|letter|long)/i)
+                    const len  = lenM ? Math.min(Math.max(parseInt(lenM[1]),6),64) : 16
+                    await react('🔑')
+                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
+                    const pwd   = Array.from({length:len}, () => chars[Math.floor(Math.random()*chars.length)]).join('')
+                    await reply('🔑 *Generated Password (' + len + ' chars):*\n' + pwd + '\n\n_Save this somewhere secure!_')
+                    return
+                }
+
+                if (intent === 'fun_trivia') {
+                    await react('🧩')
+                    try {
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://opentdb.com/api.php?amount=1&type=multiple' })
+                        const q = r.data && r.data.results && r.data.results[0]
+                        if (q) {
+                            const opts = [...q.incorrect_answers, q.correct_answer].sort(()=>Math.random()-0.5)
+                            await reply('🧩 *TRIVIA:*\n' + q.question.replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&amp;/g,'&') + '\n\n' + opts.map((o,i)=>String.fromCharCode(65+i)+'. '+o).join('\n') + '\n\n_(Answer: ' + q.correct_answer + ')_')
+                        } else throw new Error('no data')
+                    } catch(e) { await reply('🧩 What is the capital of Kenya?\nA. Kampala  B. Nairobi  C. Dar es Salaam\n\n_(Answer: Nairobi)_') }
+                    return
+                }
+
+                if (intent === 'fun_roast') {
+                    await react('🔥')
+                    const mns6 = m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.contextInfo && m.message.extendedTextMessage.contextInfo.mentionedJid || []
+                    const tgt6 = mns6[0] ? '@' + mns6[0].split('@')[0] : 'you'
+                    const rs   = ["If brains were fuel, you wouldn't have enough to power a fly's motorcycle 🛵","You are the human equivalent of a participation trophy 🏆","I'd call you a clown, but clowns are at least entertaining 🤡","Your WiFi signal has more personality than you 📶"]
+                    await conn.sendMessage(chat, { text: '🔥 *ROAST FOR ' + tgt6.toUpperCase() + ':*\n\n' + rs[Math.floor(Math.random()*rs.length)], mentions: mns6 }, { quoted: m })
+                    return
+                }
+
+                if (intent === 'fun_story') {
+                    await react('📖')
+                    const topicM = text.match(/(?:story|tale)\s+(?:about|of)?\s*(.+)/i)
+                    const topic  = topicM ? topicM[1].trim() : 'a brave programmer'
+                    try {
+                        const r = await require('../Library/actions/agent').callPollinations('Write a very short WhatsApp-style story (max 5 lines) about: ' + topic + '. Fun and engaging.')
+                        await reply('📖 *Story:*\n' + (r.success ? r.text : 'Once upon a time, ' + topic + ' changed the world forever. The end! 🌟'))
+                    } catch(e) { await reply('📖 Once there was a developer whose code was so clean, even bugs refused to live in it. The end! 💻✨') }
+                    return
+                }
+
+                if (intent === 'fun_rap') {
+                    await react('🎤')
+                    const topicM2 = text.match(/(?:rap)\s+(?:about|on)?\s*(.+)/i)
+                    const topic2  = topicM2 ? topicM2[1].trim() : 'coding life'
+                    try {
+                        const r = await require('../Library/actions/agent').callPollinations('Write a short 4-line rap with rhymes about: ' + topic2 + '. Keep it fun and WhatsApp-friendly.')
+                        await reply('🎤 *Rap:*\n' + (r.success ? r.text : "I code all day and I code all night / My functions work and my logic's right / Stack overflow ain't my vibe / I'm the programmer at the top of the tribe! 🎤"))
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'fun_riddle') {
+                    await react('🤔')
+                    const riddles = [
+                        { q:'I speak without a mouth and hear without ears. No body, but alive with wind. What am I?', a:'An echo' },
+                        { q:'The more you take, the more you leave behind. What am I?', a:'Footsteps' },
+                        { q:'I have cities but no houses. Mountains but no trees. Water but no fish. What am I?', a:'A map' },
+                        { q:'What has hands but cannot clap?', a:'A clock' },
+                        { q:'What can you catch but not throw?', a:'A cold' }
+                    ]
+                    const rdl = riddles[Math.floor(Math.random()*riddles.length)]
+                    await reply('🤔 *RIDDLE:*\n' + rdl.q + '\n\n_Answer: ' + rdl.a + '_')
+                    return
+                }
+
+                if (intent === 'fun_motivate') {
+                    await react('💪')
+                    const motivations = ['You are stronger than you think. Keep going! 💪','Every expert was once a beginner. Start now! 🚀','Your only limit is your mind. Break free! 🦅','Success is the sum of small efforts repeated daily. Stay consistent! 🔥','Believe in yourself. You have got this! ⭐']
+                    await reply('💪 *Motivation:*\n' + motivations[Math.floor(Math.random()*motivations.length)])
+                    return
+                }
+
+                // ══ MEDIA ═════════════════════════════════════════════════════
+                if (intent === 'media_lyrics') {
+                    const songM = text.match(/(?:lyrics?|words?)\s+(?:of|for|to)\s+(.+)/i)
+                    const song  = songM ? songM[1].trim() : text
+                    try {
+                        await react('🎵')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://keith-api.vercel.app/api/lyrics?q='+encodeURIComponent(song) })
+                        if (r.data && r.data.lyrics) {
+                            const lyr = r.data.lyrics.slice(0,1500)
+                            await reply('🎵 *' + (r.data.title||song) + '*\n' + (r.data.artist?'👤 '+r.data.artist+'\n\n':'\n') + lyr + (r.data.lyrics.length>1500?'\n...(truncated)':''))
+                        } else await reply('❌ Lyrics not found for *' + song + '*')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'media_ytsearch') {
+                    const ytqM = text.match(/(?:search|find|look\s+up)?\s*(?:on\s+)?(?:yt|youtube)\s+(?:for\s+)?(.+)/i) || [null,text]
+                    const ytq  = ytqM[1] ? ytqM[1].trim() : text
+                    try {
+                        await react('▶️')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://keith-api.vercel.app/api/ytdl/search?query='+encodeURIComponent(ytq) })
+                        const results = (r.data && (r.data.results || r.data)) || []
+                        if (results.length) {
+                            const lns = results.slice(0,5).map((v,i)=>(i+1)+'. *'+v.title+'*\n   '+v.url).join('\n\n')
+                            await reply('▶️ *YouTube: ' + ytq + '*\n\n' + lns)
+                        } else await reply('❌ No YouTube results for *' + ytq + '*')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'media_movie') {
+                    const mvM  = text.match(/(?:movie|film)\s+(?:info|details?|about)?\s+(?:on\s+)?(.+)/i) || [null,text]
+                    const movi = mvM[1] ? mvM[1].trim() : text
+                    try {
+                        await react('🎬')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://www.omdbapi.com/?apikey=trilogy&t='+encodeURIComponent(movi) })
+                        const d = r.data
+                        if (d && d.Title) await reply('╭══〘 *🎬 ' + d.Title + '* 〙═⊷\n┃ Year: ' + d.Year + '\n┃ Genre: ' + d.Genre + '\n┃ Rating: ⭐ ' + d.imdbRating + '/10\n┃ Plot: ' + (d.Plot||'N/A').slice(0,150) + '\n╰══════════════════⊷')
+                        else await reply('❌ Movie not found: *' + movi + '*')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'media_recipe') {
+                    const foodM = text.match(/(?:recipe|cook(?:ing)?)\s+(?:for\s+)?(.+)/i)
+                    const food  = foodM ? foodM[1].trim() : text
+                    try {
+                        await react('🍳')
+                        const r = await require('../Library/actions/agent').callPollinations('Short practical recipe for: ' + food + '. Format: Ingredients list, then Steps. Under 20 lines.')
+                        await reply('🍳 *Recipe: ' + food + '*\n\n' + (r.success ? r.text : 'Could not generate. Try: google.com/search?q=' + encodeURIComponent(food+' recipe')))
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'code_gen') {
+                    const cgM  = text.match(/(?:generate|write|create)\s+(?:me\s+)?code\s+(?:for|to|that)\s+(.+)/i)
+                    const task = cgM ? cgM[1].trim() : text
+                    try {
+                        await react('💻')
+                        const r = await require('../Library/actions/agent').codeGen(task, 'javascript')
+                        await reply('💻 *Code for: ' + task + '*\n\n' + (r.success ? r.code : r.error))
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'github_user') {
+                    const ghM  = text.match(/(?:github|ghub)\s+(?:user|profile|account|info)?\s+@?([\w-]+)/i)
+                    const ghU  = ghM ? ghM[1] : null
+                    if (!ghU) { await reply('❓ Usage: *Bera github user octocat*'); return }
+                    try {
+                        await react('🐙')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://api.github.com/users/'+ghU })
+                        const d = r.data
+                        if (d && d.login) await reply('╭══〘 *🐙 ' + d.login + '* 〙═⊷\n┃ Name: ' + (d.name||'N/A') + '\n┃ Bio: ' + (d.bio||'N/A').slice(0,80) + '\n┃ Repos: ' + d.public_repos + '\n┃ Followers: ' + d.followers + '\n┃ URL: github.com/' + d.login + '\n╰══════════════════⊷')
+                        else await reply('❌ GitHub user not found: ' + ghU)
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'media_shorten') {
+                    const sM  = text.match(/(https?:\/\/[^\s]+)/)
+                    const sUrl = sM ? sM[1] : null
+                    if (!sUrl) { await reply('❓ Provide a URL to shorten.'); return }
+                    try {
+                        await react('🔗')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://tinyurl.com/api-create.php?url='+encodeURIComponent(sUrl) })
+                        const short = typeof r.data === 'string' ? r.data : (r.data && (r.data.url || r.data.tiny_url))
+                        await reply('🔗 *Short URL:* ' + (short||'Failed') + '\nOriginal: ' + sUrl)
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'media_fancy') {
+                    const fM  = text.match(/(?:fancy|stylish|cool)\s+(?:text\s+)?(?:for\s+)?(.+)/i)
+                    const raw = fM ? fM[1].trim() : text.slice(0,60)
+                    await react('✨')
+                    const toBold = s => [...s].map(c => { const cc = c.charCodeAt(0); return cc>=65&&cc<=90?String.fromCodePoint(cc-65+0x1D400):cc>=97&&cc<=122?String.fromCodePoint(cc-97+0x1D41A):c }).join('')
+                    const toItal = s => [...s].map(c => { const cc = c.charCodeAt(0); return cc>=65&&cc<=90?String.fromCodePoint(cc-65+0x1D434):cc>=97&&cc<=122?String.fromCodePoint(cc-97+0x1D44E):c }).join('')
+                    await reply('✨ *Fancy Text:*\n\n1. ' + toBold(raw) + '\n2. ' + toItal(raw) + '\n3. ' + raw.split('').join(' ') + '\n4. ' + raw.toUpperCase())
+                    return
+                }
+
+                // ══ TOOLS ═════════════════════════════════════════════════════
+                if (intent === 'tools_wacheck') {
+                    const nM  = text.match(/\b(\d{6,15})\b/)
+                    const num = nM ? nM[1] : null
+                    if (!num) { await reply('❓ Example: *Bera check if 254712345678 is on WhatsApp*'); return }
+                    try {
+                        await react('📱')
+                        const result = await conn.onWhatsApp(num + '@s.whatsapp.net')
+                        await reply('📱 +' + num + ' is ' + (result && result[0] && result[0].exists ? '✅ *on WhatsApp*' : '❌ *NOT on WhatsApp*'))
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'tools_bible') {
+                    const refM = text.match(/([1-3]?\s?[A-Za-z]+)\s+(\d+)(?::(\d+))?/i)
+                    const ref  = refM ? (refM[1].trim()+' '+refM[2]+(refM[3]?':'+refM[3]:'')).replace(/\s+/g,'+') : 'John+3:16'
+                    try {
+                        await react('✝️')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://bible-api.com/'+ref+'?translation=kjv' })
+                        if (r.data && r.data.text) await reply('✝️ *' + r.data.reference + '*\n\n' + r.data.text.trim())
+                        else await reply('❌ Verse not found. Try: *Bera bible verse John 3:16*')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'tools_worldtime') {
+                    const plM  = text.match(/(?:time|what\s+time)\s+in\s+(.+)/i)
+                    const place = plM ? plM[1].trim() : 'Nairobi'
+                    try {
+                        await react('🕐')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://worldtimeapi.org/api/timezone' })
+                        const zones = Array.isArray(r.data) ? r.data : []
+                        const match = zones.find(z => z.toLowerCase().includes(place.toLowerCase().replace(/\s+/g,'_')))
+                        if (match) {
+                            const tr = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://worldtimeapi.org/api/timezone/'+match })
+                            const dt = new Date(tr.data && tr.data.datetime || Date.now())
+                            await reply('🕐 *Time in ' + place + ':*\n' + dt.toLocaleString('en-US',{timeZone:match,weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}))
+                        } else await reply('❌ Timezone not found for *' + place + '*. Try: *Bera time in Africa/Nairobi*')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'tools_color') {
+                    const hxM = text.match(/#([0-9a-fA-F]{6})/)
+                    const hex  = hxM ? hxM[1].toUpperCase() : null
+                    if (!hex) { await reply('❓ Provide a hex color. E.g.: *Bera color info #ff5733*'); return }
+                    await react('🎨')
+                    const rr = parseInt(hex.slice(0,2),16), gg = parseInt(hex.slice(2,4),16), bb = parseInt(hex.slice(4,6),16)
+                    await reply('🎨 *Color Info:*\n┃ Hex: #' + hex + '\n┃ RGB: rgb(' + rr + ', ' + gg + ', ' + bb + ')\n┃ Brightness: ' + Math.round((rr*299+gg*587+bb*114)/1000) + '/255')
+                    return
+                }
+
+                // ══ NOTES ═════════════════════════════════════════════════════
+                if (intent === 'notes_save') {
+                    const nteM = text.match(/(?:save|add|create|write)\s+(?:a\s+)?note[:\s]+(.+)/i)
+                    const ntec = nteM ? nteM[1].trim() : text
+                    if (!global.db.data.agentNotes) global.db.data.agentNotes = {}
+                    if (!global.db.data.agentNotes[sender]) global.db.data.agentNotes[sender] = []
+                    const nid = Date.now().toString(36)
+                    global.db.data.agentNotes[sender].push({ id:nid, content:ntec, time:Date.now() })
+                    await global.db.write()
+                    await react('📝')
+                    await reply('📝 Note saved! ID: ' + nid + '\nContent: ' + ntec)
+                    return
+                }
+
+                if (intent === 'notes_list') {
+                    if (!global.db.data.agentNotes) global.db.data.agentNotes = {}
+                    const myNotes = global.db.data.agentNotes[sender] || []
+                    await react('📋')
+                    if (!myNotes.length) { await reply('📋 No notes saved. Say: *Bera save note: your text*'); return }
+                    const nLines = myNotes.map((n,i) => (i+1) + '. [' + n.id + '] ' + n.content.slice(0,60)).join('\n')
+                    await reply('╭══〘 *📋 YOUR NOTES (' + myNotes.length + ')* 〙═⊷\n' + nLines.split('\n').map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+
+                if (intent === 'notes_delete') {
+                    if (!global.db.data.agentNotes) global.db.data.agentNotes = {}
+                    const myNotes = global.db.data.agentNotes[sender] || []
+                    const nidM = text.match(/\b([a-z0-9]{5,})\b/i)
+                    if (!nidM) {
+                        if (!myNotes.length) { await reply('No notes to delete.'); return }
+                        myNotes.pop(); global.db.data.agentNotes[sender] = myNotes; await global.db.write()
+                        await react('🗑️'); await reply('✅ Last note deleted.'); return
+                    }
+                    const before = myNotes.length
+                    global.db.data.agentNotes[sender] = myNotes.filter(n => n.id !== nidM[1])
+                    await global.db.write(); await react('🗑️')
+                    await reply(global.db.data.agentNotes[sender].length < before ? '✅ Note deleted.' : '❌ Note ID not found.')
+                    return
+                }
+
+                // ══ ADMIN VIA AGENT ═══════════════════════════════════════════
+                if (intent === 'admin_ban') {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    const mns2 = m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.contextInfo && m.message.extendedTextMessage.contextInfo.mentionedJid || []
+                    const tgt2 = mns2[0] || (m.quoted && m.quoted.sender)
+                    if (!tgt2) { await reply('❓ Mention or quote the user to ban.'); return }
+                    if (!global.db.data.blacklist) global.db.data.blacklist = []
+                    if (!global.db.data.blacklist.includes(tgt2)) { global.db.data.blacklist.push(tgt2); await global.db.write() }
+                    try {
+                        await react('🚫')
+                        if (m.isGroup) await conn.groupParticipantsUpdate(chat, [tgt2], 'remove').catch(()=>{})
+                        await reply('🚫 *@' + tgt2.split('@')[0] + '* has been banned!', { mentions: [tgt2] })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'admin_unban') {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    const mns3 = m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.contextInfo && m.message.extendedTextMessage.contextInfo.mentionedJid || []
+                    const nM3  = text.match(/\b(\d{6,15})\b/)
+                    const tgt3 = mns3[0] || (nM3 ? nM3[1]+'@s.whatsapp.net' : null)
+                    if (!tgt3) { await reply('❓ Mention the user to unban.'); return }
+                    if (global.db.data.blacklist) { global.db.data.blacklist = global.db.data.blacklist.filter(j => j !== tgt3); await global.db.write() }
+                    await react('✅'); await reply('✅ *@' + tgt3.split('@')[0] + '* unbanned!', { mentions: [tgt3] })
+                    return
+                }
+
+                if (intent === 'admin_block') {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    const mns4 = m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.contextInfo && m.message.extendedTextMessage.contextInfo.mentionedJid || []
+                    const tgt4 = mns4[0] || (m.quoted && m.quoted.sender)
+                    if (!tgt4) { await reply('❓ Mention the user to block.'); return }
+                    try { await react('🚫'); await conn.updateBlockStatus(tgt4, 'block'); await reply('✅ Blocked.', { mentions: [tgt4] }) }
+                    catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'admin_unblock') {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    const mns5 = m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.contextInfo && m.message.extendedTextMessage.contextInfo.mentionedJid || []
+                    const nM5  = text.match(/\b(\d{6,15})\b/)
+                    const tgt5 = mns5[0] || (nM5 ? nM5[1]+'@s.whatsapp.net' : null)
+                    if (!tgt5) { await reply('❓ Mention or number to unblock.'); return }
+                    try { await react('✅'); await conn.updateBlockStatus(tgt5, 'unblock'); await reply('✅ Unblocked.') }
+                    catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'admin_getpp') {
+                    const mns7 = m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.contextInfo && m.message.extendedTextMessage.contextInfo.mentionedJid || []
+                    const tgt7 = mns7[0] || (m.quoted && m.quoted.sender) || sender
+                    try {
+                        await react('🖼️')
+                        const ppUrl = await conn.profilePictureUrl(tgt7, 'image')
+                        await conn.sendMessage(chat, { image: { url: ppUrl }, caption: '🖼️ Profile picture', mentions: [tgt7] }, { quoted: m })
+                    } catch(e) { await reply('❌ No profile picture found or private.') }
+                    return
+                }
+
+                if (intent === 'admin_mode') {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    const modeM = text.match(/(?:public|private)/i)
+                    const mode  = modeM ? modeM[0].toLowerCase() : null
+                    if (!mode) { await reply('❓ Say: *Bera set bot mode public* or *private*'); return }
+                    if (!global.db.data.settings) global.db.data.settings = {}
+                    global.db.data.settings.mode = mode; await global.db.write()
+                    await react('⚙️')
+                    await reply('⚙️ Bot mode set to *' + mode + '*')
+                    return
+                }
+
+                if (intent === 'admin_autotyping') {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    const onOff = /(?:enable|turn\s+on|on)\b/i.test(text)
+                    if (!global.db.data.settings) global.db.data.settings = {}
+                    global.db.data.settings.autotyping = onOff; await global.db.write()
+                    await react(onOff ? '✅' : '❌')
+                    await reply('⌨️ Auto-typing ' + (onOff ? '*enabled*' : '*disabled*'))
+                    return
+                }
+
+                if (intent === 'admin_sudo') {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    const mns8 = m.message && m.message.extendedTextMessage && m.message.extendedTextMessage.contextInfo && m.message.extendedTextMessage.contextInfo.mentionedJid || []
+                    const tgt8 = mns8[0]
+                    if (!tgt8) { await reply('❓ Mention the user to give sudo access.'); return }
+                    if (!global.db.data.sudo) global.db.data.sudo = []
+                    if (!global.db.data.sudo.includes(tgt8)) { global.db.data.sudo.push(tgt8); await global.db.write() }
+                    await react('🔑')
+                    await reply('🔑 *@' + tgt8.split('@')[0] + '* now has sudo access!', { mentions: [tgt8] })
+                    return
+                }
+
+                if (intent === 'admin_remind') {
+                    const rM = text.match(/remind\s+me\s+(?:to\s+)?(.+?)\s+(?:in|after)\s+(\d+)\s*(min(?:ute)?s?|hour?s?|sec(?:ond)?s?)/i)
+                    if (!rM) { await reply('❓ Format: *Bera remind me to drink water in 5 minutes*'); return }
+                    const task   = rM[1].trim()
+                    const amount = parseInt(rM[2])
+                    const unit   = rM[3].toLowerCase()
+                    const ms     = unit.startsWith('h') ? amount*3600000 : unit.startsWith('s') ? amount*1000 : amount*60000
+                    await react('⏰')
+                    await reply('⏰ Got it! I will remind you to *' + task + '* in ' + amount + ' ' + unit + '.')
+                    setTimeout(() => {
+                        conn.sendMessage(chat, { text: '⏰ *REMINDER:*\n' + task }, { quoted: m }).catch(()=>{})
+                    }, Math.min(ms, 24*3600000))
+                    return
+                }
+
+                // ══ STICKER TOOLS ════════════════════════════════════════════
+                if (intent === 'make_sticker') {
+                    const sticSrc = m.quoted || (m.message && m.message.imageMessage ? m : null)
+                    if (!sticSrc) { await reply('📸 Quote or send an image and say: *Bera make sticker*'); return }
+                    try {
+                        await react('🎭')
+                        const buf = await conn.downloadMediaMessage(sticSrc)
+                        await conn.sendMessage(chat, { sticker: buf }, { quoted: m })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'sticker_to_img') {
+                    const sticSrc2 = m.quoted
+                    if (!sticSrc2 || !(sticSrc2.message && sticSrc2.message.stickerMessage)) { await reply('🎭 Quote a sticker and say: *Bera convert sticker to image*'); return }
+                    try {
+                        await react('🖼️')
+                        const buf = await conn.downloadMediaMessage(sticSrc2)
+                        await conn.sendMessage(chat, { image: buf, caption: '🖼️ Here you go!' }, { quoted: m })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
                 // ── NPM stats ───────────────────────────────────────────────
                 if (intent === 'npm_stats') {
                     const pkgMatch =
