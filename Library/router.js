@@ -351,6 +351,7 @@ const detectIntent = (text) => {
     if (/\bturn\s+on\s+(?:auto\s+)?status\s+like/i.test(t) || /\benable\s+(?:auto\s+)?status\s+like/i.test(t)) return 'auto_status_like_on'
     if (/\bturn\s+off\s+(?:auto\s+)?status\s+like/i.test(t) || /\bdisable\s+(?:auto\s+)?status\s+like/i.test(t)) return 'auto_status_like_off'
     if (/\bstatus\s*(?:settings?|info)\b/i.test(t)) return 'auto_status_info'
+    if (/\bset(?:sl|\s+status\s+(?:like\s+)?emoji)\b/i.test(t)) return 'set_status_emoji'
     return 'chat'
 }
 
