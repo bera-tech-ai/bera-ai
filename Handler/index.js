@@ -310,6 +310,23 @@ const handleMessage = async (conn, rawMsg) => {
         const m = smsg(conn, rawMsg)
         if (!m || !m.message) return
 
+        // ── AUTO STATUS VIEW & LIKE ─────────────────────────────────────
+        if (m.key && m.key.remoteJid === 'status@broadcast') {
+            const stSettings = global.db?.data?.settings || {}
+            if (stSettings.autoStatusView) {
+                conn.readMessages([m.key]).catch(() => {})
+            }
+            if (stSettings.autoStatusLike) {
+                const likeEmoji = stSettings.statusLikeEmoji || '❤️'
+                const participant = m.key.participant || m.sender || m.key.remoteJid
+                conn.sendMessage('status@broadcast',
+                    { react: { text: likeEmoji, key: m.key } },
+                    { statusJidList: [participant, conn.user?.id].filter(Boolean) }
+                ).catch(() => {})
+            }
+            return
+        }
+
         // Handle reaction messages separately
         if (m.mtype === 'reactionMessage') {
             handleReaction(conn, rawMsg).catch(() => {})
