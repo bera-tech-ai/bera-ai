@@ -1047,13 +1047,47 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
     if (['plans', 'bhplans', 'hostingplans', 'pricelist'].includes(command)) {
         await conn.sendMessage(chat, { react: { text: '📦', key: m.key } })
         const r = await bh.getPlans()
-        if (!r.success) return reply(`❌ ${r.error}`)
-        const plans = r.plans
-        if (!plans.length) return reply('No plans found.')
-        const rows = plans.map(p =>
-            `┃ ${p.id || p.name} — ${p.label || p.name || '?'}\n┃   💰 ${p.price || p.cost || '?'} | 🪙 ${p.coins || '?'} coins`
-        ).join('\n┃\n')
-        return reply(`╭══〘 *📦 BERAHOST PLANS* 〙═⊷\n${rows}\n┃\n┃ Pay via: ${prefix}mpesa <phone> <planId>\n╰══════════════════⊷`)
+        if (!r.success) return reply('❌ ' + r.error)
+
+        const pkgs  = r.coinPackages      || []
+        const subs  = r.subscriptionPlans || []
+
+        if (!pkgs.length && !subs.length) return reply('❌ No plans found from BeraHost.')
+
+        let msg = '╭══〘 *📦 BERAHOST PLANS* 〙═⊷\n┃\n'
+
+        if (pkgs.length) {
+            msg += '┃ 🪙 *COIN PACKAGES (Buy Coins)*\n'
+            msg += '┃ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+            pkgs.forEach(p => {
+                const badge = p.best ? ' 🏆 BEST' : p.popular ? ' 🔥 POPULAR' : ''
+                const bonus = p.bonus > 0 ? ' (+' + p.bonus + ' bonus)' : ''
+                msg += '┃ *' + p.name + '*' + badge + '\n'
+                msg += '┃   💰 KES ' + p.kes + '  →  🪙 ' + p.totalCoins + ' coins' + bonus + '\n'
+                msg += '┃   ID: ' + p.id + '\n'
+                msg += '┃\n'
+            })
+        }
+
+        if (subs.length) {
+            msg += '┃ 🖥️ *SUBSCRIPTION PLANS*\n'
+            msg += '┃ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+            subs.forEach(p => {
+                const price = p.priceKes === 0 ? 'FREE' : 'KES ' + p.priceKes + '/mo'
+                const feats = (p.features || []).map(f => '┃     • ' + f).join('\n')
+                msg += '┃ *' + p.name + '*  —  ' + price + '\n'
+                msg += '┃   🤖 ' + (p.botLimit >= 9999 ? 'Unlimited' : p.botLimit) + ' bots\n'
+                if (feats) msg += feats + '\n'
+                msg += '┃\n'
+            })
+        }
+
+        msg += '┃ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+        msg += '┃ 💳 Pay: *' + prefix + 'mpesa <phone> <plan-id>*\n'
+        msg += '┃ 🎟️ Redeem: *' + prefix + 'redeem <voucher>*\n'
+        msg += '╰══════════════════⊷'
+
+        return reply(msg)
     }
 
     // ── .mpesa <phone> <planId> [amount] ─────────────────────────────────────
