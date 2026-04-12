@@ -8,6 +8,19 @@ const detectIntent = (text) => {
         /^(menu|help|commands?|cmd list|command list|start|hi|hello|hey bera|hey bot)$/.test(t) ||
         /\b(bot (commands?|menu|help)|commands? list)\b/.test(t)) return 'menu'
 
+    // ── NPM stats (before github to avoid conflict) ───────────────────────────
+    if (/\b(npm|node package)\b.{0,40}\b(downloads?|stats?|weekly|monthly|installs?|popular|trending)\b/.test(t) ||
+        /\b(how many|weekly|monthly)\b.{0,30}\b(downloads?|installs?)\b.{0,30}\b(get|does|has|have)\b/.test(t) ||
+        /\bdownloads?\b.{0,20}\b(week|month|day)\b.{0,20}\bnpm\b/.test(t) ||
+        /\bnpm\b.{0,20}\b(package stats?|package info|registry)\b/.test(t)) return 'npm_stats'
+
+    // ── Group member lookup ───────────────────────────────────────────────────
+    if (/\bwho\s+is\b.{0,30}(@\d+|@\w+)/.test(t) ||
+        /\bwho'?s?\s+(this|that)\b.{0,20}(@\d+|@\w+)/.test(t) ||
+        /\btell me\b.{0,20}\babout\b.{0,20}(@\d+|@\w+)/.test(t) ||
+        /\binfo\b.{0,10}(on|about|for)\b.{0,20}(@\d+|@\w+)/.test(t) ||
+        /(@\d{10,})\b.{0,20}\b(who|name|info|admin|phone|contact|number)\b/.test(t)) return 'group_lookup'
+
     // ── Image generation ─────────────────────────────────────────────────────
     if (/\b(create|generate|make|draw|produce|paint|render)\b.{0,30}\b(image|picture|photo|art|illustration|logo)\b/.test(t) ||
         /\b(image|picture|photo)\b.{0,20}\b(of|showing|with)\b/.test(t)) return 'image_gen'
@@ -26,6 +39,26 @@ const detectIntent = (text) => {
     if (/\b(translate|translation)\b.{0,30}\b(to|into|in)\b/.test(t) ||
         /\b(translate|translation)\b.{0,15}\b(this|it|text|message)\b/.test(t) ||
         /\bin\s+(english|spanish|french|arabic|swahili|chinese|hindi|portuguese|german|russian|japanese|yoruba|igbo|hausa|zulu|amharic|somali|italian|dutch|korean|turkish)\b/.test(t)) return 'translate'
+
+    // ── Project creation ─────────────────────────────────────────────────────
+    if (/\b(create|build|make|scaffold|setup|spin up|spin)\b.{0,30}\b(project|app|application|server|bot|api|website|web app)\b/.test(t) &&
+        /\b(express|node|react|flask|fastapi|django|vue|svelte|port|pm2|http server)\b/.test(t)) return 'project_create'
+
+    // ── PM2 management ───────────────────────────────────────────────────────
+    if (/\bpm2\b.{0,20}\b(list|ls|show|processes?|apps?|running)\b/.test(t) ||
+        /\b(list|show|what)\b.{0,20}\bpm2\b.{0,15}\b(processes?|apps?)\b/.test(t)) return 'pm2_list'
+
+    if (/\bpm2\b.{0,20}\b(logs?|output|stdout)\b/.test(t) ||
+        /\b(show|get|view)\b.{0,15}\b(logs?)\b.{0,20}\b(for|of|from)\b/.test(t) ||
+        /\b(logs?)\b.{0,10}\bpm2\b/.test(t)) return 'pm2_logs'
+
+    if (/\b(stop|kill|pause)\b.{0,20}\b(process|app|server|pm2|bot)\b/.test(t) && !/\b(pterodactyl|panel)\b/.test(t)) return 'pm2_manage'
+    if (/\b(restart|reboot)\b.{0,20}\b(process|app|server|pm2)\b/.test(t) && !/\b(pterodactyl|panel)\b/.test(t)) return 'pm2_manage'
+    if (/\b(start)\b.{0,20}\b(process|pm2)\b/.test(t) && !/\b(pterodactyl|panel)\b/.test(t)) return 'pm2_manage'
+
+    // ── GitHub token ─────────────────────────────────────────────────────────
+    if (/\b(regenerate|regen|refresh|renew|create|generate|new|lost|replace)\b.{0,25}\b(github|gh)\b.{0,15}\b(token|pat|key|access token)\b/.test(t) ||
+        /\b(github|gh)\b.{0,15}\b(token|pat|key)\b.{0,25}\b(expired?|lost|broken|invalid|regenerate|regen|new)\b/.test(t)) return 'github_token'
 
     // ── Git ──────────────────────────────────────────────────────────────────
     if (/git\s*clone\b|clone\s+(repo|this|the|https?|git@)/.test(t)) return 'git_clone'
