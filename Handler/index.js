@@ -423,6 +423,123 @@ const handleMessage = async (conn, rawMsg) => {
 
 
 
+
+                if (intent === 'web_scrape') {
+                    const urlM = text.match(/https?:\/\/[^\s]+/)
+                    if (!urlM) { await reply('Usage: scrape https://example.com'); return }
+                    await react('🕷️'); await reply('Scraping...')
+                    const r = await agent.webScrape(urlM[0])
+                    if (r.success) {
+                        const ai = await agent.callPollinations('Summarize this web page in 5 bullet points.', 'Title: ' + r.title + '\nContent: ' + r.text)
+                        await reply('╭══〘 *🕷️ ' + r.title.slice(0,40) + '* 〙═⊷\n' + (ai.text || r.text.slice(0,500)).split('\n').slice(0,15).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    } else { await reply('Scrape failed: ' + r.error) }
+                    return
+                }
+                if (intent === 'dns_check') {
+                    const hm = text.match(/([a-z0-9.-]+\.[a-z]{2,})/i)
+                    if (!hm) { await reply('Usage: dns check example.com'); return }
+                    await react('🔍')
+                    const r = await agent.dnsCheck(hm[1])
+                    await reply('╭══〘 *🔍 DNS: ' + r.domain + '* 〙═⊷\n' + r.output.split('\n').slice(0,20).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'ssl_check') {
+                    const dm = text.match(/([a-z0-9.-]+\.[a-z]{2,})/i)
+                    if (!dm) { await reply('Usage: ssl check example.com'); return }
+                    await react('🔒')
+                    const r = await agent.sslCheck(dm[1])
+                    await reply('╭══〘 *🔒 SSL: ' + r.domain + '* 〙═⊷\n' + r.output.split('\n').slice(0,15).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'code_gen') {
+                    const lm = text.match(/\b(javascript|python|node|js|py|bash|html|css|typescript|go|rust)\b/i)
+                    const lang = lm ? lm[1] : 'javascript'
+                    const desc = text.replace(/\b(?:write|generate|create|code|make|build)\b/gi,'').trim() || text
+                    await react('💻'); await reply('Generating ' + lang + ' code...')
+                    const r = await agent.codeGen(desc, lang)
+                    await reply('╭══〘 *💻 CODE: ' + lang.toUpperCase() + '* 〙═⊷\n\n' + (r.text || r.error || 'failed').slice(0,3500) + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'env_manage') {
+                    if (!isOwner) { await reply('⛔ Owner only.'); return }
+                    const am = text.match(/\b(list|get|set|delete|remove|show)\b/i)
+                    const action = am ? am[1].toLowerCase().replace('remove','delete').replace('show','list') : 'list'
+                    const parts = text.trim().split(/\s+/)
+                    const envKey = parts.find(p => p === p.toUpperCase() && p.length > 1 && !/^(GET|SET|LIST|DELETE|ENV|SHOW|REMOVE)$/.test(p))
+                    const envVal = action === 'set' && envKey ? parts.slice(parts.indexOf(envKey)+1).join(' ') : undefined
+                    await react('⚙️')
+                    const r = await agent.envManager(action, envKey, envVal)
+                    await reply('╭══〘 *⚙️ ENV ' + action.toUpperCase() + '* 〙═⊷\n' + (r.output||r.error||'done').split('\n').slice(0,20).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'file_search') {
+                    const qm = text.match(/["']([^"']+)["']/)
+                    const pat = qm ? qm[1] : text.replace(/\b(search|find|grep|look for|locate|in|files?|code|project)\b/gi,'').trim()
+                    const dm2 = text.match(/\bin\s+([\w/.~-]+)\b/i)
+                    if (!pat || pat.length < 2) { await reply('Usage: search "functionName" in ./Plugins'); return }
+                    await react('🔎')
+                    const r = await agent.fileSearch(pat, dm2 ? dm2[1] : '.', '')
+                    await reply('╭══〘 *🔎 SEARCH: "' + pat + '"* 〙═⊷\n' + r.output.split('\n').slice(0,25).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'file_diff') {
+                    const diffFiles = text.match(/[\w/.~-]+\.\w+/g) || []
+                    if (diffFiles.length < 2) { await reply('Usage: diff file1.js file2.js'); return }
+                    await react('📊')
+                    const r = await agent.fileDiff(diffFiles[0], diffFiles[1])
+                    await reply('╭══〘 *📊 DIFF* 〙═⊷\n' + r.output.split('\n').slice(0,25).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'url_check') {
+                    const urlArr = text.match(/https?:\/\/[^\s]+/g) || []
+                    if (!urlArr.length) { await reply('Usage: check https://mysite.com is up'); return }
+                    await react('🔌')
+                    const r = await agent.urlCheck(urlArr)
+                    await reply('╭══〘 *🔌 URL STATUS* 〙═⊷\n' + r.output.split('\n').map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'password_gen') {
+                    const lnm = text.match(/\b(\d{1,3})\b/)
+                    const pwLen = lnm ? Math.min(128, Math.max(8, parseInt(lnm[1]))) : 20
+                    const r = agent.passwordGen(pwLen, { noSymbols: /\b(no symbol|alphanumeric|simple)\b/i.test(text) })
+                    await reply('╭══〘 *🔑 PASSWORD* 〙═⊷\n┃ ' + r.password + '\n┃ Len: ' + r.length + ' | ' + r.strength + '\n┃ Save this now!\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'json_tools') {
+                    const quot2 = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
+                    const rawJ = quot2?.conversation || quot2?.extendedTextMessage?.text || text
+                    const jm = rawJ.match(/(\{[\s\S]*\}|\[[\s\S]*\])/)
+                    if (!jm) { await reply('Quote a JSON message or include JSON in your text.'); return }
+                    const am2 = text.match(/\b(format|pretty|minify|validate|keys)\b/i)
+                    const r = agent.jsonTools(am2 ? am2[1].toLowerCase() : 'format', jm[1])
+                    await reply('╭══〘 *📋 JSON ' + (am2 ? am2[1].toUpperCase() : 'FORMAT') + '* 〙═⊷\n\n' + r.output.slice(0,3000) + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'ping') {
+                    const phm = text.match(/([a-z0-9.-]+\.[a-z]{2,}|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i)
+                    if (!phm) { await reply('Usage: ping google.com'); return }
+                    await react('🏓')
+                    const r = await agent.pingHost(phm[1])
+                    await reply('╭══〘 *🏓 PING: ' + r.host + '* 〙═⊷\n' + r.output.split('\n').slice(0,15).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'whois') {
+                    const whm = text.match(/([a-z0-9.-]+\.[a-z]{2,})/i)
+                    if (!whm) { await reply('Usage: whois example.com'); return }
+                    await react('🔍')
+                    const r = await agent.whoisLookup(whm[1])
+                    await reply('╭══〘 *🔍 WHOIS: ' + whm[1] + '* 〙═⊷\n' + r.output.split('\n').slice(0,20).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+                if (intent === 'ip_lookup') {
+                    const ipm = text.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/)
+                    if (!ipm) { await reply('Usage: ip lookup 8.8.8.8'); return }
+                    await react('🌍')
+                    const r = await agent.ipLookup(ipm[0])
+                    await reply('╭══〘 *🌍 IP INFO: ' + ipm[0] + '* 〙═⊷\n' + r.output.split('\n').map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    return
+                }
+
             // ═══════════════════════════════════════════════════════════════
             // BERA AGENT — Full Intent Router (fires before ChatBera)
             // ═══════════════════════════════════════════════════════════════
@@ -938,4 +1055,28 @@ const handleMessage = async (conn, rawMsg) => {
     }
 }
 
-module.exports = { handleMessage, handleGroupEvents, handleReaction }
+
+// Hot-reload all plugins + libraries without dropping WA connection
+const reloadAll = async () => {
+    const pluginDir = path.resolve('./Plugins')
+    const libDir    = path.resolve('./Library')
+    Object.keys(require.cache).forEach(key => {
+        if (key.startsWith(pluginDir) || key.startsWith(libDir)) delete require.cache[key]
+    })
+    handlers.length = 0
+    for (const f of commandFiles) {
+        try { const r = require.resolve('../Commands/' + f); delete require.cache[r]; handlers.push(require('../Commands/' + f)) }
+        catch (e) { console.error('[RELOAD] Command failed:', f, e.message) }
+    }
+    if (fs.existsSync(pluginDir)) {
+        const pluginFiles = fs.readdirSync(pluginDir).filter(f => f.endsWith('.js') && f !== 'example.js')
+        for (const file of pluginFiles) {
+            try { const p = require(path.join(pluginDir, file)); if (p && typeof p === 'function') handlers.push(p) }
+            catch (e) { console.error('[RELOAD] Plugin failed:', file, e.message) }
+        }
+    }
+    commandMap = buildCommandMap()
+    return { success: true, pluginsLoaded: handlers.length }
+}
+
+module.exports = { handleMessage, handleGroupEvents, handleReaction, reloadAll }
