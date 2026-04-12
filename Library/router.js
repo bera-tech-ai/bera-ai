@@ -206,6 +206,55 @@ const detectIntent = (text) => {
     if (/(?:change|set|update)\s+(?:group\s+)?(?:description|desc|bio)\b/.test(t)) return 'group_desc_change'
     if (/(?:set|change|update)\s+(?:group\s+)?(?:icon|picture|photo|image|pp|pic)\b/.test(t)) return 'group_icon_change'
 
+
+    // ── Group member actions ─────────────────────────────────────────────
+    if (/\b(?:kick|remove|boot)\b.+@/i.test(t) || /\b(?:kick|remove|boot)\s+(?:that|this)\s+(?:person|user|member)/i.test(t)) return 'kick_user'
+    if (/\b(?:add|invite|bring)\b.+@/i.test(t) || /\b(?:add|invite)\s+(?:that|this)\s+(?:person|user|member)/i.test(t)) return 'add_user'
+    if (/\b(?:promote|make|set)\b.+admin/i.test(t) || /\b(?:make|promote)\s+(?:that|this)\s+(?:person|user)\s+admin/i.test(t)) return 'promote_user'
+    if (/\b(?:demote|remove)\b.+admin/i.test(t) || /\bdemote\s+(?:that|this)\b/i.test(t)) return 'demote_user'
+    if (/\b(?:mute|close|lock)\s+(?:thes+)?group/i.test(t) || /\bgroup\s+(?:mute|close|lock)/i.test(t)) return 'mute_group'
+    if (/\b(?:unmute|open|unlock)\s+(?:thes+)?group/i.test(t) || /\bgroup\s+(?:unmute|open|unlock)/i.test(t)) return 'unmute_group'
+    if (/\b(?:kick\s*all|remove\s*all|clear\s*group|boot\s*all|clean\s*group)\b/i.test(t)) return 'kick_all'
+    if (/\b(?:tag|mention|ping)\s+(?:all|everyone|everybody)/i.test(t) || /\bhidetag/i.test(t)) return 'tag_all'
+    if (/\b(?:leave|exit|quit)\s+(?:thes+)?group/i.test(t) || /\bgroup\s+(?:leave|exit)/i.test(t)) return 'leave_group'
+    if (/\bgroup\s+(?:info|details|stats|members|list)\b/i.test(t) || /\b(?:who(?:'?s)?)\s+in\s+(?:thes+)?group/i.test(t)) return 'group_info'
+    if (/\b(?:delete|remove|clear)\s+(?:that|this|the)s+(?:message|msg)/i.test(t) || /\bdelete\s+(?:quoted|replied)\b/i.test(t)) return 'delete_msg'
+    if (/\b(?:warn|caution)\s+@/i.test(t) || /\b(?:warn|caution)\s+(?:that|this)s+(?:person|user)/i.test(t)) return 'warn_user'
+
+    // ── Anti-features toggle ────────────────────────────────────────────
+    if (/\b(?:turn|switch|set)?\s*(?:on|enable|activate)\s+anti(?:\s*|-)?(?:delete|del)/i.test(t)) return 'antidelete_on'
+    if (/\b(?:turn|switch|set)?\s*(?:off|disable|deactivate)\s+anti(?:\s*|-)?(?:delete|del)/i.test(t)) return 'antidelete_off'
+    if (/\b(?:turn|switch|set)?\s*(?:on|enable|activate)\s+anti(?:\s*|-)?link/i.test(t)) return 'antilink_on'
+    if (/\b(?:turn|switch|set)?\s*(?:off|disable|deactivate)\s+anti(?:\s*|-)?link/i.test(t)) return 'antilink_off'
+    if (/\b(?:turn|switch|set)?\s*(?:on|enable|activate)\s+welcome/i.test(t)) return 'welcome_on'
+    if (/\b(?:turn|switch|set)?\s*(?:off|disable|deactivate)\s+welcome/i.test(t)) return 'welcome_off'
+    if (/\b(?:turn|switch|set)?\s*(?:on|enable)\s+(?:good\s*)?bye/i.test(t)) return 'bye_on'
+    if (/\b(?:turn|switch|set)?\s*(?:off|disable)\s+(?:good\s*)?bye/i.test(t)) return 'bye_off'
+
+    // ── Code execution ──────────────────────────────────────────────────
+    if (/\b(?:run|exec(?:ute)?|eval|evaluate)\s+(?:this\s+)?(?:code|script|js|javascript)\b/i.test(t) || /\beval\s+[`'"]/i.test(t)) return 'js_eval'
+    if (/\b(?:run|exec(?:ute)?)\s+(?:this\s+)?(?:shell|bash|terminal|command)\b/i.test(t) || /\b(?:shell|bash)\s+command/i.test(t)) return 'shell'
+
+    // ── Bot management ──────────────────────────────────────────────────
+    if (/\b(?:update|upgrade|pull)\s+(?:the\s+)?bot\b/i.test(t) || /\b(?:pull\s+latest|hot\s*reload|reload\s+(?:plugins?|bot))\b/i.test(t)) return 'bot_update'
+    if (/\b(?:bot|bera)\s+(?:status|stats|info|uptime|health)\b/i.test(t) || /\bhow\s+is\s+(?:the\s+)?bot\b/i.test(t)) return 'bot_status'
+
+    // ── Media/download ──────────────────────────────────────────────────
+    if (/\b(?:play|send|download|get)\s+(?:music|song|audio|track)/i.test(t) || /\bsend\s+me\s+(?:the\s+)?song/i.test(t)) return 'music'
+    if (/\b(?:generate|create|make|draw)\s+(?:an?\s+)?(?:image|photo|picture|art|pic)/i.test(t)) return 'image_gen'
+    if (/\b(?:download|get|grab|fetch)\s+(?:video|yt|youtube)/i.test(t)) return 'download'
+    if (/\b(?:translate)\b/i.test(t)) return 'translate'
+    if (/\b(?:search|google|look\s+up|find\s+info(?:rmation)?\s+(?:on|about|for))\b/i.test(t)) return 'search'
+
+    // ── Network tools ───────────────────────────────────────────────────
+    if (/\b(?:ping|check\s+latency)\s+\S+/i.test(t)) return 'ping'
+    if (/\bwhois\b/i.test(t)) return 'whois'
+    if (/\b(?:ip\s+lookup|lookup\s+ip|ip\s+address\s+(?:of|for))\b/i.test(t)) return 'ip_lookup'
+    if (/\b(?:check|is)\s+(?:the\s+)?(?:url|link|site|website)\s+(?:safe|working|up|alive|down)/i.test(t)) return 'url_check'
+    if (/\b(?:dns|mx|nameserver)\s+(?:lookup|check|records?)/i.test(t)) return 'dns_check'
+    if (/\b(?:ssl|cert(?:ificate)?)\s+(?:check|info|expires?|valid)/i.test(t)) return 'ssl_check'
+
+
     return 'chat'
 }
 
