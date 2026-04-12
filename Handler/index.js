@@ -421,183 +421,432 @@ const handleMessage = async (conn, rawMsg) => {
             }
             // ─────────────────────────────────────────────────────────────────
 
-            // ── Intent Router: detect & handle structured requests before ChatBera ──
+
+
+            // ═══════════════════════════════════════════════════════════════
+            // BERA AGENT — Full Intent Router (fires before ChatBera)
+            // ═══════════════════════════════════════════════════════════════
             if (!m.fromMe && text) {
                 const { detectIntent } = require('../Library/router')
                 const intent = detectIntent(text)
-                const { npmStats, resolveGroupMember, createProject, pm2Manage, githubTokenRegen } = require('../Library/actions/agent')
+                const agent  = require('../Library/actions/agent')
+                const react  = (e) => conn.sendMessage(chat, { react: { text: e, key: m.key } }).catch(() => {})
+                const reply  = (t) => conn.sendMessage(chat, { text: String(t) }, { quoted: m })
+                const fmt    = (lines) => lines.split('\n').slice(0, 30).map(l => '┃ ' + l.slice(0, 90)).join('\n')
 
-                // ── NPM package stats ───────────────────────────────────────────────
+                // ── NPM stats ───────────────────────────────────────────────
                 if (intent === 'npm_stats') {
-                    // Extract package name from message
-                    const pkgMatch = text.match(/\b([\w@][^\s]*(?:\/[\w-]+)?)\b(?=.*\b(npm|package|download))/i) ||
-                        text.match(/(?:package|npm package|module)\s+([\w@][\w./\-@]+)/i) ||
-                        text.match(/\b([\w-]+(?:\/[\w-]+)?)\b\s+(?:npm|package)/i) ||
-                        text.match(/downloads?\s+(?:does\s+|for\s+)?([\w@][\w./\-@]+)/i)
-                    const pkg = pkgMatch ? pkgMatch[1] || pkgMatch[2] : null
-
+                    const pkgMatch =
+                        text.match(/downloads?\s+(?:does\s+|for\s+)?([\w@][\w./\-@]+)/i) ||
+                        text.match(/(?:npm|package)\s+([\w@][\w./\-@]+)/i) ||
+                        text.match(/\b([\w-]+)\b\s+(?:npm|package)/i)
+                    const pkg = pkgMatch ? pkgMatch[1] : null
                     if (pkg && pkg.length > 1) {
-                        await conn.sendMessage(chat, { react: { text: '📦', key: m.key } })
-                        const r = await npmStats(pkg)
+                        await react('📦')
+                        const r = await agent.npmStats(pkg)
                         if (r.success) {
-                            await conn.sendMessage(chat, { text:
-                                `╭══〘 *📦 NPM: ${r.pkg}* 〙═⊷\n` +
-                                `┃ Version: *v${r.version}*\n` +
-                                `┃ Author: ${r.author}\n` +
-                                `┃\n` +
-                                `┃ 📅 *Weekly downloads:*  ${r.weekly}\n` +
-                                `┃ 📆 *Monthly downloads:* ${r.monthly}\n` +
-                                `┃\n` +
-                                (r.description ? `┃ 📝 ${r.description}\n` : '') +
-                                `┃ 🔗 npmjs.com/package/${r.pkg}\n` +
-                                `╰══════════════════⊷`
-                            }, { quoted: m })
+                            await reply(`╭══〘 *📦 NPM: ${r.pkg}* 〙═⊷\n┃ Version: *v${r.version}* | Author: ${r.author}\n┃\n┃ 📅 Weekly:  *${r.weekly}*\n┃ 📆 Monthly: *${r.monthly}*\n┃\n${r.description ? '┃ 📝 ' + r.description + '\n' : ''}┃ 🔗 npmjs.com/package/${r.pkg}\n╰══════════════════⊷`)
                         } else {
-                            await conn.sendMessage(chat, { text: `❌ Could not find npm stats for *${pkg}*: ${r.error}` }, { quoted: m })
+                            await reply(`❌ npm stats failed for *${pkg}*: ${r.error}`)
                         }
                         return
                     }
                 }
 
-                // ── Group member lookup: "who is @user" ────────────────────────────
+                // ── Group member lookup ──────────────────────────────────────
                 if (intent === 'group_lookup' && m.isGroup) {
-                    // Get mentioned JIDs
-                    const mentioned = m.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
-                        m.message?.conversation?.match(/@(\d+)/g)?.map(n => n.replace('@', '') + '@s.whatsapp.net') || []
+                    const mentioned = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
                     const targetJid = mentioned[0]
-
                     if (targetJid) {
-                        await conn.sendMessage(chat, { react: { text: '🔍', key: m.key } })
+                        await react('🔍')
                         try {
-                            const meta = await conn.groupMetadata(chat)
+                            const meta   = await conn.groupMetadata(chat)
                             const member = meta.participants.find(p => p.id === targetJid)
                             if (member) {
                                 const phone = member.id.replace(/@.+/, '')
-                                const name = member.pushName || 'Unknown'
-                                const role = member.admin === 'superadmin' ? '👑 Super Admin' : member.admin === 'admin' ? '🛡️ Admin' : '👤 Member'
-                                await conn.sendMessage(chat, { text:
-                                    `╭══〘 *🔍 MEMBER INFO* 〙═⊷\n` +
-                                    `┃ Name: *${name}*\n` +
-                                    `┃ Phone: +${phone}\n` +
-                                    `┃ Role: ${role}\n` +
-                                    `┃ JID: ${member.id}\n` +
-                                    `┃ WhatsApp: wa.me/${phone}\n` +
-                                    `╰══════════════════⊷`
-                                }, { quoted: m, mentions: [targetJid] })
+                                const role  = member.admin === 'superadmin' ? '👑 Super Admin' : member.admin === 'admin' ? '🛡️ Admin' : '👤 Member'
+                                await reply(`╭══〘 *🔍 MEMBER INFO* 〙═⊷\n┃ Name: *${member.pushName || 'Unknown'}*\n┃ Phone: +${phone}\n┃ Role: ${role}\n┃ JID: ${member.id}\n┃ WhatsApp: wa.me/${phone}\n╰══════════════════⊷`)
                             } else {
-                                await conn.sendMessage(chat, { text: '❌ That user is not in this group.' }, { quoted: m })
+                                await reply('❌ That user is not in this group.')
                             }
-                        } catch (e) {
-                            await conn.sendMessage(chat, { text: '❌ Could not fetch group info: ' + e.message }, { quoted: m })
-                        }
+                        } catch (e) { await reply('❌ Could not fetch group info: ' + e.message) }
                         return
                     }
                 }
 
-                // ── PM2 list ────────────────────────────────────────────────────────
-                if (intent === 'pm2_list') {
-                    await conn.sendMessage(chat, { react: { text: '⚙️', key: m.key } })
-                    const r = await pm2Manage('list', null)
-                    await conn.sendMessage(chat, { text:
-                        `╭══〘 *⚙️ PM2 PROCESSES* 〙═⊷\n` +
-                        `┃\n${(r.output || 'No processes found').split('\n').slice(0, 20).map(l => '┃ ' + l).join('\n')}\n` +
-                        `╰══════════════════⊷`
-                    }, { quoted: m })
+                // ── Group analyzer ───────────────────────────────────────────
+                if (intent === 'group_analyze' && m.isGroup) {
+                    await react('📊')
+                    const r = await agent.groupAnalyzer(conn, chat)
+                    if (r.success) {
+                        await reply(
+                            `╭══〘 *📊 GROUP STATS* 〙═⊷\n` +
+                            `┃ 📛 Name: *${r.name}*\n` +
+                            `┃ 👥 Members: *${r.total}* (${r.admins} admins, ${r.members} members)\n` +
+                            `┃ 📅 Created: ${r.created}\n` +
+                            `┃\n` +
+                            `┃ 🛡️ Admins: ${r.adminList.slice(0,5).join(', ')}\n` +
+                            (r.description ? `┃ 📝 ${r.description.slice(0, 100)}\n` : '') +
+                            `╰══════════════════⊷`
+                        )
+                    } else {
+                        await reply('❌ ' + r.error)
+                    }
                     return
                 }
 
-                // ── PM2 logs ────────────────────────────────────────────────────────
-                if (intent === 'pm2_logs') {
-                    const nameMatch = text.match(/\blogs?\b.{0,20}\bfor\b\s+([\w-]+)/i) ||
-                        text.match(/\b([\w-]+)\b.{0,10}\blogs?\b/i)
-                    const procName = nameMatch ? nameMatch[1] : null
-                    await conn.sendMessage(chat, { react: { text: '📋', key: m.key } })
-                    const r = await pm2Manage('logs', procName)
-                    const lines = (r.output || 'No logs found').split('\n').slice(-30).join('\n')
-                    await conn.sendMessage(chat, { text:
-                        `╭══〘 *📋 PM2 LOGS${procName ? ': ' + procName : ''}* 〙═⊷\n` +
-                        lines.split('\n').slice(0, 25).map(l => '┃ ' + l.slice(0, 80)).join('\n') + '\n' +
-                        `╰══════════════════⊷`
-                    }, { quoted: m })
+                // ── System info ──────────────────────────────────────────────
+                if (intent === 'system_info') {
+                    await react('🖥️')
+                    const r = await agent.systemInfo()
+                    if (r.success) {
+                        await reply(
+                            `╭══〘 *🖥️ SYSTEM STATUS* 〙═⊷\n` +
+                            `┃ 🧠 RAM:      ${r.ram}\n` +
+                            `┃ ⚡ CPU:      ${r.cpu}\n` +
+                            `┃ 💾 Disk:     ${r.disk}\n` +
+                            `┃ ⏱️ Uptime:   ${r.uptime}\n` +
+                            `┃ 🔄 Processes: ${r.processes}\n` +
+                            `╰══════════════════⊷`
+                        )
+                    } else { await reply('❌ ' + r.error) }
                     return
                 }
 
-                // ── PM2 manage (stop/start/restart) ─────────────────────────────────
-                if (intent === 'pm2_manage') {
-                    const actionMatch = text.match(/\b(stop|start|restart|reboot|kill)\b/i)
-                    const nameMatch   = text.match(/\b(?:stop|start|restart|kill)\b\s+([\w-]+)/i)
+                // ── Port check ───────────────────────────────────────────────
+                if (intent === 'port_check') {
+                    const portMatch = text.match(/\b(\d{2,5})\b/)
+                    if (portMatch) {
+                        await react('🔌')
+                        const r = await agent.portCheck(portMatch[1])
+                        await reply(
+                            `╭══〘 *🔌 PORT ${r.port}* 〙═⊷\n` +
+                            `┃ Status: ${r.open ? '🟢 *OPEN / LISTENING*' : '🔴 *CLOSED / NOT IN USE*'}\n` +
+                            `┃\n${fmt(r.info)}\n` +
+                            `╰══════════════════⊷`
+                        )
+                        return
+                    }
+                }
+
+                // ── Docker management ────────────────────────────────────────
+                if (intent === 'docker') {
+                    const actionMatch = text.match(/\b(list|ls|logs?|start|stop|restart|remove|rm|stats?|images?|all)\b/i)
+                    const nameMatch   = text.match(/\b(?:logs?|start|stop|restart|remove|rm)\s+([\w-]+)/i)
+                    const action = actionMatch ? actionMatch[1].toLowerCase().replace('ls','list').replace(/^image.*/,'images').replace(/^stat.*/,'stats') : 'list'
+                    const name = nameMatch ? nameMatch[1] : null
+                    await react('🐳')
+                    const r = await agent.dockerManage(action, name)
+                    await reply(
+                        `╭══〘 *🐳 DOCKER: ${action.toUpperCase()}* 〙═⊷\n` +
+                        `${fmt(r.output || 'No output')}\n` +
+                        `╰══════════════════⊷`
+                    )
+                    return
+                }
+
+                // ── Cron management ──────────────────────────────────────────
+                if (intent === 'cron') {
+                    const actionMatch = text.match(/\b(list|add|clear|remove|show)\b/i)
                     const action = actionMatch ? actionMatch[1].toLowerCase() : 'list'
-                    const procName = nameMatch ? nameMatch[1] : null
-                    if (!procName) {
-                        await conn.sendMessage(chat, { text: '❓ Which process? e.g. *stop myapp* or *restart bera-ai*' }, { quoted: m })
-                        return
+                    await react('⏰')
+                    if (action === 'list' || action === 'show') {
+                        const r = await agent.cronManage('list')
+                        await reply(`╭══〘 *⏰ CRON JOBS* 〙═⊷\n${fmt(r.output)}\n╰══════════════════⊷`)
+                    } else if (action === 'clear') {
+                        const r = await agent.cronManage('clear')
+                        await reply('✅ All cron jobs cleared.')
+                    } else {
+                        await reply('❓ Cron usage:\n• *show cron jobs*\n• *clear cron jobs*\n• *add cron: 0 2 * * * /path/script.sh*')
                     }
-                    await conn.sendMessage(chat, { react: { text: '⚙️', key: m.key } })
-                    const r = await pm2Manage(action === 'reboot' ? 'restart' : action, procName)
-                    await conn.sendMessage(chat, { text:
-                        `${r.success ? '✅' : '❌'} *PM2 ${action.toUpperCase()}* → ${procName}\n${r.output.slice(0, 300)}`
-                    }, { quoted: m })
                     return
                 }
 
-                // ── Project creation ─────────────────────────────────────────────────
+                // ── Process kill ─────────────────────────────────────────────
+                if (intent === 'process_kill') {
+                    const pidMatch  = text.match(/\b(\d+)\b/)
+                    const nameMatch = text.match(/\bkill\b\s+([\w-]+)/i)
+                    const target = pidMatch ? pidMatch[1] : (nameMatch ? nameMatch[1] : null)
+                    if (!target) { await reply('❓ Usage: *kill process <name>* or *kill pid 1234*'); return }
+                    await react('💀')
+                    const r = await agent.processKill(target)
+                    await reply(`${r.success ? '✅' : '❌'} Process ${target}: ${r.output}`)
+                    return
+                }
+
+                // ── HTTP request ─────────────────────────────────────────────
+                if (intent === 'http_request') {
+                    const methodMatch = text.match(/\b(GET|POST|PUT|PATCH|DELETE|CURL)\b/i)
+                    const urlMatch    = text.match(/https?:\/\/[^\s]+/)
+                    const method = methodMatch ? methodMatch[1].toUpperCase() : 'GET'
+                    const url    = urlMatch ? urlMatch[0] : null
+                    if (!url) { await reply('❓ Usage: *GET https://api.example.com/data*'); return }
+                    await react('🌐')
+                    await reply(`⏳ ${method} ${url}...`)
+                    const r = await agent.httpRequest(method, url)
+                    await reply(
+                        `╭══〘 *🌐 HTTP ${method}* 〙═⊷\n` +
+                        `┃ URL: ${url.slice(0,60)}\n┃\n` +
+                        `${fmt(r.output || 'no response')}\n` +
+                        `╰══════════════════⊷`
+                    )
+                    return
+                }
+
+                // ── Code review ──────────────────────────────────────────────
+                if (intent === 'code_review') {
+                    const quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
+                    const code   = quoted?.conversation || quoted?.extendedTextMessage?.text || text.replace(/^.{0,50}review/i,'').trim()
+                    if (!code || code.length < 10) { await reply('❓ Quote the code you want reviewed or paste it after: *review this code: ...*'); return }
+                    await react('🔍')
+                    await reply('🔍 Reviewing code...')
+                    const r = await agent.codeReview(code)
+                    await reply(`╭══〘 *🔍 CODE REVIEW* 〙═⊷\n\n${r.success ? r.text : '❌ ' + r.error}\n╰══════════════════⊷`)
+                    return
+                }
+
+                // ── Code explain ─────────────────────────────────────────────
+                if (intent === 'code_explain') {
+                    const fileMatch = text.match(/\b([\w/]+\.\w+)\b/)
+                    const fileName  = fileMatch ? fileMatch[1] : ''
+                    const quoted    = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
+                    let code = quoted?.conversation || quoted?.extendedTextMessage?.text || ''
+                    if (!code && fileName) {
+                        const { runShell } = agent
+                        const r = await runShell(`cat ${fileName} 2>/dev/null | head -100`)
+                        code = r.output
+                    }
+                    if (!code) { await reply('❓ Quote the code or mention a file name: *explain Library/router.js*'); return }
+                    await react('📖')
+                    await reply('📖 Analyzing code...')
+                    const r = await agent.codeExplain(code, fileName)
+                    await reply(`╭══〘 *📖 CODE EXPLANATION* 〙═⊷\n\n${r.success ? r.text : '❌ ' + r.error}\n╰══════════════════⊷`)
+                    return
+                }
+
+                // ── Bug finder ───────────────────────────────────────────────
+                if (intent === 'bug_finder') {
+                    const fileMatch = text.match(/\b([\w/]+\.\w+)\b/)
+                    const fileName  = fileMatch ? fileMatch[1] : ''
+                    const quoted    = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
+                    let code = quoted?.conversation || quoted?.extendedTextMessage?.text || ''
+                    if (!code && fileName) {
+                        const r = await agent.runShell(`cat ${fileName} 2>/dev/null | head -150`)
+                        code = r.output
+                    }
+                    if (!code) { await reply('❓ Quote the code or say the file: *find bugs in index.js*'); return }
+                    await react('🐛')
+                    await reply('🐛 Scanning for bugs...')
+                    const r = await agent.bugFinder(code, fileName)
+                    await reply(`╭══〘 *🐛 BUG REPORT* 〙═⊷\n\n${r.success ? r.text : '❌ ' + r.error}\n╰══════════════════⊷`)
+                    return
+                }
+
+                // ── Git status ───────────────────────────────────────────────
+                if (intent === 'git_status') {
+                    const folderMatch = text.match(/\b(?:in|for|on)\s+([\w/.-]+)\b/)
+                    const folder = folderMatch ? folderMatch[1] : '.'
+                    await react('📁')
+                    const r = await agent.gitStatus(folder)
+                    await reply(`╭══〘 *📁 GIT STATUS* 〙═⊷\n${fmt(r.output)}\n╰══════════════════⊷`)
+                    return
+                }
+
+                // ── PM2 list ─────────────────────────────────────────────────
+                if (intent === 'pm2_list') {
+                    await react('⚙️')
+                    const r = await agent.pm2Manage('list', null)
+                    await reply(`╭══〘 *⚙️ PM2 PROCESSES* 〙═⊷\n${fmt(r.output || 'No processes')}\n╰══════════════════⊷`)
+                    return
+                }
+
+                // ── PM2 logs ─────────────────────────────────────────────────
+                if (intent === 'pm2_logs') {
+                    const nm = text.match(/\blogs?\b.{0,20}\bfor\b\s+([\w-]+)/i) || text.match(/\b([\w-]+)\b.{0,10}\blogs?\b/i)
+                    const procName = nm ? nm[1] : null
+                    await react('📋')
+                    const r = await agent.pm2Manage('logs', procName)
+                    const lines = (r.output || 'No logs').split('\n').slice(-25).join('\n')
+                    await reply(`╭══〘 *📋 PM2 LOGS${procName ? ': ' + procName : ''}* 〙═⊷\n${fmt(lines)}\n╰══════════════════⊷`)
+                    return
+                }
+
+                // ── PM2 manage ───────────────────────────────────────────────
+                if (intent === 'pm2_manage') {
+                    const act  = (text.match(/\b(stop|start|restart|reboot|kill|delete)\b/i)||[])[1]?.toLowerCase()
+                    const name = (text.match(/\b(?:stop|start|restart|kill|delete)\s+([\w-]+)/i)||[])[1]
+                    if (!name) { await reply('❓ Which process? e.g. *restart bera-ai*'); return }
+                    await react('⚙️')
+                    const r = await agent.pm2Manage(act === 'reboot' ? 'restart' : (act || 'restart'), name)
+                    await reply(`${r.success ? '✅' : '❌'} PM2 *${act?.toUpperCase()}* → ${name}\n${r.output.slice(0,300)}`)
+                    return
+                }
+
+                // ── Project creation ─────────────────────────────────────────
                 if (intent === 'project_create') {
-                    // Parse name, type, port from message
-                    const nameMatch = text.match(/\b(?:project|app|called|named?)\s+([\w-]+)/i) ||
-                        text.match(/\bcreate\s+(?:a\s+)?(?:new\s+)?([\w-]+)\s+(?:project|app)/i)
-                    const portMatch = text.match(/\bport\s+(\d{2,5})\b/i)
-                    const typeMatch = text.match(/\b(express|react|vue|flask|fastapi|next|nuxt|svelte|node)\b/i)
-                    const projName = nameMatch ? nameMatch[1] : 'myapp'
-                    const port = portMatch ? parseInt(portMatch[1]) : 3000
-                    const type = typeMatch ? typeMatch[1].toLowerCase() : 'express'
-                    const pm2Match = /\bpm2\b/i.test(text)
-
-                    await conn.sendMessage(chat, { react: { text: '🏗️', key: m.key } })
-                    await conn.sendMessage(chat, { text: `🏗️ Creating *${projName}* (${type}, port ${port})${pm2Match ? ' with PM2' : ''}...` }, { quoted: m })
-
-                    const r = await createProject(projName, type, port, text.slice(0, 100))
+                    const nm    = (text.match(/\b(?:project|app|called|named?)\s+([\w-]+)/i) || text.match(/\bcreate\s+(?:a\s+)?(?:new\s+)?([\w-]+)\s+(?:project|app)/i) || [])[1] || 'myapp'
+                    const port  = parseInt((text.match(/\bport\s+(\d{2,5})\b/i)||[])[1] || '3000')
+                    const type  = ((text.match(/\b(express|react|vue|flask|fastapi|next|node)\b/i)||[])[1] || 'express').toLowerCase()
+                    await react('🏗️')
+                    await reply(`🏗️ Creating *${nm}* (${type}, port ${port})...`)
+                    const r = await agent.createProject(nm, type, port, text.slice(0,100))
                     if (r.success) {
-                        const stepSummary = r.steps.map(s => `${s.ok ? '✅' : '❌'} ${s.step}`).join(' | ')
-                        await conn.sendMessage(chat, { react: { text: '✅', key: m.key } })
-                        await conn.sendMessage(chat, { text:
-                            `╭══〘 *🚀 PROJECT CREATED* 〙═⊷\n` +
-                            `┃ Name: *${r.name}*\n` +
-                            `┃ Port: *${r.port}*\n` +
-                            `┃ Dir: ${r.dir}\n` +
-                            `┃\n` +
-                            `┃ ${stepSummary}\n` +
-                            `┃\n` +
-                            `┃ 📋 *Logs:* say "show pm2 logs for ${r.name}"\n` +
-                            `┃ 🔄 *Restart:* say "restart ${r.name}"\n` +
-                            `╰══════════════════⊷`
-                        }, { quoted: m })
+                        await react('✅')
+                        await reply(`╭══〘 *🚀 PROJECT READY* 〙═⊷\n┃ Name: *${r.name}*\n┃ Port: *${r.port}*\n┃ Dir: ${r.dir}\n┃\n┃ ${r.steps.map(s=>`${s.ok?'✅':'❌'} ${s.step}`).join(' | ')}\n┃\n┃ 📋 Logs: say "pm2 logs ${r.name}"\n┃ 🔄 Restart: say "restart ${r.name}"\n╰══════════════════⊷`)
                     } else {
-                        await conn.sendMessage(chat, { react: { text: '❌', key: m.key } })
-                        await conn.sendMessage(chat, { text: '❌ Project creation failed. Check pm2 and node are available.' }, { quoted: m })
+                        await react('❌')
+                        await reply('❌ Project creation failed.')
                     }
                     return
                 }
 
-                // ── GitHub token regeneration ────────────────────────────────────────
-                if (intent === 'github_token') {
-                    await conn.sendMessage(chat, { react: { text: '🔑', key: m.key } })
-                    const r = await githubTokenRegen(global.db?.data?.github?.token)
+                // ── Usage stats ──────────────────────────────────────────────
+                if (intent === 'usage_stats') {
+                    await react('📊')
+                    const r = agent.usageStats()
                     if (r.success) {
-                        await conn.sendMessage(chat, { text:
-                            `╭══〘 *🔑 GITHUB TOKEN* 〙═⊷\n` +
-                            `┃ Account: *${r.username}*\n` +
-                            `┃ Status: ✅ Active\n` +
+                        await reply(
+                            `╭══〘 *📊 BOT STATS* 〙═⊷\n` +
+                            `┃ Total commands: *${r.total}*\n` +
+                            `┃ Unique users:   *${r.users}*\n` +
                             `┃\n` +
-                            `┃ ${r.message.replace(/\n/g, '\n┃ ')}\n` +
+                            (r.topCmds.length  ? `┃ 🏆 Top commands:\n┃  ${r.topCmds.join('\n┃  ')}\n┃\n` : '') +
+                            (r.topUsers.length ? `┃ 👑 Top users:\n┃  ${r.topUsers.join('\n┃  ')}\n` : '') +
                             `╰══════════════════⊷`
-                        }, { quoted: m })
-                    } else {
-                        await conn.sendMessage(chat, { text: `❌ GitHub token check failed: ${r.error}` }, { quoted: m })
+                        )
+                    } else { await reply('❌ ' + r.error) }
+                    return
+                }
+
+                // ── Log analyze ──────────────────────────────────────────────
+                if (intent === 'log_analyze') {
+                    const fileMatch = text.match(/\b([\w/.]+\.log)\b/i)
+                    const logFile   = fileMatch ? fileMatch[1] : null
+                    const quoted    = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
+                    let logContent  = quoted?.conversation || quoted?.extendedTextMessage?.text || ''
+                    if (!logContent && logFile) {
+                        const r = await agent.runShell(`cat ${logFile} 2>/dev/null | tail -100`)
+                        logContent = r.output
                     }
+                    if (!logContent) { await reply('❓ Quote the logs or say the log file path: *analyze error.log*'); return }
+                    await react('🔎')
+                    await reply('🔎 Analyzing logs...')
+                    const r = await agent.errorLogAnalyze(logContent)
+                    await reply(`╭══〘 *🔎 LOG ANALYSIS* 〙═⊷\n\n${r.success ? r.text : '❌ ' + r.error}\n╰══════════════════⊷`)
+                    return
+                }
+
+                // ── Backup ───────────────────────────────────────────────────
+                if (intent === 'backup') {
+                    const folderMatch = text.match(/\b(?:backup|zip|archive)\s+([\w/.~-]+)/i)
+                    const folder = folderMatch ? folderMatch[1] : '/tmp/projects'
+                    await react('💾')
+                    await reply(`💾 Backing up *${folder}*...`)
+                    const r = await agent.backupToGithub(folder)
+                    await reply(`${r.success ? '✅' : '❌'} ${r.output}`)
+                    return
+                }
+
+                // ── Schedule message ─────────────────────────────────────────
+                if (intent === 'schedule_msg') {
+                    const minMatch = text.match(/\bin\s+(\d+)\s+(minute|min|hour|hr|second|sec)/i)
+                    if (!minMatch) { await reply('❓ Usage: *in 30 minutes send "reminder message"*'); return }
+                    const amount = parseInt(minMatch[1])
+                    const unit   = minMatch[2].toLowerCase()
+                    const ms     = unit.startsWith('h') ? amount*3600000 : unit.startsWith('s') ? amount*1000 : amount*60000
+                    const msgMatch = text.match(/["']([^"']+)["']/) || text.match(/send\s+(.+)$/i)
+                    const msg = msgMatch ? msgMatch[1] : 'Reminder!'
+                    await react('⏰')
+                    const r = agent.scheduleMessage(conn, chat, `⏰ *Scheduled Reminder:*\n${msg}`, ms)
+                    await reply(`✅ Scheduled: "${msg.slice(0,50)}" in *${amount} ${unit}${amount>1?'s':''}*`)
+                    return
+                }
+
+                // ── BeraHost: deploy new bot ──────────────────────────────────
+                if (intent === 'berahost_deploy') {
+                    const { deployBot } = require('../Library/actions/berahost')
+                    const nameMatch = text.match(/\b(?:deploy|host|create|called|named?)\s+([\w-]+)/i)
+                    const repoMatch = text.match(/https?:\/\/github\.com\/[^\s]+/)
+                    const ramMatch  = text.match(/(\d+)\s*(mb|ram|memory)/i)
+                    const botName = nameMatch ? nameMatch[1] : 'new-bot'
+                    const repoUrl = repoMatch ? repoMatch[0] : ''
+                    const ram     = ramMatch  ? parseInt(ramMatch[1]) : 512
+                    await react('🚀')
+                    await reply(`🚀 Deploying *${botName}* on BeraHost...${repoUrl ? '\n📦 Repo: ' + repoUrl : ''}`)
+                    const r = await deployBot(botName, repoUrl, sender.replace(/@.+/,''), ram)
+                    await react(r.success ? '✅' : '❌')
+                    await reply(r.success ? r.message : `❌ Deploy failed: ${r.error}`)
+                    return
+                }
+
+                // ── BeraHost: list servers ────────────────────────────────────
+                if (intent === 'berahost_list') {
+                    const { listServers } = require('../Library/actions/berahost')
+                    await react('🌐')
+                    const r = await listServers()
+                    if (r.success) {
+                        const srvList = r.servers.length
+                            ? r.servers.map((s,i) => `┃ ${i+1}. *${s.name}* | ${s.status} | RAM:${s.ram}MB CPU:${s.cpu}%`).join('\n')
+                            : '┃ No servers found'
+                        await reply(`╭══〘 *🌐 BERAHOST SERVERS* 〙═⊷\n┃ Total: ${r.servers.length}\n┃\n${srvList}\n╰══════════════════⊷`)
+                    } else {
+                        await reply(`❌ Could not list servers: ${r.error}`)
+                    }
+                    return
+                }
+
+                // ── BeraHost: power action ────────────────────────────────────
+                if (intent === 'berahost_power') {
+                    const { getServer, serverPower } = require('../Library/actions/berahost')
+                    const actMatch  = text.match(/\b(start|stop|restart|kill)\b/i)
+                    const nameMatch = text.match(/\b(?:start|stop|restart|kill)\b\s+([\w-]+)/i)
+                    const action = actMatch  ? actMatch[1].toLowerCase()  : 'restart'
+                    const name   = nameMatch ? nameMatch[1] : null
+                    if (!name) { await reply('❓ Which server? e.g. *restart my-bot on berahost*'); return }
+                    await react('⚙️')
+                    const found = await getServer(name)
+                    if (!found.success) { await reply(`❌ ${found.error}`); return }
+                    const r = await serverPower(found.server.id, action)
+                    await reply(`${r.success ? '✅' : '❌'} *${action.toUpperCase()}* → ${found.server.name}\n${r.output || r.error || ''}`)
+                    return
+                }
+
+                // ── BeraHost: resources ───────────────────────────────────────
+                if (intent === 'berahost_resources') {
+                    const { listServers, serverResources } = require('../Library/actions/berahost')
+                    await react('📊')
+                    const list = await listServers()
+                    if (!list.success || !list.servers.length) { await reply(`❌ No servers found or panel unreachable`); return }
+                    const rows = await Promise.all(list.servers.slice(0,5).map(async s => {
+                        const res = await serverResources(s.uuid)
+                        return res.success
+                            ? `┃ *${s.name}*: ${res.state} | CPU:${res.cpu} RAM:${res.ram} Up:${res.uptime}`
+                            : `┃ *${s.name}*: unreachable`
+                    }))
+                    await reply(`╭══〘 *📊 SERVER RESOURCES* 〙═⊷\n${rows.join('\n')}\n╰══════════════════⊷`)
+                    return
+                }
+
+                // ── GitHub token ─────────────────────────────────────────────
+                if (intent === 'github_token') {
+                    await react('🔑')
+                    const r = await agent.githubTokenRegen(global.db?.data?.github?.token)
+                    await reply(r.success
+                        ? `╭══〘 *🔑 GITHUB TOKEN* 〙═⊷\n┃ Account: *${r.username}*\n┃ Status: ✅ Active\n┃\n┃ ${r.message.replace(/\n/g,'\n┃ ')}\n╰══════════════════⊷`
+                        : `❌ GitHub token error: ${r.error}`)
+                    return
+                }
+
+                // ── Git status ───────────────────────────────────────────────
+                if (intent === 'git_status') {
+                    const folder = (text.match(/\b(?:in|for|on)\s+([\w/.~-]+)\b/)||[])[1] || '.'
+                    await react('📁')
+                    const r = await agent.gitStatus(folder)
+                    await reply(`╭══〘 *📁 GIT STATUS* 〙═⊷\n${fmt(r.output)}\n╰══════════════════⊷`)
                     return
                 }
             }
-            // ────────────────────────────────────────────────────────────────────
+            // ═══════════════════════════════════════════════════════════════
 
             // ── ChatBera mode: reply as the owner when activated ──────────────
             // ChatBera: global mode OR per-chat mode
