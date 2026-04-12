@@ -1,9 +1,9 @@
 // Library/actions/btns.js — Button sender for Bera AI (toxic-baileys compatible)
 //
 // gifted-btns internally requires('@whiskeysockets/baileys') for its helpers.
-// Your bot uses toxic-baileys (a fork with the same API). The shim below
-// intercepts that require and redirects it to toxic-baileys so gifted-btns
-// works perfectly without any modification.
+// We redirect that to gifted-baileys (same ecosystem, same author as gifted-btns).
+// toxic-baileys is kept exclusively for the WhatsApp connection (Connection/start.js).
+// gifted-baileys provides the button message-building internals gifted-btns needs.
 //
 // Calling conventions — both are accepted:
 //   Modern (3-arg):  sendBtn(conn, jid, { text, buttons, title, footer })
@@ -15,7 +15,7 @@
         const Module = require('module')
         const _orig  = Module._resolveFilename.bind(Module)
         Module._resolveFilename = function (request, parent, isMain, opts) {
-            if (request === '@whiskeysockets/baileys') request = 'toxic-baileys'
+            if (request === '@whiskeysockets/baileys') request = 'gifted-baileys'
             return _orig(request, parent, isMain, opts)
         }
     } catch (_) {}
