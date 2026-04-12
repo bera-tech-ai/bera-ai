@@ -486,6 +486,11 @@ const handleMessage = async (conn, rawMsg) => {
 
         // ── NON-COMMAND: only do lightweight group checks, then exit ──────
         if (!isCmd) {
+            // ── PRIVATE MODE GATE: if bot is private, non-owners get NO response ──
+            // This blocks Bera Agent, ChatBera AI, auto-reply, and all NLP responses
+            // for anyone who isn't the owner. Silent exit — no message sent.
+            if (!authorized) return
+
             // Anti-spam only for group messages
             if (m.isGroup) {
                 const spammed = await checkAntiSpam(conn, m, isOwner)
