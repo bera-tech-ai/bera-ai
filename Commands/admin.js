@@ -632,8 +632,23 @@ Get yours at: https://berahost.com`)
             if (pullOut.includes('package.json') || pullOut.includes('package-lock')) {
                 npmOut = await new Promise(res => { exec('npm install --production --loglevel=error 2>&1', { timeout: 60000 }, (err, out) => res(out||'')) })
             }
-            const { reloadAll } = require('../Handler/index')
-            const result = await reloadAll()
+            // Inline hot-reload: flush plugin require cache and re-load
+            const _path = require('path'), _fs = require('fs')
+            const _plugDir = _path.join(__dirname, '..', 'Plugins')
+            const _plugFiles = _fs.readdirSync(_plugDir).filter(f => f.endsWith('.js'))
+            let _loaded = 0, _failed = 0
+            for (const _f of _plugFiles) {
+                const _fp = _path.join(_plugDir, _f)
+                try { delete require.cache[require.resolve(_fp)]; require(_fp); _loaded++ }
+                catch(_e) { _failed++; console.error('[RELOAD] ' + _f + ':', _e.message) }
+            }
+            // Also reload command files
+            const _cmdDir = _path.join(__dirname, '..', 'Commands')
+            const _cmdFiles = _fs.readdirSync(_cmdDir).filter(f => f.endsWith('.js'))
+            for (const _f of _cmdFiles) {
+                try { delete require.cache[require.resolve(_path.join(_cmdDir, _f))] } catch(_e) {}
+            }
+            const result = { pluginsLoaded: _loaded, failed: _failed }
             await conn.sendMessage(chat, { react: { text: '✅', key: m.key } })
             return reply(
                 '╭══〘 *🔄 BOT UPDATED* 〙═⊷\n' +
