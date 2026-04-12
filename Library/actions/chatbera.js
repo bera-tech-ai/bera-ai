@@ -376,4 +376,51 @@ function parseExport(rawText, myName) {
 }
 
 
+// ── Helper functions needed by Plugins/chatbera.js ───────────────────────────
+
+// Extract unique sender names from a parsed export
+function getSenders(parsedExport) {
+    if (!parsedExport || !parsedExport.raw) return []
+    const seen = new Set()
+    return parsedExport.raw
+        .map(r => r.sender)
+        .filter(s => { if (seen.has(s)) return false; seen.add(s); return true })
+}
+
+// Build a prompt describing the user's texting style for the AI
+function buildStylePrompt(profile, userMsg) {
+    if (!profile || !profile.myMessages || !profile.myMessages.length) {
+        return 'Reply naturally in a conversational WhatsApp style to: ' + userMsg
+    }
+    const sample = profile.myMessages.slice(0, 40).join(' | ')
+    return (
+        'You are replying as a person whose WhatsApp texting style is shown below.\n' +
+        'Study the style carefully — short replies, slang, emoji usage, punctuation patterns.\n' +
+        'Style samples: ' + sample + '\n\n' +
+        'Now reply to this message in that exact same style (keep it short, natural, WhatsApp-like):\n' +
+        userMsg
+    )
+}
+
+// Generate a style-matched reply using Pollinations AI
+async function generateStyleReply(profile, userMsg) {
+    try {
+        const prompt = buildStylePrompt(profile, userMsg)
+        const r = await axios.post('https://text.pollinations.ai/', {
+            model:    'openai',
+            messages: [
+                { role: 'system', content: 'You mimic WhatsApp texting styles exactly. Short, natural, no asterisks or markdown.' },
+                { role: 'user',   content: prompt }
+            ],
+            seed: Math.floor(Math.random() * 9999)
+        }, { timeout: 20000 })
+        const reply = r.data?.choices?.[0]?.message?.content ||
+                      r.data?.output || r.data?.response || r.data
+        return { success: true, reply: String(reply).trim() }
+    } catch (e) {
+        return { success: false, error: e.message }
+    }
+}
+
+
 module.exports = { parseExport, getSenders, buildStylePrompt, generateStyleReply, analyzeStyle, getPrebuiltProfile, PREBUILT_PROFILE }
