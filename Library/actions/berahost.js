@@ -6,7 +6,7 @@
 const axios = require('axios')
 
 // API base — configurable via env, falls back to the documented URL
-const BH_API  = (process.env.BERAHOST_API_URL || 'https://2eeb0705-b26d-476f-92c4-b32447402297-00-1itagf4n3du3a.worf.replit.dev').replace(/\/$/, '') + '/api'
+const BH_API  = (process.env.BERAHOST_API_URL || 'https://kingvon-bot-hosting.replit.app').replace(/\/$/, '') + '/api'
 const getKey  = () => global.db?.data?.settings?.bhApiKey || process.env.BH_API_KEY || 'bh_eb7b4bc1f92c2a2141d0379da8b1dba71b546c8f7d33b169'
 
 const bh = () => axios.create({
@@ -76,6 +76,14 @@ const updateEnv = async (id, envVars) => {
 const getDeploymentLogs = async (id) => {
     try {
         const r = await bh().get(`/deployments/${id}/logs`)
+        const logs = r.data?.logs || r.data || ''
+        return { success: true, logs: typeof logs === 'string' ? logs : JSON.stringify(logs) }
+    } catch (e) { return { success: false, error: bhErr(e) } }
+}
+
+const exportLogs = async (id) => {
+    try {
+        const r = await bh().get('/deployments/' + id + '/logs/export')
         const logs = r.data?.logs || r.data || ''
         return { success: true, logs: typeof logs === 'string' ? logs : JSON.stringify(logs) }
     } catch (e) { return { success: false, error: bhErr(e) } }
@@ -207,7 +215,7 @@ module.exports = {
     BH_API,
     listDeployments, deployBot, getDeployment, deleteDeployment,
     startDeployment, stopDeployment, updateEnv,
-    getDeploymentLogs, getDeploymentMetrics, pollDeployment,
+    getDeploymentLogs, exportLogs, getDeploymentMetrics, pollDeployment,
     getCoins, getTransactions, claimDailyCoins, redeemVoucher,
     getPlans, initiateMpesa, getPaymentStatus, getPaymentHistory,
     listBots, getBot,
