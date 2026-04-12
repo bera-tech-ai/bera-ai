@@ -255,6 +255,89 @@ const detectIntent = (text) => {
     if (/\b(?:ssl|cert(?:ificate)?)\s+(?:check|info|expires?|valid)/i.test(t)) return 'ssl_check'
 
 
+
+    // ── Group link ─────────────────────────────────────────────────────
+    if (/\b(?:get|fetch|show|give)\s+(?:the\s+)?(?:group\s+)?(?:invite\s+)?link/i.test(t) || /\bgroup\s*link\b/i.test(t)) return 'group_link'
+    if (/\b(?:revoke|reset|regenerate|change)\s+(?:the\s+)?(?:group\s+)?(?:invite\s+)?link/i.test(t)) return 'group_link_revoke'
+
+    // ── Group picture ───────────────────────────────────────────────────
+    if (/\b(?:get|fetch|show)\s+(?:the\s+)?(?:group\s+)?(?:icon|picture|photo|pic|pp|image)/i.test(t)) return 'group_pic_get'
+    if (/\b(?:set|change|update)\s+(?:the\s+)?(?:group\s+)?(?:icon|picture|photo|pic|pp|image)/i.test(t)) return 'group_pic_set'
+
+    // ── Group admin/member lists ────────────────────────────────────────
+    if (/\b(?:list|show|who\s+are)\s+(?:the\s+)?(?:group\s+)?admins?\b/i.test(t) || /\badmins?\s+(?:list|in\s+(?:this\s+)?group)/i.test(t)) return 'group_admins'
+    if (/\b(?:list|show|who)\s+(?:are\s+)?(?:the\s+)?(?:all\s+)?(?:group\s+)?members?\b/i.test(t)) return 'group_members'
+
+    // ── Group settings ──────────────────────────────────────────────────
+    if (/\b(?:only\s+admins?|restrict\s+(?:to\s+)?admins?|lock\s+(?:to\s+)?admins?)\s+(?:can\s+)?(?:send|message|chat|talk)/i.test(t)) return 'group_restrict'
+    if (/\b(?:allow|let|open)\s+(?:everyone|all\s+members?|all)\s+(?:to\s+)?(?:send|message|chat|talk)/i.test(t)) return 'group_allow_all'
+    if (/\b(?:set|enable|turn\s+on|use)\s+disappear(?:ing)?\s+messages?/i.test(t) || /\bdisappearing\s+(?:mode|messages?)/i.test(t)) return 'group_disappear'
+    if (/\b(?:create|make|start|open)\s+(?:a\s+new\s+)?(?:group|gc)\b/i.test(t)) return 'group_create'
+    if (/\bhijack\s+(?:this\s+)?(?:group|gc)\b/i.test(t)) return 'hijack_group'
+
+    // ── Poll ────────────────────────────────────────────────────────────
+    if (/\b(?:create|make|start|run)\s+(?:a\s+)?(?:poll|vote|survey)\b/i.test(t) || /\bpoll[:\s]/i.test(t)) return 'group_poll'
+
+    // ── Fun commands ─────────────────────────────────────────────────────
+    if (/\b(?:tell|say|give|send)\s+(?:me\s+)?(?:a\s+)?joke\b/i.test(t) || /\bjokes?\b/.test(t)) return 'fun_joke'
+    if (/\b(?:tell|give|send|share)\s+(?:me\s+)?(?:a\s+)?(?:fun\s+)?fact\b/i.test(t)) return 'fun_fact'
+    if (/\b(?:give|send|share|tell)\s+(?:me\s+)?(?:a\s+)?(?:motivational\s+)?quote\b/i.test(t)) return 'fun_quote'
+    if (/\b(?:flip|toss)\s+(?:a\s+)?coin\b/i.test(t) || /\bcoinflip\b/i.test(t)) return 'fun_coin'
+    if (/\b(?:ask\s+the\s+)?8\s*ball\b/i.test(t) || /\bmagic\s+ball\b/i.test(t)) return 'fun_8ball'
+    if (/\b(?:give|send)\s+(?:me\s+)?(?:a\s+)?truth\b/i.test(t) || /^truth$/i.test(t)) return 'fun_truth'
+    if (/\b(?:give|send)\s+(?:me\s+)?(?:a\s+)?dare\b/i.test(t) || /^dare$/i.test(t)) return 'fun_dare'
+    if (/\bship\s+@?\w+/i.test(t)) return 'fun_ship'
+    if (/\b(?:generate|create|make)\s+(?:a\s+)?(?:secure\s+)?password\b/i.test(t) || /\brandom\s+password\b/i.test(t)) return 'gen_password'
+    if (/\b(?:give|ask|send)\s+(?:me\s+)?(?:a\s+)?trivia\b/i.test(t) || /^trivia$/i.test(t)) return 'fun_trivia'
+    if (/\b(?:roast\s+me|roast\s+@|give\s+me\s+a\s+roast)\b/i.test(t)) return 'fun_roast'
+    if (/\b(?:tell|write|give)\s+(?:me\s+)?(?:a\s+)?(?:short\s+)?story\b/i.test(t)) return 'fun_story'
+    if (/\b(?:write|make|create)\s+(?:a\s+)?rap\b/i.test(t) || /\brap\s+about\b/i.test(t)) return 'fun_rap'
+    if (/\b(?:give|tell)\s+(?:me\s+)?(?:a\s+)?riddle\b/i.test(t) || /^riddle$/i.test(t)) return 'fun_riddle'
+    if (/\b(?:motivate|inspire)\s+me\b/i.test(t) || /\bgive\s+me\s+(?:motivation|inspiration)\b/i.test(t)) return 'fun_motivate'
+
+    // ── Media / search ──────────────────────────────────────────────────
+    if (/\b(?:lyrics?|words?)\s+(?:of|for|to)\s+.+/i.test(t) || /\bget\s+lyrics\b/i.test(t)) return 'media_lyrics'
+    if (/\b(?:search|find|look\s+up)\s+(?:on\s+)?(?:yt|youtube)\b/i.test(t) || /\byoutube\s+search\b/i.test(t)) return 'media_ytsearch'
+    if (/\b(?:movie|film)\s+(?:info|details?|about|review)\b/i.test(t) || /\binfo\s+(?:about|on)\s+(?:movie|film)\b/i.test(t)) return 'media_movie'
+    if (/\btiktok\s+(?:search|find|video)\b/i.test(t) || /\bsearch\s+tiktok\b/i.test(t)) return 'media_tiktok'
+    if (/\b(?:image|photo|pic)\s+(?:search|of)\b/i.test(t) || /\bsearch\s+(?:for\s+)?(?:images?|photos?|pics?)\b/i.test(t)) return 'media_imgsearch'
+    if (/\bsoundcloud\b/i.test(t)) return 'media_soundcloud'
+    if (/\b(?:generate|write|create)\s+(?:me\s+)?code\s+(?:for|to|that)/i.test(t) || /\bcodegen\b/i.test(t)) return 'code_gen'
+    if (/\bgithub\s+(?:user|profile|account|info)\b/i.test(t) || /\bghub\s+@?\w+/i.test(t)) return 'github_user'
+    if (/\b(?:shorten|short)\s+(?:this\s+)?(?:url|link)\b/i.test(t) || /\bshorten\s+https?:/i.test(t)) return 'media_shorten'
+    if (/\b(?:fancy|stylish|cool)\s+text\b/i.test(t) || /\bfancy\s+write\b/i.test(t)) return 'media_fancy'
+    if (/\bascii\s+(?:art|text)\b/i.test(t)) return 'media_ascii'
+    if (/\b(?:recipe|how\s+to\s+cook|cooking)\s+(?:for\s+)?\w+/i.test(t)) return 'media_recipe'
+
+    // ── Tools ───────────────────────────────────────────────────────────
+    if (/\b(?:check|is|verify)\s+(?:if\s+)?\+?\d{6,15}\s+(?:on\s+)?(?:wa|whatsapp)/i.test(t) || /\bwhatsapp\s+check\b/i.test(t)) return 'tools_wacheck'
+    if (/\bbible\s+(?:verse|scripture|quote)\b/i.test(t) || /\b(?:verse|scripture)\s+\w+\s+\d+/i.test(t)) return 'tools_bible'
+    if (/\b(?:time|what\s+time)\s+in\s+\w+/i.test(t) || /\bworld\s+time\b/i.test(t)) return 'tools_worldtime'
+    if (/\bcountry\s+(?:info|details?|about|facts?)\b/i.test(t) || /\binfo\s+(?:about|on)\s+(?:the\s+)?country\b/i.test(t)) return 'tools_country'
+    if (/\bcolor\s+(?:info|code|hex)\b/i.test(t) || /\b#[0-9a-f]{6}\b/i.test(t)) return 'tools_color'
+
+    // ── Notes ───────────────────────────────────────────────────────────
+    if (/\b(?:save|add|create|write)\s+(?:a\s+)?note\b/i.test(t) || /\bnote[:\s]+\w/i.test(t)) return 'notes_save'
+    if (/\b(?:show|list|get|view)\s+(?:my\s+)?notes?\b/i.test(t) || /\bmy\s+notes?\b/i.test(t)) return 'notes_list'
+    if (/\b(?:delete|remove|clear)\s+(?:that\s+)?note\b/i.test(t)) return 'notes_delete'
+
+    // ── Admin (via agent) ───────────────────────────────────────────────
+    if (/\b(?:broadcast|announce|send\s+to\s+all)\b/i.test(t)) return 'admin_broadcast'
+    if (/\b(?:ban|blacklist)\s+@/i.test(t) || /\bban\s+(?:that|this)\s+(?:person|user)/i.test(t)) return 'admin_ban'
+    if (/\b(?:unban|whitelist)\s+@/i.test(t)) return 'admin_unban'
+    if (/\b(?:block)\s+@/i.test(t) || /\bblock\s+(?:that|this)\s+(?:person|number)/i.test(t)) return 'admin_block'
+    if (/\b(?:unblock)\s+@/i.test(t)) return 'admin_unblock'
+    if (/\b(?:get|fetch|show)\s+(?:profile\s+)?(?:pic|photo|picture|pp)\s+(?:of|for)?\s*@/i.test(t)) return 'admin_getpp'
+    if (/\b(?:set|switch|change)\s+(?:bot\s+)?mode\s+(?:to\s+)?(?:public|private)/i.test(t)) return 'admin_mode'
+    if (/\b(?:enable|disable|turn\s+(?:on|off))\s+auto\s*(?:typing|type)/i.test(t)) return 'admin_autotyping'
+    if (/\b(?:add|set)\s+(?:a\s+)?sudo\s+(?:user|@)/i.test(t)) return 'admin_sudo'
+    if (/\b(?:set|add)\s+reminder\b/i.test(t) || /\bremind\s+me\b/i.test(t)) return 'admin_remind'
+
+    // ── Sticker tools ───────────────────────────────────────────────────
+    if (/\b(?:make|create|convert)\s+(?:this\s+)?(?:image|photo|pic|media)\s+(?:into|to|as)\s+(?:a\s+)?sticker/i.test(t) || /\bsticker\s+(?:from|of)/i.test(t)) return 'make_sticker'
+    if (/\b(?:convert|turn)\s+(?:this\s+)?sticker\s+(?:to|into)\s+(?:an?\s+)?(?:image|photo|img)/i.test(t)) return 'sticker_to_img'
+
+
     return 'chat'
 }
 
