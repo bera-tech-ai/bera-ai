@@ -1780,6 +1780,34 @@ const handleMessage = async (conn, rawMsg) => {
                     } catch(e) { await reply('❌ ' + e.message) }
                     return
                 }
+                // ══ AI TOGGLE (natural language) ════════════════════════
+                if (intent === 'ai_on' || intent === 'ai_off' || intent === 'ai_status') {
+                    if (!isOwner) { await reply('❌ Owner only.'); return }
+                    if (!global.db.data.chatbera) global.db.data.chatbera = {}
+                    if (intent === 'ai_on')  global.db.data.chatbera.globalEnabled = true
+                    if (intent === 'ai_off') global.db.data.chatbera.globalEnabled = false
+                    await global.db.write()
+                    const isOn   = global.db.data.chatbera.globalEnabled || false
+                    const profile = global.db.data.chatbera.profile || {}
+                    const msgs   = profile?.myMessages?.length || 412
+                    const mode   = global.db?.data?.settings?.mode || 'public'
+                    const bar    = isOn ? '▓▓▓▓▓▓▓▓▓▓' : '░░░░░░░░░░'
+                    await reply(
+                        '╭══〘 *🤖 BERA AI MODE* 〙═⊷\n' +
+                        '┃\n' +
+                        '┃  ' + (isOn ? '🟢' : '🔴') + ' Status  [' + bar + ']\n' +
+                        '┃  ' + (isOn ? '✅ AI is ON' : '❌ AI is OFF') + '\n' +
+                        '┃\n' +
+                        '┃ 🧠 Trained on: *' + msgs + ' messages*\n' +
+                        '┃ 🌐 Bot mode: *' + mode + '*\n' +
+                        '┃ 💬 Replies: *' + (isOn ? 'All DMs — as Bera' : 'Disabled') + '*\n' +
+                        '┃\n' +
+                        (intent === 'ai_on'  ? '┃ ✅ AI turned ON\n' : '') +
+                        (intent === 'ai_off' ? '┃ ❌ AI turned OFF\n' : '') +
+                        '╰══════════════════⊷'
+                    )
+                    return
+                }
                 // ── NPM stats ───────────────────────────────────────────────
                 if (intent === 'npm_stats') {
                     const pkgMatch =
