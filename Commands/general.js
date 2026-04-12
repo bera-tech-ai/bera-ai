@@ -39,289 +39,167 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
         const p = prefix
         const isPrivate = (global.db?.data?.settings?.mode || 'public') === 'private'
         const modeIcon = isPrivate ? '🔒 Private' : '🌐 Public'
-        return reply(
-            `╭══〘 *🐻 ${config.botName.toUpperCase()} AI* 〙═⊷\n` +
-            `┃❍ 🕐 ${time}\n` +
-            `┃❍ 📅 ${date}\n` +
-            `┃❍ ⚡ Prefix: *${p}*  |  Mode: *${modeIcon}*\n` +
-            `┃\n` +
-            `┃ *🤖 Bera AI (Natural Language)*\n` +
-            `┃❍ ${p}bera <msg> — Chat with Bera AI\n` +
-            `┃❍ ${p}berareset — Clear AI memory\n` +
-            `┃❍ ${p}beraforget — Wipe your AI history\n` +
-            `┃❍ ${p}berarmemory — View chat history\n` +
-            `┃❍ ${p}chatbot on/off — Auto-chat mode\n` +
-            `┃❍ ${p}tagreply on/off — AI replies to tags\n` +
-            `┃\n` +
-            `┃ *🎵 Music & Audio*\n` +
-            `┃❍ ${p}play <song> — Download & send audio\n` +
-            `┃❍ ${p}song <title> — Song search & play\n` +
-            `┃❍ ${p}spotify <song> — Spotify audio download\n` +
-            `┃❍ ${p}lyrics <song> — Get song lyrics\n` +
-            `┃❍ ${p}yts <song> — YouTube search results\n` +
-            `┃\n` +
-            `┃ *📥 Downloaders*\n` +
-            `┃❍ ${p}tiktok <link> — TikTok video\n` +
-            `┃❍ ${p}ig <link> — Instagram media\n` +
-            `┃❍ ${p}twitter <link> — Twitter/X video\n` +
-            `┃❍ ${p}fb <link> — Facebook video\n` +
-            `┃❍ ${p}ytv <link> — YouTube video\n` +
-            `┃❍ ${p}spotify <link> — Spotify track\n` +
-            `┃❍ ${p}gdrive <link> — Google Drive file\n` +
-            `┃❍ ${p}mediafire <link> — MediaFire file\n` +
-            `┃❍ ${p}apk <appname> — Download APK\n` +
-            `┃❍ ${p}dl <link> — Auto-detect downloader\n` +
-            `┃\n` +
-            `┃ *🔄 Converters*\n` +
-            `┃❍ ${p}toaudio / ${p}tomp3 — Video → audio\n` +
-            `┃❍ ${p}toptt / ${p}tovn — Audio → voice note\n` +
-            `┃❍ ${p}tovideo / ${p}togif — Media → video/GIF\n` +
-            `┃❍ ${p}sticker / ${p}s — Image/video → sticker\n` +
-            `┃❍ ${p}toimg — Sticker → image\n` +
-            `┃❍ ${p}stealsticker — Steal quoted sticker\n` +
-            `┃\n` +
-            `┃ *🔒 Encoder / Decoder*\n` +
-            `┃❍ ${p}tobinary <text> — Text → binary\n` +
-            `┃❍ ${p}frombinary <bin> — Binary → text\n` +
-            `┃❍ ${p}tobase64 <text> — Text → base64\n` +
-            `┃❍ ${p}frombase64 <b64> — Base64 → text\n` +
-            `┃\n` +
-            `┃ *🎨 AI Image & Vision*\n` +
-            `┃❍ ${p}imagine <desc> — Generate AI image\n` +
-            `┃❍ ${p}see — Analyse sent/quoted image\n` +
-            `┃\n` +
-            `┃ *🎨 Logo & Text Art*\n` +
-            `┃❍ ${p}ttp <text> — Text on image\n` +
-            `┃❍ ${p}glowingtext <text>\n` +
-            `┃❍ ${p}neontext <text>\n` +
-            `┃❍ ${p}glitchtext <text>\n` +
-            `┃❍ ${p}gradienttext <text>\n` +
-            `┃❍ ${p}galaxytext <text>\n` +
-            `┃❍ ${p}luxurytext <text>\n` +
-            `┃❍ ${p}logomaker <text>\n` +
-            `┃❍ ${p}cartoonstyle <text>\n` +
-            `┃\n` +
-            `┃ *🔍 Search & Info*\n` +
-            `┃❍ ${p}search <query> — Web search\n` +
-            `┃❍ ${p}google <query> — Google search\n` +
-            `┃❍ ${p}ssweb <url> — Screenshot a website\n` +
-            `┃❍ ${p}weather <city> — Live weather\n` +
-            `┃❍ ${p}define <word> — Dictionary\n` +
-            `┃❍ ${p}translate <text> to <lang> — Translate\n` +
-            `┃\n` +
-            `┃ *🌍 Info Commands*\n` +
-            `┃❍ ${p}country <name> — Country info\n` +
-            `┃❍ ${p}iplookup <ip> — IP address lookup\n` +
-            `┃❍ ${p}worldtime <city> — Current time anywhere\n` +
-            `┃❍ ${p}currency <amt> <from> <to> — Convert\n` +
-            `┃\n` +
-            `┃ *📝 Notes*\n` +
-            `┃❍ ${p}addnote <name> | <content>\n` +
-            `┃❍ ${p}getnote <name>\n` +
-            `┃❍ ${p}notes — List all notes\n` +
-            `┃❍ ${p}delnote <name> — Delete note\n` +
-            `┃\n` +
-            `┃ *📧 Temp Mail*\n` +
-            `┃❍ ${p}tempmail — Create temp email\n` +
-            `┃❍ ${p}inbox — Check inbox\n` +
-            `┃❍ ${p}delmail — Delete temp mail\n` +
-            `┃\n` +
-            `┃ *📖 Bible*\n` +
-            `┃❍ ${p}bible <ref> — Bible verse (e.g John 3:16)\n` +
-            `┃\n` +
-            `┃ *🎲 Games & Fun*\n` +
-            `┃❍ ${p}joke — Random joke\n` +
-            `┃❍ ${p}fact — Random fact\n` +
-            `┃❍ ${p}quote — Inspirational quote\n` +
-            `┃❍ ${p}8ball <question> — Magic 8 ball\n` +
-            `┃❍ ${p}coinflip — Heads or tails\n` +
-            `┃❍ ${p}truth / ${p}dare — Truth or dare\n` +
-            `┃❍ ${p}ship @user — Compatibility %\n` +
-            `┃❍ ${p}dice — Roll dice\n` +
-            `┃❍ ${p}diceduel @user — Dice duel\n` +
-            `┃\n` +
-            `┃ *🔗 Utilities*\n` +
-            `┃❍ ${p}shorten <url> — Shorten URL (TinyURL/Bitly)\n` +
-            `┃❍ ${p}qr <text> — Generate QR code\n` +
-            `┃❍ ${p}calc <expr> — Calculator\n` +
-            `┃❍ ${p}password <length> — Strong password\n` +
-            `┃❍ ${p}uuid — Generate UUID\n` +
-            `┃❍ ${p}ip <address> — IP address lookup\n` +
-            `┃❍ ${p}ping — Latency check\n` +
-            `┃❍ ${p}uptime — Bot uptime\n` +
-            `┃❍ ${p}myprofile — Your bot profile\n` +
-            `┃\n` +
-            `┃ *✨ Text & Style Tools*\n` +
-            `┃❍ ${p}fancy <text> — Random fancy Unicode style\n` +
-            `┃❍ ${p}fancystyles <text> — All 35 fancy styles\n` +
-            `┃❍ ${p}ascii <text> — ASCII art generator\n` +
-            `┃❍ ${p}tr <lang> <text> — Translate to any language\n` +
-            `┃❍ ${p}encrypt <js code> — Encrypt JavaScript code\n` +
-            `┃\n` +
-            `┃ *📱 WhatsApp Tools*\n` +
-            `┃❍ ${p}wacheck <number> — Check if number is on WhatsApp\n` +
-            `┃❍ ${p}wapfp <number> — Download WhatsApp profile picture\n` +
-            `┃❍ ${p}walink <number> [msg] — Create WhatsApp link\n` +
-            `┃❍ ${p}wagroups <topic> — Search WhatsApp groups\n` +
-            `┃\n` +
-            `┃ *🔍 Search Commands*\n` +
-            `┃❍ ${p}search <query> — Google/Brave web search\n` +
-            `┃❍ ${p}imgsearch <query> — Image search\n` +
-            `┃❍ ${p}yts <query> — YouTube search\n` +
-            `┃❍ ${p}movie <title> — Movie info & details\n` +
-            `┃❍ ${p}lyrics <song> — Song lyrics\n` +
-            `┃❍ ${p}bible <ref> — Bible verse (e.g John 3:16)\n` +
-            `┃❍ ${p}sc <query> — SoundCloud search\n` +
-            `┃❍ ${p}ttsearch <query> — TikTok video search\n` +
-            `┃❍ ${p}apk <app> — APK/app search\n` +
-            `┃\n` +
-            `┃ *🤖 AI-Powered*\n` +
-            `┃❍ ${p}imagine <desc> — AI image generation\n` +
-            `┃❍ ${p}codegen <task> — AI code generator\n` +
-            `┃❍ ${p}dream <dream> — Dream interpretation\n` +
-            `┃❍ ${p}story <topic> — AI short story\n` +
-            `┃❍ ${p}rap <topic> — Rap bars\n` +
-            `┃❍ ${p}riddle — Get a riddle\n` +
-            `┃❍ ${p}recipe <dish> — Get a recipe\n` +
-            `┃❍ ${p}roast <name> — Roast someone\n` +
-            `┃❍ ${p}motivate <name> — Motivational message\n` +
-            `┃❍ ${p}ghfollowers <user> — GitHub profile stats\n` +
-            `┃\n` +
-            `┃ *⚽ Sports*\n` +
-            `┃❍ ${p}livescore — Live football scores\n` +
-            `┃❍ ${p}sportnews — Sport news\n` +
-            `┃\n` +
-            `┃ *💻 GitHub (via Bera AI)*\n` +
-            `┃❍ .bera list repos\n` +
-            `┃❍ .bera create repo <name>\n` +
-            `┃❍ .bera delete repo <name>\n` +
-            `┃❍ .bera clone <github-url>\n` +
-            `┃❍ .bera push my code\n` +
-            `┃❍ ${p}workspace — Show cloned repos\n` +
-            `┃\n` +
-            (isOwner ?
-            `┃ *👥 Group Management*\n` +
-            `┃❍ ${p}kick / ${p}remove — Remove member\n` +
-            `┃❍ ${p}add <number> — Add member\n` +
-            `┃❍ ${p}promote / ${p}demote @user\n` +
-            `┃❍ ${p}tagall / ${p}everyone / ${p}hidetag\n` +
-            `┃❍ ${p}tagadmins — Mention only admins\n` +
-            `┃❍ ${p}grouplink / ${p}revoke / ${p}resetlink\n` +
-            `┃❍ ${p}groupname / ${p}gcdesc — Edit name/desc\n` +
-            `┃❍ ${p}gcpp — Set group icon (reply to image)\n` +
-            `┃❍ ${p}getgcpp — Download group profile pic\n` +
-            `┃❍ ${p}delete — Delete message (reply to it)\n` +
-            `┃❍ ${p}mute / ${p}unmute — Lock/unlock group\n` +
-            `┃❍ ${p}disapp on/off/1/7/90 — Disappearing msgs\n` +
-            `┃❍ ${p}onlyadmins / ${p}allusers — Info edit control\n` +
-            `┃❍ ${p}antilink on/off — Block invite links\n` +
-            `┃❍ ${p}antispam on/off — Auto-kick spammers\n` +
-            `┃❍ ${p}antibadwords on/off — Block bad words\n` +
-            `┃❍ ${p}badwords add/remove/list — Manage ban list\n` +
-            `┃❍ ${p}antipromote / ${p}antidemote on/off\n` +
-            `┃❍ ${p}welcome on/off — Welcome new members\n` +
-            `┃❍ ${p}setwelcomemsg <msg> — Custom welcome\n` +
-            `┃❍ ${p}setgoodbye <msg> — Goodbye message\n` +
-            `┃❍ ${p}setgroupevents on/off — Join/leave alerts\n` +
-            `┃❍ ${p}poll Q|Opt1|Opt2 — Create a poll\n` +
-            `┃❍ ${p}groupinfo / ${p}admins / ${p}members\n` +
-            `┃❍ ${p}accept / ${p}reject <number> — Join requests\n` +
-            `┃❍ ${p}acceptall / ${p}rejectall / ${p}listrequests\n` +
-            `┃❍ ${p}newgroup <name> — Create new group\n` +
-            `┃❍ ${p}kickall — Remove all non-admins\n` +
-            `┃❍ ${p}killgc — Terminate group (remove all + leave)\n` +
-            `┃❍ ${p}leave — Bot leaves the group\n` +
-            `┃❍ ${p}hijack / ${p}unhijack — Takeover/restore\n` +
-            `┃\n` +
-            `┃ *🎮 Games*\n` +
-            `┃❍ ${p}games — All game commands\n` +
-            `┃❍ ${p}joke / ${p}fact / ${p}quote\n` +
-            `┃❍ ${p}8ball <question> / ${p}coinflip / ${p}roll\n` +
-            `┃❍ ${p}truth / ${p}dare / ${p}ship @user\n` +
-            `┃❍ ${p}trivia — Answer trivia question\n` +
-            `┃❍ ${p}dice — Group dice game (join/roll/end)\n` +
-            `┃❍ ${p}diceai — Play dice vs Bera AI\n` +
-            `┃❍ ${p}ttt @user — TicTacToe challenge\n` +
-            `┃❍ ${p}tttplay <1-9> — Place your mark\n` +
-            `┃\n` +
-            `┃ *📝 Notes*\n` +
-            `┃❍ ${p}addnote <text> — Save a note\n` +
-            `┃❍ ${p}notes — View all your notes\n` +
-            `┃❍ ${p}getnote <num> / ${p}delnote <num>\n` +
-            `┃❍ ${p}delallnotes — Clear all notes\n` +
-            `┃\n` +
-            `┃ *🌤️ Extra Tools*\n` +
-            `┃❍ ${p}weather <city> — Live weather\n` +
-            `┃❍ ${p}define <word> — Word definition\n` +
-            `┃❍ ${p}ebase / ${p}dbase — Base64 encode/decode\n` +
-            `┃❍ ${p}ebinary / ${p}debinary — Binary convert\n` +
-            `┃❍ ${p}domaincheck <domain> — WHOIS lookup\n` +
-            `┃❍ ${p}npm <package> — NPM package info\n` +
-            `┃❍ ${p}emojimix 😀 🔥 — Mix two emojis\n` +
-            `┃❍ ${p}sspc / ${p}ssphone <url> — Screenshot\n` +
-            `┃\n` +
-            `┃ *📧 Temp Email*\n` +
-            `┃❍ ${p}tempmail — Generate disposable email\n` +
-            `┃❍ ${p}tempinbox — Check temp inbox\n` +
-            `┃❍ ${p}readmail <num> / ${p}delmail\n` +
-            `┃\n` +
-            `┃ *📤 Uploaders*\n` +
-            `┃❍ ${p}catbox — Upload to Catbox (reply to file)\n` +
-            `┃❍ ${p}githubcdn — Upload to GitHub CDN\n` +
-            `┃\n` +
-            `┃ *⚙️ My Config*\n` +
-            `┃❍ ${p}setgitusername / ${p}setgittoken\n` +
-            `┃❍ ${p}setbhkey / ${p}myconfig\n` +
-            `┃\n` +
-            `┃ *🚀 BeraHost (Deploy Bots)*\n` +
-            `┃❍ ${p}berahost bots — List your bots\n` +
-            `┃❍ ${p}berahost deploy beraai <num>\n` +
-            `┃❍ ${p}berahost deploy atassa <session> <num>\n` +
-            `┃❍ ${p}berahost balance — Coin balance\n` +
-            `┃❍ ${p}berahost daily — Claim daily coins\n` +
-            `┃❍ ${p}berahost plans — View hosting plans\n` +
-            `┃\n` +
-            `┃ *🖥️ Panel (Pterodactyl)*\n` +
-            `┃❍ ${p}create <plan> <user>, <phone> — Create server\n` +
-            `┃❍   Plans: 1gb, 2gb, 4gb, 6gb, 8gb, 10gb, unli, admin\n` +
-            `┃❍ ${p}servers — List all servers\n` +
-            `┃❍ ${p}ptstart / ${p}ptstop / ${p}ptrestart <id>\n` +
-            `┃❍ ${p}ptcmd <id> <command> — Run cmd on server\n` +
-            `┃❍ ${p}ptfiles <id> — List server files\n` +
-            `┃❍ ${p}ptread <id> <path> — Read file\n` +
-            `┃❍ ${p}ptcreds <id> — Get server creds\n` +
-            `┃❍ ${p}ptdelete <id> — Delete server\n` +
-            `┃\n` +
-            `┃ *👑 Owner Settings*\n` +
-            `┃❍ ${p}broadcast <msg> — Message all users\n` +
-            `┃❍ ${p}ban / ${p}unban @user\n` +
-            `┃❍ ${p}block / ${p}unblock <number>\n` +
-            `┃❍ ${p}stats — Bot statistics\n` +
-            `┃❍ ${p}backup — Backup database\n` +
-            `┃❍ ${p}mode public/private — Access mode\n` +
-            `┃❍ ${p}setprefix <new> — Change prefix\n` +
-            `┃❍ ${p}setbotname <name> — Bot display name\n` +
-            `┃❍ ${p}setbotpic — Change bot picture\n` +
-            `┃❍ ${p}autotyping / ${p}autobio on/off\n` +
-            `┃❍ ${p}noprefix — Toggle prefix requirement\n` +
-            `┃❍ ${p}beraclone — Clone this bot\n` +
-            `┃❍ ${p}setsudo @user — Add sudo user\n` +
-            `┃❍ ${p}getsudo — List sudo users\n` +
-            `┃❍ ${p}delsudo @user — Remove sudo user\n` +
-            `┃❍ ${p}getpp <number> — Get profile picture\n` +
-            `┃\n` +
-            `┃ *🎭 ChatBera (Talk As You)*\n` +
-            `┃❍ ${p}trainbera — Upload WhatsApp chat export\n` +
-            `┃❍ ${p}chatbera on/off — Activate in this chat\n` +
-            `┃❍ ${p}testbera <msg> — Test a reply in your style\n` +
-            `┃❍ ${p}mystyle — View your texting style analysis\n` +
-            `┃❍ ${p}clearstyle — Delete training data\n` +
-            `┃ *💻 Shell & Eval (Owner)*\n` +
-            `┃❍ ${p}$ <cmd> / ${p}bash <cmd> — Run shell command\n` +
-            `┃❍ ${p}> <js> / ${p}eval <js> — Evaluate JavaScript\n` +
-            `┃\n` : '') +
-            `╰══════════════════⊷`
+        const bhKey = global.db?.data?.settings?.bhApiKey || process.env.BH_API_KEY
+        const lines = [
+            '╭══〘 *🐻 ' + config.botName.toUpperCase() + ' AI* 〙═⊷',
+            '┃❍ 🕐 ' + time + '  |  📅 ' + date,
+            '┃❍ ⚡ Prefix: *' + p + '*  |  Mode: *' + modeIcon + '*',
+            '┃❍ 🖥️ BeraHost: ' + (bhKey ? '✅ Connected' : '❌ Not set — run ' + p + 'setbhkey'),
+            '┃',
+            '┃ *🤖 Bera AI — Natural Language*',
+            '┃❍ ' + p + 'bera <message> — Chat with Bera AI',
+            '┃❍ ' + p + 'chatbot on/off — Auto-reply mode',
+            '┃❍ ' + p + 'tagreply on/off — AI replies when tagged',
+            '┃❍ ' + p + 'berareset — Clear AI conversation memory',
+            '┃❍ ' + p + 'beraforget — Wipe your AI history',
+            '┃❍ ' + p + 'berarmemory — View current chat history',
+            '┃',
+            '┃ *🧠 Bera Agent — Smart Tools (Say it, no prefix)*',
+            '┃❍ "scrape <url>" — Extract text from website',
+            '┃❍ "check dns <domain>" — DNS record lookup',
+            '┃❍ "ssl check <domain>" — SSL certificate info',
+            '┃❍ "whois <domain>" — Domain WHOIS lookup',
+            '┃❍ "ping <host>" — Ping any host',
+            '┃❍ "ip lookup <ip>" — IP geolocation & ISP',
+            '┃❍ "check url <url>" — URL safety check',
+            '┃❍ "generate password <len>" — Strong password',
+            '┃❍ "generate code <task>" — AI code generator',
+            '┃❍ "format json <data>" — JSON validate & pretty',
+            '┃❍ "search files <query>" — Search workspace files',
+            '┃❍ "diff <file1> <file2>" — Compare two files',
+            '┃❍ "set env <KEY> <val>" — Set environment variable',
+            '┃❍ "auto commit" — Git commit all changes',
+            '┃❍ "list repos / create repo / clone <url>" — GitHub',
+            '┃',
+            '┃ *🖥️ BeraHost — Bot Hosting*',
+            '┃❍ ' + p + 'setbhkey bh_xxx — Save API key (FIRST!)',
+            '┃❍ ' + p + 'bots — List deployable bot types',
+            '┃❍ ' + p + 'deploy bot 1 <session> — Deploy Atassa-MD',
+            '┃❍ ' + p + 'deploybera <phone> — Deploy Bera AI (pair code)',
+            '┃❍ ' + p + 'deployments — List your deployments',
+            '┃❍ ' + p + 'depinfo <id> — Deployment details',
+            '┃❍ ' + p + 'startbot <id>  |  ' + p + 'stopbot <id>',
+            '┃❍ ' + p + 'deletedeploy <id> — Remove deployment',
+            '┃❍ ' + p + 'botlogs <id> — Live deployment logs',
+            '┃❍ ' + p + 'botmetrics <id> — CPU / RAM / uptime',
+            '┃❍ ' + p + 'updateenv <id> KEY=val — Update env vars',
+            '┃❍ ' + p + 'coins — BeraHost coin balance',
+            '┃❍ ' + p + 'claimcoins — Claim daily free coins',
+            '┃❍ ' + p + 'transactions — Coin history',
+            '┃❍ ' + p + 'redeem <code> — Redeem voucher',
+            '┃❍ ' + p + 'plans — Hosting plans & prices',
+            '┃❍ ' + p + 'mpesa <phone> <plan> — Pay via M-Pesa STK',
+            '┃❍ ' + p + 'paystatus <id>  |  ' + p + 'payhistory',
+            '┃❍ ' + p + 'bhhelp — Full BeraHost command list',
+            '┃',
+            '┃ *🎵 Music & Audio*',
+            '┃❍ ' + p + 'play <song>  |  ' + p + 'song <title>',
+            '┃❍ ' + p + 'spotify <song/link>  |  ' + p + 'sc <query>',
+            '┃❍ ' + p + 'lyrics <song>  |  ' + p + 'yts <song>',
+            '┃',
+            '┃ *📥 Downloaders*',
+            '┃❍ ' + p + 'tiktok <link>  |  ' + p + 'ttsearch <query>',
+            '┃❍ ' + p + 'ig <link>  |  ' + p + 'twitter <link>',
+            '┃❍ ' + p + 'ytv <link>  |  ' + p + 'fb <link>',
+            '┃❍ ' + p + 'gdrive <link>  |  ' + p + 'mediafire <link>',
+            '┃❍ ' + p + 'apk <app>  |  ' + p + 'dl <link>',
+            '┃',
+            '┃ *🔄 Converters & Media*',
+            '┃❍ ' + p + 'sticker / ' + p + 's — Image/video → sticker',
+            '┃❍ ' + p + 'toimg — Sticker → image  |  ' + p + 'stealsticker',
+            '┃❍ ' + p + 'toaudio / ' + p + 'tomp3 — Video → audio',
+            '┃❍ ' + p + 'toptt / ' + p + 'tovn — Audio → voice note',
+            '┃❍ ' + p + 'tovideo / ' + p + 'togif — Media → video/GIF',
+            '┃',
+            '┃ *🎨 AI Image & Art*',
+            '┃❍ ' + p + 'imagine <desc> — Generate AI image',
+            '┃❍ ' + p + 'see — Analyse sent/quoted image',
+            '┃❍ ' + p + 'ttp <text>  |  ' + p + 'glowingtext  |  ' + p + 'neontext',
+            '┃❍ ' + p + 'glitchtext  |  ' + p + 'gradienttext  |  ' + p + 'galaxytext',
+            '┃❍ ' + p + 'luxurytext  |  ' + p + 'logomaker  |  ' + p + 'cartoonstyle',
+            '┃❍ ' + p + 'fancy <text>  |  ' + p + 'fancystyles  |  ' + p + 'ascii',
+            '┃',
+            '┃ *🔍 Search & Info*',
+            '┃❍ ' + p + 'search / ' + p + 'google <query>  |  ' + p + 'imgsearch',
+            '┃❍ ' + p + 'movie <title>  |  ' + p + 'weather <city>',
+            '┃❍ ' + p + 'define <word>  |  ' + p + 'country <name>',
+            '┃❍ ' + p + 'worldtime <city>  |  ' + p + 'currency <amt> <from> <to>',
+            '┃❍ ' + p + 'ssweb <url> — Screenshot  |  ' + p + 'livescore',
+            '┃❍ ' + p + 'bible <ref>  |  ' + p + 'sportnews',
+            '┃',
+            '┃ *🔒 Encode / Decode*',
+            '┃❍ ' + p + 'tobinary / ' + p + 'frombinary',
+            '┃❍ ' + p + 'tobase64 / ' + p + 'frombase64',
+            '┃❍ ' + p + 'encrypt <js code> — Encrypt JavaScript',
+            '┃',
+            '┃ *🤖 AI Features*',
+            '┃❍ ' + p + 'codegen <task>  |  ' + p + 'story <topic>',
+            '┃❍ ' + p + 'dream <dream>  |  ' + p + 'rap <topic>',
+            '┃❍ ' + p + 'roast <name>  |  ' + p + 'motivate <name>',
+            '┃❍ ' + p + 'recipe <dish>  |  ' + p + 'riddle',
+            '┃❍ ' + p + 'translate / ' + p + 'tr <lang> <text>',
+            '┃',
+            '┃ *📝 Notes & Tools*',
+            '┃❍ ' + p + 'addnote <name> | <text>  |  ' + p + 'getnote <name>',
+            '┃❍ ' + p + 'notes — List all  |  ' + p + 'delnote <name>',
+            '┃❍ ' + p + 'tempmail  |  ' + p + 'inbox  |  ' + p + 'delmail',
+            '┃',
+            '┃ *🎲 Games & Fun*',
+            '┃❍ ' + p + 'joke  |  ' + p + 'fact  |  ' + p + 'quote  |  ' + p + 'riddle',
+            '┃❍ ' + p + '8ball <q>  |  ' + p + 'coinflip  |  ' + p + 'dice',
+            '┃❍ ' + p + 'truth / ' + p + 'dare  |  ' + p + 'diceduel @user',
+            '┃❍ ' + p + 'ship @user — Compatibility %',
+            '┃',
+            '┃ *🔗 Utilities*',
+            '┃❍ ' + p + 'shorten <url>  |  ' + p + 'qr <text>  |  ' + p + 'calc <expr>',
+            '┃❍ ' + p + 'password <len>  |  ' + p + 'uuid',
+            '┃❍ ' + p + 'ping  |  ' + p + 'uptime  |  ' + p + 'myprofile',
+            '┃',
+            '┃ *📱 WhatsApp & GitHub*',
+            '┃❍ ' + p + 'wacheck <num>  |  ' + p + 'wapfp <num>  |  ' + p + 'walink',
+            '┃❍ ' + p + 'wagroups <topic>  |  ' + p + 'ghfollowers <user>',
+            '┃❍ ' + p + 'workspace — Show cloned repos',
+        ]
+        if (isOwner) lines.push(
+            '┃',
+            '┃ *👥 Group Management (Owner)*',
+            '┃❍ ' + p + 'kick / ' + p + 'add <number>  |  ' + p + 'delete (reply)',
+            '┃❍ ' + p + 'promote / ' + p + 'demote @user',
+            '┃❍ ' + p + 'tagall / ' + p + 'everyone / ' + p + 'hidetag / ' + p + 'tagadmins',
+            '┃❍ ' + p + 'grouplink / ' + p + 'revoke / ' + p + 'groupname / ' + p + 'gcdesc',
+            '┃❍ ' + p + 'mute / ' + p + 'unmute  |  ' + p + 'disapp on/off/1/7/90',
+            '┃❍ ' + p + 'antilink / ' + p + 'antispam / ' + p + 'antibadwords',
+            '┃❍ ' + p + 'welcome / ' + p + 'goodbye on/off',
+            '┃',
+            '┃ *🛡️ Admin Commands (Owner)*',
+            '┃❍ ' + p + 'update — Pull latest from GitHub & restart',
+            '┃❍ ' + p + 'reload — Hot-reload all commands & plugins',
+            '┃❍ ' + p + 'eval <code> — Execute JavaScript code',
+            '┃❍ ' + p + 'exec <cmd> — Run shell command',
+            '┃❍ ' + p + 'broadcast <msg> — Send to all chats',
+            '┃❍ ' + p + 'mode public/private — Bot access mode',
+            '┃',
+            '┃ *🐦‍🔥 Pterodactyl Panel (Owner)*',
+            '┃❍ ' + p + 'ptlist / ' + p + 'servers — List panel servers',
+            '┃❍ ' + p + 'ptstatus / ' + p + 'ptstart / ' + p + 'ptstop / ' + p + 'ptrestart',
+            '┃❍ ' + p + 'ptkill  |  ' + p + 'ptcmd <srv> <cmd>',
+            '┃❍ ' + p + 'ptfiles / ' + p + 'ptread / ' + p + 'ptwrite',
+            '┃❍ ' + p + 'ptcreate <user> <plan>  |  ' + p + 'ptdelete',
+            '┃❍ ' + p + 'ptcreds  |  ' + p + 'ptusers  |  ' + p + 'ptdeluser',
+            '┃❍ ' + p + 'ptpromote / ' + p + 'ptdemote  |  ' + p + 'ptpurgeusers',
+            '┃❍ ' + p + 'ptsuspend / ' + p + 'ptunsuspend  |  ' + p + 'ptnodes',
+            '┃❍ ' + p + 'ptallservers  |  ' + p + 'ptdelserver  |  ' + p + 'pthelp'
         )
+        lines.push(
+            '┃',
+            '┃ *⚙️ Settings*',
+            '┃❍ ' + p + 'setprefix <char>  |  ' + p + 'setbotname <name>',
+            '┃❍ ' + p + 'setbotpic (reply img)  |  ' + p + 'setendpoint <url>',
+            '┃❍ ' + p + 'setbhkey bh_xxx — BeraHost API key',
+            '┃❍ ' + p + 'myprofile — Your stats & command limits',
+            '╰══════════════════⊷'
+        )
+        return reply(lines.join('\n'))
     }
 
     if (command === 'info') {
