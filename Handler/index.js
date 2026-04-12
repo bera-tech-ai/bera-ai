@@ -319,6 +319,54 @@ const handleMessage = async (conn, rawMsg) => {
                 const body  = irm.body?.text || ''
                 const params = nfr?.paramsJson ? JSON.parse(nfr.paramsJson) : {}
                 const btnId  = params.id || body || ''
+                // ─── COPY button clicks (copy_type_timestamp) ──────────────────────────
+                if (btnId.startsWith('copy_')) {
+                    const stored = global.beraLastOutput && global.beraLastOutput[m.chat]
+                    if (stored) {
+                        await conn.sendMessage(m.chat, { text: String.fromCharCode(128203) + ' *Long-press below to copy:*' + String.fromCharCode(10) + String.fromCharCode(10) + stored }, { quoted: m }).catch(() => {})
+                    } else {
+                        await conn.sendMessage(m.chat, { text: String.fromCharCode(128203) + ' Tap and hold the original message to copy it!' }, { quoted: m }).catch(() => {})
+                    }
+                    return
+                }
+                // ─── MEDIA format button clicks (src_action_encodedUrl) ─────────────────
+                if (/^(yt|tt|sp|ig|fb|tw)_/.test(btnId)) {
+                    const segs   = btnId.split("_")
+                    const src2   = segs[0]
+                    const action = segs[1]
+                    const url2   = decodeURIComponent(segs.slice(2).join('_'))
+                    const pref   = global.prefix || '.'
+                    const cmdMap = {
+                        audio: 'tomp3', video: 'ytv', '144': 'ytv', '360': 'ytv', '720': 'ytv',
+                        nowm: 'tiktok nowatermark', thumb: 'tiktok thumbnail',
+                        dl: 'spotify', photo: 'ig photo', reel: 'ig reel', story: 'ig story',
+                        hd: 'fb hd', sd: 'fb sd', mp3: 'fb audio', gif: 'twitter gif'
+                    }
+                    const mapped = cmdMap[action]
+                    if (mapped) {
+                        m.text = pref + mapped + " " + url2
+                        m.body = m.text
+                    }
+                }
+                // ─── WARN action button clicks (warn_action_jid) ───────────────────────────
+                if (btnId.startsWith('warn_')) {
+                    const segs4   = btnId.split("_")
+                    const action4 = segs4[1]
+                    const jid4    = segs4.slice(2).join('_')
+                    const warns4  = global.beraWarns || (global.beraWarns = {})
+                    const wkey    = m.chat + "_" + jid4
+                    if (action4 === 'forgive') {
+                        warns4[wkey] = Math.max(0, (warns4[wkey] || 1) - 1)
+                        await conn.sendMessage(m.chat, { text: 'Forgiven - warning removed.', mentions: [jid4] })
+                    } else if (action4 === 'kick') {
+                        await conn.groupParticipantsUpdate(m.chat, [jid4], "remove").catch(async () => {
+                            await conn.sendMessage(m.chat, { text: 'Could not kick - bot needs admin permissions.' })
+                        })
+                    } else if (action4 === 'mute') {
+                        await conn.sendMessage(m.chat, { text: 'Mute noted. (Requires admin enforcement)', mentions: [jid4] })
+                    }
+                    return
+                }
                 if (btnId) {
                     // Inject button id as text so normal command handling picks it up
                     m.text = btnId
