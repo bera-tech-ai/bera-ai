@@ -843,6 +843,19 @@ async function handle(m, { conn, args, command, text, prefix, isOwner, chat, rep
     // ════════════════════════════════════════════════════════════════════════════
     const bh = require('../Library/actions/berahost')
 
+    // ── BeraHost API key guard ────────────────────────────────────────────
+    const _bhKeySet = global.db?.data?.settings?.bhApiKey || process.env.BH_API_KEY
+    const _bhFunctionalCmds = ['deploy','bhd','botdeploy','newdeploy','deployments','mybots','listdeploy','bhdlist','mydeployments','startbot','bhstart','depstart','stopbot','bhstop','depstop','deletedeploy','deldeploy','bhdel','removedeploy','botlogs','bhlogs','deplogs','logbot','botmetrics','botstats','bhmetrics','depmetrics','depstats','depinfo','bhinfo','deployinfo','botinfo','updateenv','setenv','bhenv','depenv','coins','bhcoins','mycoins','balance','claimcoins','dailycoins','claim','bhclaim','redeem','voucher','bhredeem','mpesa','pay','bhpay','bhmoney','stk','paystatus','checkpay','paycheck','payhistory','payments','bhpayments','mypayments','transactions','coinhistory','bhhistory','cointx']
+    if (_bhFunctionalCmds.includes(command) && !_bhKeySet) {
+        return reply(
+            '🔑 *BeraHost API key not set!*\n\n' +
+            'Set it first with:\n' +
+            '*' + prefix + 'setbhkey bh_yourKeyHere*\n\n' +
+            '🌐 Get your key from:\n' +
+            'https://berahost.com → API Access → Generate New Key'
+        )
+    }
+
     // ── .deploy bot <botId> <sessionId> ──────────────────────────────────────
     if (['deploy', 'bhd', 'botdeploy', 'newdeploy'].includes(command)) {
         if (!isOwner) return reply('⛔ Owner only.')
