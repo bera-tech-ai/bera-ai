@@ -616,9 +616,43 @@ Get yours at: https://berahost.com`)
     }
 
 
+
+    if (['update','reload','hotreload','selfupdate','up'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only.')
+        await conn.sendMessage(chat, { react: { text: '⏳', key: m.key } })
+        await reply('⏳ Pulling latest code from GitHub...')
+        try {
+            const { exec } = require('child_process')
+            const pullOut = await new Promise(res => {
+                exec('git pull origin main 2>&1', { timeout: 30000 }, (err, stdout, stderr) => res(stdout + (stderr ? '\n' + stderr : '')))
+            })
+            const already = pullOut.includes('Already up to date')
+            const changed = (pullOut.match(/\|\s+\d+/g) || []).length
+            let npmOut = ''
+            if (pullOut.includes('package.json') || pullOut.includes('package-lock')) {
+                npmOut = await new Promise(res => { exec('npm install --production --loglevel=error 2>&1', { timeout: 60000 }, (err, out) => res(out||'')) })
+            }
+            const { reloadAll } = require('../Handler/index')
+            const result = await reloadAll()
+            await conn.sendMessage(chat, { react: { text: '✅', key: m.key } })
+            return reply(
+                '╭══〘 *🔄 BOT UPDATED* 〙═⊷\n' +
+                '┃ Status: ' + (already ? '✅ Already up to date' : '🆕 ' + changed + ' file(s) updated') + '\n' +
+                '┃ Plugins loaded: *' + result.pluginsLoaded + '*\n' +
+                '┃ 🔌 Connection: *maintained*\n' +
+                (npmOut ? '┃ npm: ' + npmOut.slice(0,60) + '\n' : '') +
+                '┃\n┃ 📋 ' + pullOut.trim().split('\n').slice(0,4).join('\n┃ ') + '\n' +
+                '╰══════════════════⊷'
+            )
+        } catch (e) {
+            await conn.sendMessage(chat, { react: { text: '❌', key: m.key } })
+            return reply('❌ Update failed: ' + e.message)
+        }
+    }
+
 }
 
-handle.command = ['broadcast', 'backup', 'stats', 'ban', 'unban', 'premium', 'depremium',
+handle.command = ['update','reload','hotreload','selfupdate','up','broadcast', 'backup', 'stats', 'ban', 'unban', 'premium', 'depremium',
     'autoreply', 'schedule', 'listusers', 'resetlimit', 'cleandb', 'mode',
     'autostatusview', 'statusview', 'autotyping', 'autobio',
     'addbio', 'setbio', 'listbios', 'clearbio', 'noprefix',
