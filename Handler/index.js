@@ -754,6 +754,420 @@ const handleMessage = async (conn, rawMsg) => {
                     return
                 }
 
+
+                // ══ AGENT: GROUP MEMBER ACTIONS ══════════════════════════════════
+                if (intent === 'kick_user' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ I need admin rights to kick members.'); return }
+                    const mentions = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+                    const target   = mentions[0] || (m.quoted && m.quoted.sender)
+                    if (!target) { await reply('❓ Mention or quote the member to kick.'); return }
+                    try {
+                        await react('👢')
+                        await conn.groupParticipantsUpdate(chat, [target], 'remove')
+                        await reply('✅ Kicked *@' + target.split('@')[0] + '* from the group.', { mentions: [target] })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'add_user' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ I need admin rights to add members.'); return }
+                    const mentions = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+                    const phoneMatch = text.match(/\b(\d{6,15})\b/)
+                    const target = mentions[0] || (phoneMatch ? phoneMatch[1] + '@s.whatsapp.net' : null)
+                    if (!target) { await reply('❓ Mention the person or provide their number.'); return }
+                    try {
+                        await react('➕')
+                        await conn.groupParticipantsUpdate(chat, [target], 'add')
+                        await reply('✅ Added *' + target.split('@')[0] + '* to the group!')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'promote_user' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ I need admin rights to promote members.'); return }
+                    const mentions = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+                    const target   = mentions[0] || (m.quoted && m.quoted.sender)
+                    if (!target) { await reply('❓ Mention or quote the member to promote.'); return }
+                    try {
+                        await react('⬆️')
+                        await conn.groupParticipantsUpdate(chat, [target], 'promote')
+                        await reply('✅ Promoted *@' + target.split('@')[0] + '* to admin!', { mentions: [target] })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'demote_user' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ I need admin rights to demote admins.'); return }
+                    const mentions = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+                    const target   = mentions[0] || (m.quoted && m.quoted.sender)
+                    if (!target) { await reply('❓ Mention or quote the admin to demote.'); return }
+                    try {
+                        await react('⬇️')
+                        await conn.groupParticipantsUpdate(chat, [target], 'demote')
+                        await reply('✅ *@' + target.split('@')[0] + '* is no longer admin.', { mentions: [target] })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'mute_group' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ I need admin rights to mute the group.'); return }
+                    try {
+                        await react('🔇')
+                        await conn.groupSettingUpdate(chat, 'announcement')
+                        await reply('🔇 Group muted — only admins can send messages now.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'unmute_group' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ I need admin rights to unmute the group.'); return }
+                    try {
+                        await react('🔊')
+                        await conn.groupSettingUpdate(chat, 'not_announcement')
+                        await reply('🔊 Group unmuted — all members can now send messages.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'kick_all' && m.isGroup) {
+                    if (!isOwner) { await reply('❌ Only the bot owner can kick all members.'); return }
+                    try {
+                        await react('💥')
+                        const meta = await conn.groupMetadata(chat)
+                        const targets = meta.participants
+                            .filter(p => !p.admin && p.id !== conn.user.id)
+                            .map(p => p.id)
+                        if (!targets.length) { await reply('No non-admin members to kick.'); return }
+                        await conn.groupParticipantsUpdate(chat, targets, 'remove')
+                        await reply('✅ Kicked ' + targets.length + ' members.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'tag_all' && m.isGroup) {
+                    try {
+                        await react('📢')
+                        const meta = await conn.groupMetadata(chat)
+                        const participants = meta.participants.map(p => p.id)
+                        const tags = participants.map(p => '@' + p.split('@')[0]).join(' ')
+                        const tagText = (text.replace(/\b(?:tag|mention|ping)\s+(?:all|everyone|everybody)/i,'').trim() || 'Hey everyone!') + '\n' + tags
+                        await conn.sendMessage(chat, { text: tagText, mentions: participants }, { quoted: m })
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'leave_group' && m.isGroup) {
+                    if (!isOwner) { await reply('❌ Only the bot owner can make me leave.'); return }
+                    try {
+                        await react('👋')
+                        await reply('Leaving group now. Goodbye! 👋')
+                        await delay(1500)
+                        await conn.groupLeave(chat)
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'group_info' && m.isGroup) {
+                    try {
+                        await react('ℹ️')
+                        const meta = await conn.groupMetadata(chat)
+                        const admins  = meta.participants.filter(p => p.admin)
+                        const members = meta.participants.length
+                        const desc    = meta.desc || 'No description'
+                        await reply(
+                            '╭══〘 *ℹ️ GROUP INFO* 〙═⊷\n' +
+                            '┃ 📛 Name: *' + meta.subject + '*\n' +
+                            '┃ 👥 Members: *' + members + '*\n' +
+                            '┃ 🛡️ Admins: *' + admins.length + '*\n' +
+                            '┃ 📝 Desc: ' + desc.slice(0,100) + '\n' +
+                            '┃ 🆔 ID: ' + chat + '\n' +
+                            '╰══════════════════⊷'
+                        )
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'delete_msg') {
+                    const quoted = m.quoted
+                    if (!quoted) { await reply('❓ Quote the message you want me to delete.'); return }
+                    try {
+                        await conn.sendMessage(chat, { delete: quoted.key })
+                        await react('🗑️')
+                    } catch(e) { await reply('❌ Could not delete: ' + e.message + ' (I may not be admin or it may be too old)') }
+                    return
+                }
+
+                if (intent === 'warn_user' && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ I need admin rights to warn members.'); return }
+                    const mentions = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+                    const target   = mentions[0] || (m.quoted && m.quoted.sender)
+                    if (!target) { await reply('❓ Mention or quote the member to warn.'); return }
+                    const phone = target.split('@')[0]
+                    await conn.sendMessage(chat, { text: '⚠️ *WARNING* ⚠️\n@' + phone + ' has been warned by admin. Next violation may result in removal.', mentions: [target] }, { quoted: m })
+                    return
+                }
+
+                // ══ AGENT: ANTI-FEATURES TOGGLE ════════════════════════════════
+                if ((intent === 'antidelete_on' || intent === 'antidelete_off') && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin rights.'); return }
+                    const on = intent === 'antidelete_on'
+                    if (!global.db.data.groups[chat]) global.db.data.groups[chat] = {}
+                    global.db.data.groups[chat].antidelete = on
+                    await global.db.write()
+                    await react(on ? '🔔' : '🔕')
+                    await reply((on ? '✅ Anti-delete *enabled*' : '✅ Anti-delete *disabled*') + ' for this group.')
+                    return
+                }
+
+                if ((intent === 'antilink_on' || intent === 'antilink_off') && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin rights.'); return }
+                    const on = intent === 'antilink_on'
+                    if (!global.db.data.groups[chat]) global.db.data.groups[chat] = {}
+                    global.db.data.groups[chat].antilink = on
+                    await global.db.write()
+                    await react(on ? '🔗' : '✂️')
+                    await reply((on ? '✅ Anti-link *enabled*' : '✅ Anti-link *disabled*') + ' — links will ' + (on ? 'now be blocked.' : 'no longer be blocked.'))
+                    return
+                }
+
+                if ((intent === 'welcome_on' || intent === 'welcome_off') && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin rights.'); return }
+                    const on = intent === 'welcome_on'
+                    if (!global.db.data.groups[chat]) global.db.data.groups[chat] = {}
+                    global.db.data.groups[chat].welcome = on
+                    await global.db.write()
+                    await react(on ? '🎉' : '🔕')
+                    await reply((on ? '✅ Welcome messages *enabled*' : '✅ Welcome messages *disabled*'))
+                    return
+                }
+
+                if ((intent === 'bye_on' || intent === 'bye_off') && m.isGroup) {
+                    if (!isAdmin) { await reply('❌ Need admin rights.'); return }
+                    const on = intent === 'bye_on'
+                    if (!global.db.data.groups[chat]) global.db.data.groups[chat] = {}
+                    global.db.data.groups[chat].bye = on
+                    await global.db.write()
+                    await react(on ? '👋' : '🔕')
+                    await reply((on ? '✅ Goodbye messages *enabled*' : '✅ Goodbye messages *disabled*'))
+                    return
+                }
+
+                // ══ AGENT: CODE EXECUTION ═══════════════════════════════════════
+                if (intent === 'js_eval') {
+                    if (!isOwner) { await reply('❌ Code execution is owner-only.'); return }
+                    const codeMatch = text.match(/[```]{1,3}(?:js|javascript)?\s*([\s\S]+?)[```]{1,3}/) ||
+                                      text.match(/(?:run|eval|execute)\s+(?:this\s+)?(?:code|js|javascript)?[:\s]+(.+)/is)
+                    const code = codeMatch ? codeMatch[1].trim() : null
+                    if (!code) { await reply('❓ Provide the code to run, e.g.:\n*Bera run: console.log("hello")*'); return }
+                    try {
+                        await react('⚙️')
+                        const sandbox = { conn, m, chat, text, reply, console: { log: (...a) => a.join(' '), error: (...a) => a.join(' ') }, require, global, process: { env: process.env } }
+                        const result  = await new Promise((res, rej) => {
+                            try {
+                                const fn = new Function(...Object.keys(sandbox), '"use strict"; return (async()=>{ ' + code + ' })()')
+                                fn(...Object.values(sandbox)).then(res).catch(rej)
+                            } catch(e) { rej(e) }
+                        })
+                        const out = result !== undefined ? String(result).slice(0, 2000) : '✅ (no return value)'
+                        await reply('╭══〘 *⚙️ JS OUTPUT* 〙═⊷\n' + out.split('\n').slice(0,30).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    } catch(e) {
+                        await reply('❌ *Error:* ' + e.message.slice(0,500))
+                    }
+                    return
+                }
+
+                if (intent === 'shell') {
+                    if (!isOwner) { await reply('❌ Shell access is owner-only.'); return }
+                    const cmdMatch = text.match(/(?:run|exec(?:ute)?|bash|shell)[:\s]+([\s\S]+)/i) ||
+                                     text.match(/[`]{1,3}([^[`]+)[`]{1,3}/)
+                    const cmd = cmdMatch ? cmdMatch[1].trim() : null
+                    if (!cmd) { await reply('❓ Provide the shell command.'); return }
+                    try {
+                        await react('💻')
+                        const { exec } = require('child_process')
+                        const out = await new Promise(res => exec(cmd, { timeout: 15000, maxBuffer: 1024*512 }, (e, stdout, stderr) => res((stdout||'') + (stderr ? '\nSTDERR: '+stderr : ''))))
+                        await reply('╭══〘 *💻 SHELL* 〙═⊷\n$ ' + cmd + '\n┃\n' + out.split('\n').slice(0,30).map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                // ══ AGENT: BOT MANAGEMENT ═══════════════════════════════════════
+                if (intent === 'bot_update') {
+                    if (!isOwner) { await reply('❌ Only the bot owner can update.'); return }
+                    try {
+                        await react('🔄')
+                        await reply('⏳ Pulling latest code from GitHub...')
+                        const { exec } = require('child_process')
+                        const pullOut = await new Promise(res => exec('git pull origin main 2>&1', { timeout: 30000 }, (e, o) => res(o||e?.message||'')))
+                        const already = pullOut.includes('Already up to date')
+                        const changed = (pullOut.match(/\|\s+\d+/g) || []).length
+                        // Inline plugin reload
+                        const _path = require('path'), _fs = require('fs')
+                        const _plugDir = _path.join(process.cwd(), 'Plugins')
+                        const _plugFiles = _fs.existsSync(_plugDir) ? _fs.readdirSync(_plugDir).filter(f => f.endsWith('.js')) : []
+                        let _loaded = 0
+                        for (const _f of _plugFiles) {
+                            const _fp = _path.join(_plugDir, _f)
+                            try { delete require.cache[require.resolve(_fp)]; require(_fp); _loaded++ } catch(_e) {}
+                        }
+                        await conn.sendMessage(chat, { react: { text: '✅', key: m.key } }).catch(()=>{})
+                        await reply('╭══〘 *🔄 BOT UPDATED* 〙═⊷\n┃ ' + (already ? '✅ Already up to date' : '🆕 ' + changed + ' file(s) updated') + '\n┃ Plugins reloaded: *' + _loaded + '*\n┃\n┃ ' + pullOut.trim().split('\n').slice(0,3).join('\n┃ ') + '\n╰══════════════════⊷')
+                    } catch(e) { await reply('❌ Update failed: ' + e.message) }
+                    return
+                }
+
+                if (intent === 'bot_status') {
+                    try {
+                        await react('📊')
+                        const uptime  = process.uptime()
+                        const mins    = Math.floor(uptime / 60)
+                        const hrs     = Math.floor(mins / 60)
+                        const mem     = process.memoryUsage()
+                        await reply(
+                            '╭══〘 *📊 BOT STATUS* 〙═⊷\n' +
+                            '┃ 🤖 Bot: *Bera AI*\n' +
+                            '┃ ⏱️ Uptime: *' + hrs + 'h ' + (mins%60) + 'm*\n' +
+                            '┃ 🧠 RAM: *' + (mem.heapUsed/1024/1024).toFixed(1) + 'MB / ' + (mem.heapTotal/1024/1024).toFixed(1) + 'MB*\n' +
+                            '┃ 🖥️ Platform: *' + process.platform + '*\n' +
+                            '┃ 📦 Node: *' + process.version + '*\n' +
+                            '╰══════════════════⊷'
+                        )
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                // ══ AGENT: MEDIA ═════════════════════════════════════════════════
+                if (intent === 'music') {
+                    const queryM = text.match(/(?:play|send|download|get)\s+(?:music|song|audio|track)?\s*(?:for\s+)?(.+)/i)
+                    const query  = queryM ? queryM[1].trim() : text
+                    try {
+                        await react('🎵')
+                        const agent = require('../Library/actions/agent')
+                        const r = await agent.httpRequest({ method:'GET', url:'https://keith-api.vercel.app/api/ytdl/search?query='+encodeURIComponent(query) })
+                        if (r.success && r.data?.results?.[0]) {
+                            const song = r.data.results[0]
+                            const dl = await agent.httpRequest({ method:'GET', url:'https://keith-api.vercel.app/api/ytdl/audio?url='+encodeURIComponent(song.url||song.id) })
+                            if (dl.success && dl.data?.url) {
+                                await conn.sendMessage(chat, { audio: { url: dl.data.url }, mimetype: 'audio/mpeg', fileName: (song.title||query)+'.mp3' }, { quoted: m })
+                            } else { await reply('❌ Could not download audio. Try: *.music ' + query + '*') }
+                        } else { await reply('❌ No results for "' + query + '". Try: *.music ' + query + '*') }
+                    } catch(e) { await reply('❌ Music error: ' + e.message) }
+                    return
+                }
+
+                if (intent === 'image_gen') {
+                    const descM = text.match(/(?:generate|create|make|draw|paint)\s+(?:an?\s+)?(?:image|photo|picture|art|pic)?\s+(?:of\s+)?(.+)/i)
+                    const desc  = descM ? descM[1].trim() : text
+                    try {
+                        await react('🎨')
+                        const seed    = Math.floor(Math.random()*99999)
+                        const imgUrl  = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(desc) + '?seed=' + seed + '&width=1024&height=1024&model=flux'
+                        await conn.sendMessage(chat, { image: { url: imgUrl }, caption: '🎨 *' + desc + '*' }, { quoted: m })
+                    } catch(e) { await reply('❌ Image gen error: ' + e.message) }
+                    return
+                }
+
+                if (intent === 'translate') {
+                    const langM = text.match(/translate\s+(?:to\s+)?([a-z]{2,20})\s*[:\-]?\s*(.+)/i) ||
+                                  text.match(/translate\s+(.+)\s+(?:to|in)\s+([a-z]{2,20})/i)
+                    const toLang = langM ? (langM[2]||langM[1]).trim() : 'en'
+                    const toTrans = langM ? (langM[2] ? langM[2] : text) : text
+                    try {
+                        await react('🌍')
+                        const r = await require('../Library/actions/agent').httpRequest({ method:'GET', url:'https://api.mymemory.translated.net/get?q='+encodeURIComponent(toTrans)+'&langpair=auto|'+toLang })
+                        const translated = r.data?.responseData?.translatedText || r.data?.matches?.[0]?.translation
+                        if (translated) await reply('🌍 *Translation (' + toLang + '):*\n' + translated)
+                        else await reply('❌ Translation failed.')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                // ══ AGENT: NETWORK TOOLS ════════════════════════════════════════
+                if (intent === 'ping') {
+                    const hostM = text.match(/ping\s+(\S+)/i)
+                    const host  = hostM ? hostM[1] : null
+                    if (!host) { await reply('❓ Usage: *Bera ping google.com*'); return }
+                    try {
+                        await react('📡')
+                        const r = await require('../Library/actions/agent').pingHost(host)
+                        if (r.success) await reply('╭══〘 *📡 PING* 〙═⊷\n┃ Host: *' + host + '*\n┃ Status: ✅ Online\n┃ Time: *' + r.time + 'ms*\n╰══════════════════⊷')
+                        else await reply('╭══〘 *📡 PING* 〙═⊷\n┃ Host: *' + host + '*\n┃ Status: ❌ Offline/Unreachable\n╰══════════════════⊷')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'whois') {
+                    const domainM = text.match(/whois\s+(\S+)/i)
+                    const domain  = domainM ? domainM[1] : null
+                    if (!domain) { await reply('❓ Usage: *Bera whois google.com*'); return }
+                    try {
+                        await react('🔎')
+                        const r = await require('../Library/actions/agent').whoisLookup(domain)
+                        if (r.success) await reply(fmt(r.result||JSON.stringify(r.data||{}).slice(0,500)))
+                        else await reply('❌ ' + r.error)
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'ip_lookup') {
+                    const ipM = text.match(/([\d.]{7,15}|[\w.-]+\.[a-z]{2,})/)
+                    const ip  = ipM ? ipM[1] : null
+                    if (!ip) { await reply('❓ Usage: *Bera ip lookup 8.8.8.8*'); return }
+                    try {
+                        await react('🌐')
+                        const r = await require('../Library/actions/agent').ipLookup(ip)
+                        if (r.success) {
+                            const d = r.data || {}
+                            await reply('╭══〘 *🌐 IP INFO* 〙═⊷\n┃ IP: *' + (d.ip||ip) + '*\n┃ Country: ' + (d.country_name||d.country||'?') + ' ' + (d.country_flag_emoji||'') + '\n┃ City: ' + (d.city||'?') + '\n┃ ISP: ' + (d.org||d.isp||'?') + '\n╰══════════════════⊷')
+                        } else await reply('❌ ' + r.error)
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'url_check') {
+                    const urlM = text.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/)
+                    const url  = urlM ? urlM[1] : null
+                    if (!url) { await reply('❓ Provide a URL to check.'); return }
+                    try {
+                        await react('🔗')
+                        const r = await require('../Library/actions/agent').urlCheck(url)
+                        if (r.success) await reply('╭══〘 *🔗 URL CHECK* 〙═⊷\n┃ URL: ' + url + '\n┃ Status: *' + (r.status||r.statusCode) + '*\n┃ Result: ' + (r.safe ? '✅ Safe' : '⚠️ Check carefully') + '\n╰══════════════════⊷')
+                        else await reply('❌ Could not check URL: ' + r.error)
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'dns_check') {
+                    const domainM = text.match(/(?:dns|mx|nameserver)\s+(?:lookup|check|records?)?\s+(\S+)/i)
+                    const domain  = domainM ? domainM[1] : null
+                    if (!domain) { await reply('❓ Usage: *Bera dns check google.com*'); return }
+                    try {
+                        await react('🌐')
+                        const dns = require('dns').promises
+                        const records = await dns.resolve4(domain).catch(()=>[])
+                        await reply('╭══〘 *🌐 DNS* 〙═⊷\n┃ Domain: *' + domain + '*\n┃ A Records: ' + (records.join(', ')||'none') + '\n╰══════════════════⊷')
+                    } catch(e) { await reply('❌ ' + e.message) }
+                    return
+                }
+
+                if (intent === 'search') {
+                    const queryM = text.match(/(?:search|google|look\s+up|find)\s+(?:info(?:rmation)?\s+(?:on|about|for))?\s*(.+)/i)
+                    const query  = queryM ? queryM[1].trim() : text
+                    try {
+                        await react('🔍')
+                        const agent = require('../Library/actions/agent')
+                        const r = await agent.webScrape('https://duckduckgo.com/html/?q=' + encodeURIComponent(query))
+                        const snippets = (r.text||'').match(/class="result__snippet">([^<]+)</g)
+                        if (snippets && snippets.length) {
+                            const results = snippets.slice(0,4).map((s,i) => (i+1)+'. ' + s.replace(/class="[^"]+">|<\/[^>]+>/g,'').trim()).join('\n')
+                            await reply('╭══〘 *🔍 SEARCH: ' + query.slice(0,30) + '* 〙═⊷\n' + results.split('\n').map(l=>'┃ '+l).join('\n') + '\n╰══════════════════⊷')
+                        } else {
+                            await reply('❌ No results found for *' + query + '*')
+                        }
+                    } catch(e) { await reply('❌ Search failed: ' + e.message) }
+                    return
+                }
+
                 // ── NPM stats ───────────────────────────────────────────────
                 if (intent === 'npm_stats') {
                     const pkgMatch =
