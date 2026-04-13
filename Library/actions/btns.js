@@ -1,4 +1,4 @@
-// Library/actions/btns.js — Button sender for Bera AI (toxic-baileys compatible)
+// Library/actions/btns.js — Button sender for Bera AI (@whiskeysockets/baileys)
 //
 // gifted-btns internally requires('@whiskeysockets/baileys') for its helpers.
 // We redirect that to gifted-baileys (same ecosystem, same author as gifted-btns).
@@ -9,23 +9,6 @@
 //   Modern (3-arg):  sendBtn(conn, jid, { text, buttons, title, footer })
 //   Legacy (5-arg):  sendBtn(conn, jid, m, text, buttons, extraOpts)
 
-// ── Shim: redirect @whiskeysockets/baileys → toxic-baileys ────────────────────
-;(function patchBaileysResolution() {
-    try {
-        const Module = require('module')
-        const _orig  = Module._resolveFilename.bind(Module)
-        Module._resolveFilename = function (request, parent, isMain, opts) {
-            if (request === '@whiskeysockets/baileys') {
-                // Try gifted-baileys first (same ecosystem as gifted-btns)
-                // Fall back to toxic-baileys which is always installed
-                try { require.resolve('gifted-baileys'); return _orig('gifted-baileys', parent, isMain, opts) } catch {}
-                try { require.resolve('toxic-baileys');  return _orig('toxic-baileys',  parent, isMain, opts) } catch {}
-            }
-            return _orig(request, parent, isMain, opts)
-        }
-    } catch (_) {}
-})()
-// ─────────────────────────────────────────────────────────────────────────────
 
 let _sendButtons = null
 let _sendInteractive = null
