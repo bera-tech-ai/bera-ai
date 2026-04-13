@@ -352,9 +352,7 @@ const handleMessage = async (conn, rawMsg) => {
                     const name5  = track5?.title || 'Track ' + (idx5 + 1)
                     return sendButtons(conn, m.chat, {
                         title:   '🎵 Choose Format',
-                        text:    '*🎵 ' + name5.slice(0, 42) + '*
-
-Choose your download format:',
+                        text:    'Choose your download format - ' + name5.slice(0, 40) + ':',
                         footer:  'Tap to download',
                         buttons: [
                             { id: 'yt_audio_' + encodeURIComponent(url5), text: '🎵 Audio Only (MP3)' },
