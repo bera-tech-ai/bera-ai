@@ -362,7 +362,7 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
             `┃❍ *Developer:* Bera Tech\n` +
             `┃❍ *Prefix:* ${prefix}\n` +
             `┃❍ *Platform:* WhatsApp\n` +
-            `┃❍ *Framework:* Baileys (toxic-baileys)\n` +
+            `┃❍ *Framework:* Baileys (@whiskeysockets/baileys)\n` +
             `╰══════════════════⊷`
         )
     }
