@@ -2,7 +2,7 @@
 //
 // gifted-btns internally requires('@whiskeysockets/baileys') for its helpers.
 // We redirect that to gifted-baileys (same ecosystem, same author as gifted-btns).
-// toxic-baileys is kept exclusively for the WhatsApp connection (Connection/start.js).
+// @whiskeysockets/baileys is kept exclusively for the WhatsApp connection (Connection/start.js).
 // gifted-baileys provides the button message-building internals gifted-btns needs.
 //
 // Calling conventions — both are accepted:
