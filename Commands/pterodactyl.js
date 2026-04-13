@@ -8,7 +8,7 @@ const {
     listAllServers, deleteServer, suspendServer, unsuspendServer, listNodes,
     formatUptime, statusEmoji
 } = require('../Library/actions/pterodactyl')
-const { generateWAMessage } = require('toxic-baileys')
+const { generateWAMessage } = require('@whiskeysockets/baileys')
 
 const Config = require('../Config')
 
