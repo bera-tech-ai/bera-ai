@@ -2,7 +2,7 @@
 // Commands: aipanel, mediapanel, converterPanel, gamepanel, funpanel, toolspanel,
 //           profilepanel, texttoolspanel, statuspanel, grouppanel2, newcmds
 
-const { sendBtn, sendList, sendUrlBtn } = require('../Library/actions/btns')
+const { sendButtons } = require('gifted-btns')
 
 const handle = {}
 handle.command = [
@@ -43,8 +43,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
 
     // ── AI PANEL ─────────────────────────────────────────────────────────────
     if (['aipanel','aitools','aimenu'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *🧠 AI Tools Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *🧠 AI Tools Panel* 〙═⊷\n' +
             '┃ Bera AI-powered writing & creativity\n' +
             '┃\n' +
             '┃ Use these tools by typing the command\n' +
@@ -62,13 +61,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'tweet',     text: '🐦 Write a Tweet' },
                 { id: p + 'caption2',  text: '📸 Write IG Caption' },
             ]
-        )
+            })
     }
 
     // ── MEDIA DOWNLOAD PANEL ─────────────────────────────────────────────────
     if (['mediapanel','dlpanel','downloadpanel'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *📥 Media Download Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *📥 Media Download Panel* 〙═⊷\n' +
             '┃ Download from any platform!\n' +
             '┃ Just type the command + URL\n' +
             '╰══════════════════⊷',
@@ -84,13 +82,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'gdrive',    text: '☁️ Google Drive File' },
                 { id: p + 'ssweb',     text: '📸 Website Screenshot' },
             ]
-        )
+            })
     }
 
     // ── CONVERTER PANEL ──────────────────────────────────────────────────────
     if (['converterpanel','convertmenu'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *🔄 Converter Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *🔄 Converter Panel* 〙═⊷\n' +
             '┃ Convert media, text, and files!\n' +
             '╰══════════════════⊷',
             [
@@ -105,13 +102,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'tr',       text: '🌐 Translate Text' },
                 { id: p + 'ascii',    text: '🎨 Text → ASCII Art' },
             ]
-        )
+            })
     }
 
     // ── GAME PANEL ───────────────────────────────────────────────────────────
     if (['gamepanel','gamedashboard','playgames'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *🎮 Games Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *🎮 Games Panel* 〙═⊷\n' +
             '┃ Fun games to play in the chat!\n' +
             '┃\n' +
             '┃ Challenge friends & have fun 🎯\n' +
@@ -128,13 +124,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'truth',    text: '💚 Truth' },
                 { id: p + 'dare',     text: '🔴 Dare' },
             ]
-        )
+            })
     }
 
     // ── FUN PANEL ────────────────────────────────────────────────────────────
     if (['funpanel','funmenu','entertainment'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *😂 Fun Commands Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *😂 Fun Commands Panel* 〙═⊷\n' +
             '┃ Entertainment & laughs!\n' +
             '╰══════════════════⊷',
             [
@@ -149,13 +144,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'shower',     text: '🚿 Shower Thought' },
                 { id: p + 'confession', text: '🙈 Random Confession' },
             ]
-        )
+            })
     }
 
     // ── TOOLS / UTILITY PANEL ────────────────────────────────────────────────
     if (['toolspanel','utilsmenu','utilities'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *🔧 Utility Tools Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *🔧 Utility Tools Panel* 〙═⊷\n' +
             '┃ Handy tools for everyday use!\n' +
             '╰══════════════════⊷',
             [
@@ -170,13 +164,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'define',     text: '📖 Dictionary' },
                 { id: p + 'bmi',        text: '⚖️ BMI Calculator' },
             ]
-        )
+            })
     }
 
     // ── TEXT TOOLS PANEL ─────────────────────────────────────────────────────
     if (['texttoolspanel','textmenu'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *📝 Text Tools Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *📝 Text Tools Panel* 〙═⊷\n' +
             '┃ Transform your text in creative ways!\n' +
             '╰══════════════════⊷',
             [
@@ -191,13 +184,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'morse',          text: '📡 Morse Code' },
                 { id: p + 'wordcount',      text: '📊 Word Counter' },
             ]
-        )
+            })
     }
 
     // ── STATUS PANEL ─────────────────────────────────────────────────────────
     if (['statuspanel','statusmenu'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *📸 Status & Story Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *📸 Status & Story Panel* 〙═⊷\n' +
             '┃ Auto-like, view, and post status!\n' +
             '╰══════════════════⊷',
             [
@@ -210,14 +202,13 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'statustogroups', text: '📡 Status → All Groups' },
                 { id: p + 'groupstatusinfo',text: '📖 How Group Status Works' },
             ]
-        )
+            })
     }
 
     // ── GROUP TOOLS PANEL 2 ──────────────────────────────────────────────────
     if (['grouppanel2','grouptools','grouputils'].includes(command)) {
         if (!isGroup) return reply('❌ Use this inside a group.')
-        return sendBtn(conn, chat, m,
-            '╭══〘 *👥 Group Tools Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *👥 Group Tools Panel* 〙═⊷\n' +
             '┃ Advanced group management tools\n' +
             '╰══════════════════⊷',
             [
@@ -232,13 +223,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'unmuteall',  text: '🔊 Unmute All' },
                 { id: p + 'antilink on',text: '🛡️ Anti-Link ON' },
             ]
-        )
+            })
     }
 
     // ── PROFILE PANEL ────────────────────────────────────────────────────────
     if (['profilepanel','userpanel'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *👤 Profile Tools Panel* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *👤 Profile Tools Panel* 〙═⊷\n' +
             '┃ View and manage user information\n' +
             '╰══════════════════⊷',
             [
@@ -251,13 +241,12 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'zodiac',   text: '⭐ Horoscope' },
                 { id: p + 'bioai',    text: '✍️ Write My Bio (AI)' },
             ]
-        )
+            })
     }
 
     // ── HELPDESK / SUPPORT ───────────────────────────────────────────────────
     if (['helpdesk','support'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *🆘 Help & Support* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *🆘 Help & Support* 〙═⊷\n' +
             '┃ Need help? Use the buttons below!\n' +
             '╰══════════════════⊷',
             [
@@ -267,7 +256,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'allpanels', text: '🗂️ All Button Panels' },
                 { id: p + 'newcmds',   text: '✨ What\'s New?' },
             ]
-        )
+            })
     }
 
     // ── WHAT'S NEW ───────────────────────────────────────────────────────────
@@ -320,8 +309,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
 
     // ── ALL PANELS LIST ──────────────────────────────────────────────────────
     if (['allpanels','panellist'].includes(command)) {
-        return sendBtn(conn, chat, m,
-            '╭══〘 *🗂️ All Button Panels* 〙═⊷\n' +
+        return sendButtons(conn, chat, { text: '╭══〘 *🗂️ All Button Panels* 〙═⊷\n' +
             '┃ Interactive panels with button UI\n' +
             '┃\n' +
             '┃ Select a panel to open:\n' +
@@ -342,7 +330,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 { id: p + 'profilepanel', text: '👤 Profile Panel' },
                 { id: p + 'settingspanel',text: '⚙️ Settings Panel' },
             ]
-        )
+            })
     }
 }
 
