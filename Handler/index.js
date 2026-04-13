@@ -569,9 +569,8 @@ const handleMessage = async (conn, rawMsg) => {
             await checkAutoReply(conn, m, text)
 
 
-            // ── GitHub Download — natural language + bare URL ─────────────────
-            // Fires when message contains a github.com link + download intent
-            const ghUrlMatch = text && text.match(/https?:\/\/github\.com\/[\w.\-]+\/[\w.\-]+(?:\/[^\s]*)*/i)
+            // ── GitHub Download — DMs only (groups: command prefix required) ────
+            const ghUrlMatch = !m.isGroup && text && text.match(/https?:\/\/github\.com\/[\w.\-]+\/[\w.\-]+(?:\/[^\s]*)*/i)
             const ghDownloadIntent = text && /\b(download|get|send|fetch|grab|zip|clone|dl)\b/i.test(text)
             if (ghUrlMatch && (ghDownloadIntent || /github\.com\/[\w.\-]+\/[\w.\-]+\/blob\//.test(text))) {
                 const ghUrl = ghUrlMatch[0]
@@ -614,8 +613,13 @@ const handleMessage = async (conn, rawMsg) => {
             }
             // ═══════════════════════════════════════════════════════════════
             // BERA AGENT — Full Intent Router (fires before ChatBera)
+            // In GROUPS: only fires when bot is @mentioned or "bera" is said.
+            // In DMs: fires on all messages as normal.
             // ═══════════════════════════════════════════════════════════════
-            if (!m.fromMe && text) {
+            const _agentMentioned = (m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []).some(j => j === conn.user?.id)
+            const _agentBeraCall  = text && /\bbera\b/i.test(text)
+            const _agentAllowed   = !m.isGroup || _agentMentioned || _agentBeraCall
+            if (!m.fromMe && text && _agentAllowed) {
                 const { detectIntent } = require('../Library/router')
                 const intent = detectIntent(text)
                 const agent  = require('../Library/actions/agent')
