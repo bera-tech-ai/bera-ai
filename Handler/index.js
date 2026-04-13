@@ -323,11 +323,12 @@ const handleMessage = async (conn, rawMsg) => {
                 const body   = irm.body?.text || ''
                 const params = nfr?.paramsJson ? JSON.parse(nfr.paramsJson) : {}
                 const btnId  = params.id || body || ''
-                const { sendButtons }  = require('gifted-btns')
-                const { setBtnMode }   = require('../Library/actions/btnmode')
+                const { sendButtons }                         = require('gifted-btns')
+                const { setBtnMode }                          = require('../Library/actions/btnmode')
+                const { downloadAudio, downloadVideo }        = require('../Library/actions/music')
                 const pref   = global.prefix || '.'
 
-                // ─── Button Mode toggle ───────────────────────────────────────────
+                // ─── Button Mode toggle ────────────────────────────────────────────
                 if (btnId.startsWith('btns_off_') && btnId !== 'btns_off_keep') {
                     setBtnMode(btnId.slice('btns_off_'.length), false)
                     await conn.sendMessage(m.chat, { text: 'Buttons OFF for this chat. Commands will use plain text.' }, { quoted: m }).catch(() => {})
@@ -343,7 +344,7 @@ const handleMessage = async (conn, rawMsg) => {
                     return
                 }
 
-                // ─── play_pick: user selected a track, show format buttons ──────────
+                // ─── play_pick: user selected a track → show format buttons ──────────
                 if (btnId.startsWith('play_pick_')) {
                     const segs5  = btnId.split('_')
                     const idx5   = parseInt(segs5[2]) || 0
@@ -364,7 +365,7 @@ const handleMessage = async (conn, rawMsg) => {
                     })
                 }
 
-                // ─── Cancel ──────────────────────────────────────────────────────────
+                // ─── Cancel ───────────────────────────────────────────────────────────
                 if (btnId === 'play_cancel') {
                     await conn.sendMessage(m.chat, { text: 'Search cancelled.' }, { quoted: m }).catch(() => {})
                     return
@@ -373,33 +374,67 @@ const handleMessage = async (conn, rawMsg) => {
                 // ─── Copy button ──────────────────────────────────────────────────────
                 if (btnId.startsWith('copy_')) {
                     const stored = global.beraLastOutput?.[m.chat]
-                    await conn.sendMessage(m.chat, { text: stored ? 'Tap and hold below to copy:' + ' ' + stored : 'Tap and hold the original message to copy!' }, { quoted: m }).catch(() => {})
+                    await conn.sendMessage(m.chat, { text: stored ? 'Copy below: ' + stored : 'Tap and hold the original message to copy!' }, { quoted: m }).catch(() => {})
                     return
                 }
 
-                // ─── Media format buttons: yt_audio / yt_video / yt_360 etc ──────────
-                // Sets m.text to the mapped command, then falls through to cmd dispatch.
-                // NO return here — the if(irm) block closes and L440+ picks up m.text.
-                if (/^(yt|tt|sp|ig|fb|tw)_/.test(btnId)) {
+                // ─── YOUTUBE format buttons: download directly via music library ──────
+                // yt_audio_ → download as MP3 and send (same as what .play does internally)
+                // yt_video_ / yt_360_ / yt_720_ → download as video and send
+                if (/^yt_/.test(btnId)) {
                     const segs   = btnId.split('_')
+                    const action = segs[1]
+                    const ytUrl  = decodeURIComponent(segs.slice(2).join('_'))
+                    await conn.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {})
+                    if (action === 'audio') {
+                        const dl = await downloadAudio(ytUrl)
+                        if (!dl.success) {
+                            await conn.sendMessage(m.chat, { text: 'Download failed: ' + (dl.error || 'unknown error') }, { quoted: m }).catch(() => {})
+                            await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {})
+                        } else {
+                            if (dl.thumbnail) {
+                                await conn.sendMessage(m.chat, { image: { url: dl.thumbnail }, caption: 'Now Playing: ' + dl.title }).catch(() => {})
+                            }
+                            await conn.sendMessage(m.chat, { audio: { url: dl.audioUrl }, mimetype: 'audio/mpeg', fileName: (dl.title || 'audio') + '.mp3' }, { quoted: m }).catch(() => {})
+                            await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {})
+                        }
+                    } else {
+                        const dl = await downloadVideo(ytUrl)
+                        if (!dl.success) {
+                            await conn.sendMessage(m.chat, { text: 'Download failed: ' + (dl.error || 'unknown error') }, { quoted: m }).catch(() => {})
+                            await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {})
+                        } else {
+                            await conn.sendMessage(m.chat, { video: { url: dl.url }, caption: (dl.title || '') + ' (' + action + ')' }, { quoted: m }).catch(() => {})
+                            await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {})
+                        }
+                    }
+                    return
+                }
+
+                // ─── Other platform buttons: inject as command and dispatch ────────────
+                // tiktok/ig/fb/twitter/spotify buttons pass the URL directly as command arg
+                if (/^(tt|sp|ig|fb|tw)_/.test(btnId)) {
+                    const segs   = btnId.split('_')
+                    const src2   = segs[0]
                     const action = segs[1]
                     const url2   = decodeURIComponent(segs.slice(2).join('_'))
                     const cmdMap = {
-                        audio: 'tomp3', video: 'ytv', '144': 'ytv', '360': 'ytv', '720': 'ytv',
-                        nowm:  'tiktok nowatermark', thumb: 'tiktok thumbnail',
-                        dl:    'spotify', photo: 'ig photo', reel: 'ig reel', story: 'ig story',
-                        hd:    'fb hd', sd: 'fb sd', mp3: 'fb audio', gif: 'twitter gif'
+                        tt:  { audio: 'tiktok', nowm: 'tiktok', thumb: 'tiktok', video: 'tiktok' },
+                        sp:  { dl: 'spotify' },
+                        ig:  { photo: 'ig', reel: 'ig', story: 'ig', video: 'ig' },
+                        fb:  { hd: 'fb', sd: 'fb', mp3: 'fb' },
+                        tw:  { gif: 'twitter', video: 'twitter' }
                     }
-                    const mapped = cmdMap[action]
-                    if (mapped) {
-                        m.text = pref + mapped + ' ' + url2
+                    const cmd = cmdMap[src2]?.[action]
+                    if (cmd && url2) {
+                        m.text = pref + cmd + " " + url2
                         m.body = m.text
                         rawMsg.message.conversation = m.text
-                        // NO return — fall through to command dispatch
+                        // fall through to command dispatch
                     }
                 }
 
-                // ─── Warn action buttons ──────────────────────────────────────────────
+                // ─── WARN action buttons ──────────────────────────────────────────────
                 if (btnId.startsWith('warn_')) {
                     const segs4   = btnId.split('_')
                     const action4 = segs4[1]
