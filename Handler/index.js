@@ -412,18 +412,31 @@ const handleMessage = async (conn, rawMsg) => {
                 }
 
                 // ─── Other platform buttons: inject as command and dispatch ────────────
-                // tiktok/ig/fb/twitter/spotify buttons pass the URL directly as command arg
+                // All platform buttons (tiktok/ig/fb/twitter/spotify) pass URL to command
                 if (/^(tt|sp|ig|fb|tw)_/.test(btnId)) {
                     const segs   = btnId.split('_')
                     const src2   = segs[0]
                     const action = segs[1]
                     const url2   = decodeURIComponent(segs.slice(2).join('_'))
+
+                    // sp_open: just send the link, no download needed
+                    if (src2 === 'sp' && action === 'open') {
+                        await conn.sendMessage(m.chat, { text: 'Open Spotify: ' + url2 }, { quoted: m }).catch(() => {})
+                        return
+                    }
+                    // sp_info: send track info link
+                    if (src2 === 'sp' && action === 'info') {
+                        await conn.sendMessage(m.chat, { text: 'Track link: ' + url2 }, { quoted: m }).catch(() => {})
+                        return
+                    }
+
+                    // All other platform buttons map to a download command
                     const cmdMap = {
-                        tt:  { audio: 'tiktok', nowm: 'tiktok', thumb: 'tiktok', video: 'tiktok' },
-                        sp:  { dl: 'spotify' },
-                        ig:  { photo: 'ig', reel: 'ig', story: 'ig', video: 'ig' },
-                        fb:  { hd: 'fb', sd: 'fb', mp3: 'fb' },
-                        tw:  { gif: 'twitter', video: 'twitter' }
+                        tt: { audio: 'tiktok', video: 'tiktok', nowm: 'tiktok', thumb: 'tiktok' },
+                        sp: { dl: 'spotify' },
+                        ig: { photo: 'ig', reel: 'ig', story: 'ig', video: 'ig' },
+                        fb: { hd: 'fb', sd: 'fb', mp3: 'fb' },
+                        tw: { hd: 'twitter', sd: 'twitter', video: 'twitter', gif: 'twitter', mp3: 'twitter' }
                     }
                     const cmd = cmdMap[src2]?.[action]
                     if (cmd && url2) {
