@@ -1,7 +1,7 @@
 {
   "name": "bera-ai",
   "version": "1.0.0",
-  "description": "Bera AI WhatsApp Bot — powered by toxic-baileys",
+  "description": "Bera AI WhatsApp Bot — powered by @whiskeysockets/baileys",
   "main": "Connection/start.js",
   "type": "commonjs",
   "scripts": {
@@ -22,7 +22,7 @@
     "node-cron": "^3.0.0",
     "pino": "^8.0.0",
     "sharp": "^0.32.6",
-    "toxic-baileys": "latest",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "gifted-btns": "latest",
     "gifted-baileys": "latest"
   }
