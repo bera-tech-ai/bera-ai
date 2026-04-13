@@ -1,5 +1,5 @@
 // Plugins/gcstatus.js — Send WhatsApp Group Status/Stories
-// Uses Library/actions/gcstatus.js (GiftedStatus-equivalent for toxic-baileys)
+// Uses Library/actions/gcstatus.js (GiftedStatus-equivalent for @whiskeysockets/baileys)
 // Commands: .gcstatus, .groupstatus, .gstory, .statustogroup, .statustogroups, .gstatusall
 
 const { sendGroupStatus, sendStatusToGroups, downloadQuotedMedia } = require('../Library/actions/gcstatus')
