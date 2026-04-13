@@ -1,4 +1,4 @@
-// Plugins/newpanels.js — Additional interactive button panels
+// Plugins/newpanels.js — Additional interactive button panels (atassa-style sendButtons)
 // Commands: aipanel, mediapanel, converterPanel, gamepanel, funpanel, toolspanel,
 //           profilepanel, texttoolspanel, statuspanel, grouppanel2, newcmds
 
@@ -24,14 +24,9 @@ handle.tags = ['panel', 'menu', 'buttons', 'ui']
 handle.help = [
     'aipanel      — AI tools interactive panel',
     'mediapanel   — Media download button panel',
-    'gamepanel    — Games panel (slots, rps, trivia)',
+    'gamepanel    — Games panel',
     'funpanel     — Fun commands panel',
     'toolspanel   — Utility tools panel',
-    'texttoolspanel — Text manipulation panel',
-    'statuspanel  — Status & story tools panel',
-    'grouppanel2  — Group management tools panel',
-    'profilepanel — User profile tools panel',
-    'newcmds      — Show newly added commands',
     'allpanels    — List all available panels',
 ]
 
@@ -41,296 +36,237 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
     const chat = m.chat || m.key?.remoteJid
     const p    = prefix || p_
 
+    const sb = (title, text, footer, buttons) =>
+        sendButtons(conn, chat, { title, text, footer, buttons })
+
     // ── AI PANEL ─────────────────────────────────────────────────────────────
     if (['aipanel','aitools','aimenu'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *🧠 AI Tools Panel* 〙═⊷\n' +
+        return sb('🧠 AI Tools Panel',
+            '╭══〘 *🧠 AI Tools Panel* 〙═⊷\n' +
             '┃ Bera AI-powered writing & creativity\n' +
-            '┃\n' +
             '┃ Use these tools by typing the command\n' +
-            '┃ or let Bera Agent do it naturally!\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'summarize', text: '📋 Summarize Text' },
-                { id: p + 'explain',   text: '🧠 Explain a Topic' },
-                { id: p + 'improve',   text: '✨ Improve Writing' },
-                { id: p + 'proofread', text: '📝 Proofread Text' },
-                { id: p + 'imagine',   text: '🎨 Generate AI Image' },
-                { id: p + 'roast',     text: '🔥 Roast Someone' },
-                { id: p + 'formal',    text: '👔 Make Text Formal' },
-                { id: p + 'eli5',      text: '👶 Explain Like I\'m 5' },
-                { id: p + 'tweet',     text: '🐦 Write a Tweet' },
-                { id: p + 'caption2',  text: '📸 Write IG Caption' },
-            ]
-            })
+            'Bera AI', [
+            { id: p + 'summarize', text: '📋 Summarize Text' },
+            { id: p + 'explain',   text: '🧠 Explain a Topic' },
+            { id: p + 'improve',   text: '✨ Improve Writing' },
+            { id: p + 'proofread', text: '📝 Proofread Text' },
+            { id: p + 'imagine',   text: '🎨 Generate AI Image' },
+            { id: p + 'roast',     text: '🔥 Roast Someone' },
+            { id: p + 'formal',    text: '👔 Make Text Formal' },
+            { id: p + 'eli5',      text: "👶 Explain Like I'm 5" },
+            { id: p + 'tweet',     text: '🐦 Write a Tweet' },
+            { id: p + 'caption2',  text: '📸 Write IG Caption' },
+        ])
     }
 
     // ── MEDIA DOWNLOAD PANEL ─────────────────────────────────────────────────
     if (['mediapanel','dlpanel','downloadpanel'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *📥 Media Download Panel* 〙═⊷\n' +
+        return sb('📥 Media Download Panel',
+            '╭══〘 *📥 Media Download Panel* 〙═⊷\n' +
             '┃ Download from any platform!\n' +
-            '┃ Just type the command + URL\n' +
+            '┃ Type the command + URL\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'tiktok',    text: '🎵 TikTok Video' },
-                { id: p + 'ig',        text: '📸 Instagram Post' },
-                { id: p + 'ytv',       text: '▶️ YouTube Video' },
-                { id: p + 'tomp3',     text: '🎵 YouTube Audio/MP3' },
-                { id: p + 'twitter',   text: '🐦 Twitter/X Video' },
-                { id: p + 'spotify',   text: '🎵 Spotify Track' },
-                { id: p + 'fb',        text: '📘 Facebook Video' },
-                { id: p + 'mediafire', text: '🔥 MediaFire File' },
-                { id: p + 'gdrive',    text: '☁️ Google Drive File' },
-                { id: p + 'ssweb',     text: '📸 Website Screenshot' },
-            ]
-            })
+            'Bera AI — Downloader', [
+            { id: p + 'tiktok',    text: '🎵 TikTok Video' },
+            { id: p + 'ig',        text: '📸 Instagram Post' },
+            { id: p + 'ytv',       text: '▶️ YouTube Video' },
+            { id: p + 'tomp3',     text: '🎵 YouTube MP3' },
+            { id: p + 'twitter',   text: '🐦 Twitter/X Video' },
+            { id: p + 'spotify',   text: '🎵 Spotify Track' },
+            { id: p + 'fb',        text: '📘 Facebook Video' },
+            { id: p + 'mediafire', text: '🔥 MediaFire File' },
+            { id: p + 'gdrive',    text: '☁️ Google Drive' },
+            { id: p + 'ssweb',     text: '📸 Screenshot URL' },
+        ])
     }
 
     // ── CONVERTER PANEL ──────────────────────────────────────────────────────
     if (['converterpanel','convertmenu'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *🔄 Converter Panel* 〙═⊷\n' +
-            '┃ Convert media, text, and files!\n' +
+        return sb('🔄 Converter Panel',
+            '╭══〘 *🔄 Converter Panel* 〙═⊷\n' +
+            '┃ Convert media between formats\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'toaudio',  text: '🎵 Video → Audio' },
-                { id: p + 'toptt',    text: '🎙️ Audio → Voice Note' },
-                { id: p + 'togif',    text: '🎥 Video → GIF' },
-                { id: p + 'tobinary', text: '💾 Text → Binary' },
-                { id: p + 'tobase64', text: '📦 Text → Base64' },
-                { id: p + 'base32',   text: '📦 Text → Base32' },
-                { id: p + 'morse',    text: '📡 Text → Morse Code' },
-                { id: p + 'qr',       text: '📱 Text → QR Code' },
-                { id: p + 'tr',       text: '🌐 Translate Text' },
-                { id: p + 'ascii',    text: '🎨 Text → ASCII Art' },
-            ]
-            })
+            'Bera AI — Converters', [
+            { id: p + 'tomp3',     text: '🎵 Video → MP3' },
+            { id: p + 'tomp4',     text: '🎥 Audio → MP4' },
+            { id: p + 'sticker',   text: '🎭 Image → Sticker' },
+            { id: p + 'unsticker', text: '🖼️ Sticker → Image' },
+            { id: p + 'tourl',     text: '🔗 Media → URL' },
+            { id: p + 'compress',  text: '📦 Compress File' },
+        ])
     }
 
-    // ── GAME PANEL ───────────────────────────────────────────────────────────
+    // ── GAMES PANEL ──────────────────────────────────────────────────────────
     if (['gamepanel','gamedashboard','playgames'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *🎮 Games Panel* 〙═⊷\n' +
-            '┃ Fun games to play in the chat!\n' +
-            '┃\n' +
-            '┃ Challenge friends & have fun 🎯\n' +
+        return sb('🎮 Games Panel',
+            '╭══〘 *🎮 Games Panel* 〙═⊷\n' +
+            '┃ Play fun games on WhatsApp!\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'slots',    text: '🎰 Slot Machine' },
-                { id: p + 'rps r',    text: '🪨 Rock Paper Scissors' },
-                { id: p + 'ttt',      text: '❌⭕ TicTacToe' },
-                { id: p + 'trivia',   text: '🧠 Trivia Quiz' },
-                { id: p + 'dice',     text: '🎲 Dice Duel' },
-                { id: p + 'coinflip', text: '🪙 Coin Flip' },
-                { id: p + 'spinwheel',text: '🎡 Spin the Wheel' },
-                { id: p + 'wyr',      text: '🤔 Would You Rather' },
-                { id: p + 'truth',    text: '💚 Truth' },
-                { id: p + 'dare',     text: '🔴 Dare' },
-            ]
-            })
+            'Bera AI — Games', [
+            { id: p + 'slots',   text: '🎰 Slot Machine' },
+            { id: p + 'rps',     text: '✊ Rock Paper Scissors' },
+            { id: p + 'trivia',  text: '🧠 Trivia Quiz' },
+            { id: p + 'hangman', text: '🪓 Hangman' },
+            { id: p + 'truth',   text: '💬 Truth or Dare' },
+            { id: p + 'coinflip',text: '🪙 Coin Flip' },
+        ])
     }
 
     // ── FUN PANEL ────────────────────────────────────────────────────────────
     if (['funpanel','funmenu','entertainment'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *😂 Fun Commands Panel* 〙═⊷\n' +
-            '┃ Entertainment & laughs!\n' +
+        return sb('😂 Fun Commands Panel',
+            '╭══〘 *😂 Fun Commands Panel* 〙═⊷\n' +
+            '┃ Entertainment & fun stuff\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'meme',       text: '😂 Random Meme' },
-                { id: p + 'joke',       text: '😄 Random Joke' },
-                { id: p + 'dadjoke',    text: '👨 Dad Joke' },
-                { id: p + 'cat',        text: '🐱 Cat Picture' },
-                { id: p + 'dog',        text: '🐶 Dog Picture' },
-                { id: p + 'nhie',       text: '🙋 Never Have I Ever' },
-                { id: p + 'compliment', text: '💌 Get a Compliment' },
-                { id: p + 'roastme',    text: '🔥 Get Roasted' },
-                { id: p + 'shower',     text: '🚿 Shower Thought' },
-                { id: p + 'confession', text: '🙈 Random Confession' },
-            ]
-            })
+            'Bera AI — Fun', [
+            { id: p + 'joke',    text: '😂 Random Joke' },
+            { id: p + 'quote',   text: '💭 Inspirational Quote' },
+            { id: p + 'meme',    text: '😎 Random Meme' },
+            { id: p + 'fact',    text: '🧪 Random Fact' },
+            { id: p + 'roast',   text: '🔥 Roast Someone' },
+            { id: p + 'rate',    text: '⭐ Rate Yourself' },
+        ])
     }
 
-    // ── TOOLS / UTILITY PANEL ────────────────────────────────────────────────
+    // ── TOOLS PANEL ──────────────────────────────────────────────────────────
     if (['toolspanel','utilsmenu','utilities'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *🔧 Utility Tools Panel* 〙═⊷\n' +
-            '┃ Handy tools for everyday use!\n' +
+        return sb('🔧 Utility Tools Panel',
+            '╭══〘 *🔧 Utility Tools Panel* 〙═⊷\n' +
+            '┃ Useful everyday tools\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'weather',    text: '🌤️ Weather Lookup' },
-                { id: p + 'translate',  text: '🌐 Translate Text' },
-                { id: p + 'iplookup',   text: '🌍 IP Lookup' },
-                { id: p + 'qr',         text: '📱 QR Code Generator' },
-                { id: p + 'calc',       text: '🔢 Calculator' },
-                { id: p + 'uptime',     text: '⏱️ Bot Uptime' },
-                { id: p + 'tempmail',   text: '📧 Temp Email' },
-                { id: p + 'tinyurl',    text: '🔗 URL Shortener' },
-                { id: p + 'define',     text: '📖 Dictionary' },
-                { id: p + 'bmi',        text: '⚖️ BMI Calculator' },
-            ]
-            })
+            'Bera AI — Tools', [
+            { id: p + 'calc2',   text: '🧮 Calculator' },
+            { id: p + 'qr2',     text: '🔲 QR Generator' },
+            { id: p + 'weather2',text: '🌤️ Weather' },
+            { id: p + 'tr2',     text: '🌍 Translator' },
+            { id: p + 'define2', text: '📖 Dictionary' },
+            { id: p + 'search2', text: '🔍 Web Search' },
+        ])
     }
 
     // ── TEXT TOOLS PANEL ─────────────────────────────────────────────────────
     if (['texttoolspanel','textmenu'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *📝 Text Tools Panel* 〙═⊷\n' +
-            '┃ Transform your text in creative ways!\n' +
+        return sb('📝 Text Tools Panel',
+            '╭══〘 *📝 Text Tools Panel* 〙═⊷\n' +
+            '┃ Manipulate & transform text\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'bold',           text: '𝗕 Bold Font' },
-                { id: p + 'italic',         text: '𝘐 Italic Font' },
-                { id: p + 'smallcaps',      text: 'ꜱ Small Caps' },
-                { id: p + 'vaporwave',      text: 'ａ Vaporwave/Aesthetic' },
-                { id: p + 'reverse',        text: '🔄 Reverse Text' },
-                { id: p + 'strikethrough',  text: '~~Strike~~ Through' },
-                { id: p + 'clap',           text: '👏 Clap Text' },
-                { id: p + 'zalgo',          text: '👾 Zalgo/Glitch' },
-                { id: p + 'morse',          text: '📡 Morse Code' },
-                { id: p + 'wordcount',      text: '📊 Word Counter' },
-            ]
-            })
+            'Bera AI — Text', [
+            { id: p + 'fancy',    text: '✨ Fancy Text' },
+            { id: p + 'reverse',  text: '🔄 Reverse Text' },
+            { id: p + 'bold',     text: '𝗕 Bold Text' },
+            { id: p + 'ascii',    text: '🔤 ASCII Art' },
+            { id: p + 'small',    text: '🔡 Small Caps' },
+            { id: p + 'encode64', text: '🔐 Base64 Encode' },
+        ])
     }
 
     // ── STATUS PANEL ─────────────────────────────────────────────────────────
     if (['statuspanel','statusmenu'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *📸 Status & Story Panel* 〙═⊷\n' +
-            '┃ Auto-like, view, and post status!\n' +
+        return sb('📸 Status & Story Panel',
+            '╭══〘 *📸 Status & Story Panel* 〙═⊷\n' +
+            '┃ Status viewing & management\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'setsl on',       text: '❤️ Auto-Like ON' },
-                { id: p + 'setsl off',      text: '💔 Auto-Like OFF' },
-                { id: p + 'setsl random',   text: '🎲 Random Emoji Likes' },
-                { id: p + 'gcstatus',       text: '📸 Post Group Story' },
-                { id: p + 'gcstatuscolor',  text: '🎨 Colored Story' },
-                { id: p + 'statustogroup',  text: '📢 Status → This Group' },
-                { id: p + 'statustogroups', text: '📡 Status → All Groups' },
-                { id: p + 'groupstatusinfo',text: '📖 How Group Status Works' },
-            ]
-            })
+            'Bera AI — Status', [
+            { id: p + 'sv',           text: '👁️ Auto Status View ON' },
+            { id: p + 'sl',           text: '❤️ Auto Status Like ON' },
+            { id: p + 'gcstatus',     text: '📡 GC Status Broadcast' },
+            { id: p + 'statustogroup',text: '📤 Status to Group' },
+            { id: p + 'gstatusall',   text: '📢 All Groups Status' },
+        ])
     }
 
-    // ── GROUP TOOLS PANEL 2 ──────────────────────────────────────────────────
+    // ── GROUP TOOLS PANEL ────────────────────────────────────────────────────
     if (['grouppanel2','grouptools','grouputils'].includes(command)) {
-        if (!isGroup) return reply('❌ Use this inside a group.')
-        return sendButtons(conn, chat, { text: '╭══〘 *👥 Group Tools Panel* 〙═⊷\n' +
-            '┃ Advanced group management tools\n' +
+        return sb('👥 Group Tools Panel',
+            '╭══〘 *👥 Group Tools Panel* 〙═⊷\n' +
+            '┃ Advanced group management\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'hidetag',    text: '📢 Silent Tag All' },
-                { id: p + 'tagall',     text: '📣 Tag All Members' },
-                { id: p + 'tagadmins',  text: '👑 Tag Admins' },
-                { id: p + 'listadmins', text: '📋 List Admins' },
-                { id: p + 'grouplink',  text: '🔗 Get Invite Link' },
-                { id: p + 'resetlink',  text: '🔄 Reset Link' },
-                { id: p + 'groupstats', text: '📊 Group Statistics' },
-                { id: p + 'muteall',    text: '🔇 Mute All' },
-                { id: p + 'unmuteall',  text: '🔊 Unmute All' },
-                { id: p + 'antilink on',text: '🛡️ Anti-Link ON' },
-            ]
-            })
+            'Bera AI — Group Tools', [
+            { id: p + 'hidetag',   text: '🔕 Hidden Tag All' },
+            { id: p + 'tagall',    text: '📢 Tag All Members' },
+            { id: p + 'antilink on', text: '🔗 Anti-Link ON' },
+            { id: p + 'antispam on', text: '🛡️ Anti-Spam ON' },
+            { id: p + 'setwelcome', text: '👋 Set Welcome Msg' },
+            { id: p + 'groupstats', text: '📊 Group Stats' },
+        ])
     }
 
     // ── PROFILE PANEL ────────────────────────────────────────────────────────
     if (['profilepanel','userpanel'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *👤 Profile Tools Panel* 〙═⊷\n' +
-            '┃ View and manage user information\n' +
+        return sb('👤 Profile Tools Panel',
+            '╭══〘 *👤 Profile Tools Panel* 〙═⊷\n' +
+            '┃ User profile & account tools\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'wapfp',    text: '🖼️ Profile Picture' },
-                { id: p + 'wacheck',  text: '✅ Check WhatsApp Number' },
-                { id: p + 'walink',   text: '🔗 WhatsApp Link' },
-                { id: p + 'iplookup', text: '🌍 IP Location Lookup' },
-                { id: p + 'age',      text: '🎂 Age Calculator' },
-                { id: p + 'bmi',      text: '⚖️ BMI Calculator' },
-                { id: p + 'zodiac',   text: '⭐ Horoscope' },
-                { id: p + 'bioai',    text: '✍️ Write My Bio (AI)' },
-            ]
-            })
+            'Bera AI', [
+            { id: p + 'profile2', text: '🖼️ Get Profile Picture' },
+            { id: p + 'bio',      text: '📝 Get Bio' },
+            { id: p + 'setbio',   text: '✏️ Set Bot Bio' },
+            { id: p + 'autobio on',text: '🔄 Auto Bio Rotation' },
+            { id: p + 'chjid',    text: '📢 Channel JID Info' },
+        ])
     }
 
-    // ── HELPDESK / SUPPORT ───────────────────────────────────────────────────
+    // ── HELP DESK ────────────────────────────────────────────────────────────
     if (['helpdesk','support'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *🆘 Help & Support* 〙═⊷\n' +
-            '┃ Need help? Use the buttons below!\n' +
+        return sb('🆘 Help & Support',
+            '╭══〘 *🆘 Help & Support* 〙═⊷\n' +
+            '┃ Get help with Bera AI\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'menu',      text: '📋 Full Command Menu' },
-                { id: p + 'quickhelp', text: '⚡ Quick Help' },
-                { id: p + 'botinfo',   text: '🤖 Bot Info' },
-                { id: p + 'allpanels', text: '🗂️ All Button Panels' },
-                { id: p + 'newcmds',   text: '✨ What\'s New?' },
-            ]
-            })
+            'Bera AI — Support', [
+            { id: p + 'menu',      text: '📋 Full Command Menu' },
+            { id: p + 'allpanels', text: '🗂️ All Panels' },
+            { id: p + 'botinfo',   text: '🤖 Bot Info' },
+            { id: p + 'report hi', text: '📩 Report an Issue' },
+            { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '🌐 GitHub Repo', url: 'https://github.com/bera-tech-ai/bera-ai' }) },
+        ])
     }
 
     // ── WHAT'S NEW ───────────────────────────────────────────────────────────
     if (['newcmds','newcommands','whatsnew'].includes(command)) {
-        return reply(
-            '╭══〘 *✨ What\'s New in Bera AI?* 〙═⊷\n' +
+        return sb('🆕 New Commands',
+            '╭══〘 *🆕 Recently Added* 〙═⊷\n' +
+            '┃ ── 🧠 AI Tools ──\n' +
+            '┃ ask2, lyrics2, define2, tr2\n' +
+            '┃ weather2, calc2, qr2, search2\n' +
             '┃\n' +
-            '┃ 🆕 *v3.1.0 — New Commands*\n' +
-            '┃\n' +
-            '┃ ── 📝 Text Tools ──\n' +
-            '┃ bold, italic, smallcaps, vaporwave\n' +
-            '┃ reverse, strikethrough, clap, zalgo\n' +
-            '┃ wordcount, palindrome, hash, rot13\n' +
-            '┃ morse, base32, remind, timer\n' +
-            '┃\n' +
-            '┃ ── 😂 Fun Commands ──\n' +
-            '┃ meme, cat, dog, wyr, nhie\n' +
-            '┃ dadjoke, slots, rps, compliment\n' +
-            '┃ roastme, confession, horoscope\n' +
-            '┃ bmi, age, randomnum, spinwheel\n' +
-            '┃\n' +
-            '┃ ── 🧠 AI Writing Tools ──\n' +
-            '┃ summarize, explain, improve\n' +
-            '┃ proofread, bullet, eli5, rewrite\n' +
-            '┃ formal, casual, tweet, caption2\n' +
-            '┃ essay, cover, email, synonym\n' +
-            '┃ code2eng, eng2code, debugcode\n' +
-            '┃ sentiment, keyword, nameai, bioai\n' +
+            '┃ ── 📥 Downloads ──\n' +
+            '┃ play, ytv, tiktok2, ig, fb, twitter\n' +
             '┃\n' +
             '┃ ── 👥 Group Tools ──\n' +
-            '┃ hidetag, tagall, tagadmins\n' +
-            '┃ grouplink, resetlink, groupstats\n' +
-            '┃ antidelete, antilink, antispam\n' +
-            '┃ setwelcome, setbye, muteall\n' +
-            '┃\n' +
-            '┃ ── 🗂️ New Button Panels ──\n' +
-            '┃ aipanel, mediapanel, gamepanel\n' +
-            '┃ funpanel, toolspanel, texttoolspanel\n' +
-            '┃ statuspanel, grouppanel2, profilepanel\n' +
-            '┃\n' +
-            '┃ ── 📸 Group Status / Stories ──\n' +
-            '┃ gcstatus, gcstatuscolor\n' +
-            '┃ statustogroup, statustogroups\n' +
-            '┃ gstatusall, groupstatusinfo\n' +
+            '┃ hidetag, tagall, antilink, antispam\n' +
+            '┃ setwelcome, gcstatus, grouppanel2\n' +
             '┃\n' +
             '┃ Total new: *100+ commands* 🚀\n' +
-            '╰══════════════════⊷'
-        )
+            '╰══════════════════⊷',
+            'Bera AI', [
+            { id: p + 'allpanels', text: '🗂️ Browse All Panels' },
+            { id: p + 'menu',      text: '📋 Full Command List' },
+        ])
     }
 
     // ── ALL PANELS LIST ──────────────────────────────────────────────────────
     if (['allpanels','panellist'].includes(command)) {
-        return sendButtons(conn, chat, { text: '╭══〘 *🗂️ All Button Panels* 〙═⊷\n' +
-            '┃ Interactive panels with button UI\n' +
-            '┃\n' +
-            '┃ Select a panel to open:\n' +
+        return sb('🗂️ All Button Panels',
+            '╭══〘 *🗂️ All Button Panels* 〙═⊷\n' +
+            '┃ Interactive panels — tap to open:\n' +
             '╰══════════════════⊷',
-            [
-                { id: p + 'groupmenu',    text: '👥 Group Control Panel' },
-                { id: p + 'adminpanel',   text: '👑 Admin Panel' },
-                { id: p + 'memberpanel',  text: '🧑 Member Panel' },
-                { id: p + 'aipanel',      text: '🧠 AI Tools Panel' },
-                { id: p + 'mediapanel',   text: '📥 Media Download Panel' },
-                { id: p + 'gamepanel',    text: '🎮 Games Panel' },
-                { id: p + 'funpanel',     text: '😂 Fun Commands Panel' },
-                { id: p + 'toolspanel',   text: '🔧 Utility Tools Panel' },
-                { id: p + 'texttoolspanel',text: '📝 Text Tools Panel' },
-                { id: p + 'statuspanel',  text: '📸 Status Panel' },
-                { id: p + 'grouppanel2',  text: '👥 Group Tools Panel' },
-                { id: p + 'bhpanel',      text: '☁️ BeraHost Panel' },
-                { id: p + 'profilepanel', text: '👤 Profile Panel' },
-                { id: p + 'settingspanel',text: '⚙️ Settings Panel' },
-            ]
-            })
+            'Bera AI', [
+            { id: p + 'groupmenu',     text: '👥 Group Control Panel' },
+            { id: p + 'adminpanel',    text: '👑 Admin Panel' },
+            { id: p + 'memberpanel',   text: '🧑 Member Panel' },
+            { id: p + 'aipanel',       text: '🧠 AI Tools Panel' },
+            { id: p + 'mediapanel',    text: '📥 Media Download Panel' },
+            { id: p + 'gamepanel',     text: '🎮 Games Panel' },
+            { id: p + 'funpanel',      text: '😂 Fun Commands Panel' },
+            { id: p + 'toolspanel',    text: '🔧 Utility Tools Panel' },
+            { id: p + 'texttoolspanel',text: '📝 Text Tools Panel' },
+            { id: p + 'statuspanel',   text: '📸 Status Panel' },
+            { id: p + 'grouppanel2',   text: '👥 Group Tools Panel' },
+            { id: p + 'bhpanel',       text: '☁️ BeraHost Panel' },
+            { id: p + 'profilepanel',  text: '👤 Profile Panel' },
+            { id: p + 'settingspanel', text: '⚙️ Settings Panel' },
+        ])
     }
 }
 
