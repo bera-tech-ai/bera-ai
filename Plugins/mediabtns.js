@@ -209,20 +209,19 @@ handle.all = async (m, { conn, command, args, prefix, reply, sender } = {}) => {
         if (results.length > 0 && useBtns) {
             global.beraPlaySearch = global.beraPlaySearch || {}
             global.beraPlaySearch[chat] = results
-            if (results.length <= 3) {
-                return sendBtn(conn, chat, m, header,
-                    results.map((r, i) => ({ id: 'play_pick_' + i + '_' + encodeURIComponent(r.url), text: (i+1) + '. ' + r.title.slice(0, 55) }))
-                    .concat([{ id: 'play_cancel', text: '❌ Cancel' }])
-                )
-            } else {
-                const rows = results.map((r, i) => ({
-                    title:       (i+1) + '. ' + r.title.slice(0, 50),
-                    description: '🎵 Tap to choose this track',
-                    rowId:       'play_pick_' + i + '_' + encodeURIComponent(r.url)
-                }))
-                rows.push({ title: '❌ Cancel', description: 'Dismiss', rowId: 'play_cancel' })
-                return sendList(conn, chat, m, header, [{ title: '🎵 Search Results', rows }], '🎵 Choose Track')
-            }
+            // Atassa pattern: sendButtons with quick_reply, always works, no rowId bug
+            const { sendButtons } = require('gifted-btns')
+            const btnList = results.slice(0, 5).map((r, i) => ({
+                id:   'play_pick_' + i + '_' + encodeURIComponent(r.url),
+                text: (i + 1) + '. ' + r.title.slice(0, 55)
+            }))
+            btnList.push({ id: 'play_cancel', text: '❌ Cancel' })
+            return sendButtons(conn, chat, {
+                title:   '🎵 Music Search',
+                text:    header,
+                footer:  'Tap a track to choose format',
+                buttons: btnList
+            })
         }
 
         // Buttons off or no results → give direct commands
