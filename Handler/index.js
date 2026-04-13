@@ -323,27 +323,27 @@ const handleMessage = async (conn, rawMsg) => {
                 const body   = irm.body?.text || ''
                 const params = nfr?.paramsJson ? JSON.parse(nfr.paramsJson) : {}
                 const btnId  = params.id || body || ''
-                const { sendButtons }           = require('gifted-btns')
-                const { setBtnMode }            = require('../Library/actions/btnmode')
+                const { sendButtons }  = require('gifted-btns')
+                const { setBtnMode }   = require('../Library/actions/btnmode')
                 const pref   = global.prefix || '.'
 
-                // ─── Button Mode toggle: btns_off_<chat> / btns_on_<chat> ──────────
+                // ─── Button Mode toggle ───────────────────────────────────────────
                 if (btnId.startsWith('btns_off_') && btnId !== 'btns_off_keep') {
                     setBtnMode(btnId.slice('btns_off_'.length), false)
-                    await conn.sendMessage(m.chat, { text: '✅ *Buttons OFF* for this chat. Commands will use plain text.' }, { quoted: m }).catch(() => {})
+                    await conn.sendMessage(m.chat, { text: 'Buttons OFF for this chat. Commands will use plain text.' }, { quoted: m }).catch(() => {})
                     return
                 }
                 if (btnId.startsWith('btns_on_') && btnId !== 'btns_on_keep') {
                     setBtnMode(btnId.slice('btns_on_'.length), true)
-                    await conn.sendMessage(m.chat, { text: '✅ *Buttons ON* for this chat. Commands will use interactive buttons!' }, { quoted: m }).catch(() => {})
+                    await conn.sendMessage(m.chat, { text: 'Buttons ON for this chat. Commands will use interactive buttons!' }, { quoted: m }).catch(() => {})
                     return
                 }
                 if (btnId === 'btns_on_keep' || btnId === 'btns_off_keep') {
-                    await conn.sendMessage(m.chat, { text: '👍 Button mode kept as-is.' }, { quoted: m }).catch(() => {})
+                    await conn.sendMessage(m.chat, { text: 'Button mode kept as-is.' }, { quoted: m }).catch(() => {})
                     return
                 }
 
-                // ─── .play track pick → show format buttons ────────────────────────
+                // ─── play_pick: user selected a track, show format buttons ──────────
                 if (btnId.startsWith('play_pick_')) {
                     const segs5  = btnId.split('_')
                     const idx5   = parseInt(segs5[2]) || 0
@@ -351,39 +351,35 @@ const handleMessage = async (conn, rawMsg) => {
                     const track5 = global.beraPlaySearch?.[m.chat]?.[idx5]
                     const name5  = track5?.title || 'Track ' + (idx5 + 1)
                     return sendButtons(conn, m.chat, {
-                        title:   '🎵 Choose Format',
-                        text:    'Choose your download format - ' + name5.slice(0, 40) + ':',
+                        title:   'Choose Format',
+                        text:    'Pick a format for: ' + name5.slice(0, 45),
                         footer:  'Tap to download',
                         buttons: [
-                            { id: 'yt_audio_' + encodeURIComponent(url5), text: '🎵 Audio Only (MP3)' },
-                            { id: 'yt_video_' + encodeURIComponent(url5), text: '🎾 Video + Sound (MP4)' },
-                            { id: 'yt_360_'   + encodeURIComponent(url5), text: '📺 Video 360p' },
-                            { id: 'yt_720_'   + encodeURIComponent(url5), text: '🖥️ Video 720p (HD)' },
-                            { id: 'play_cancel',                           text: '❌ Cancel' },
+                            { id: 'yt_audio_' + encodeURIComponent(url5), text: 'Audio Only (MP3)' },
+                            { id: 'yt_video_' + encodeURIComponent(url5), text: 'Video + Sound (MP4)' },
+                            { id: 'yt_360_'   + encodeURIComponent(url5), text: 'Video 360p' },
+                            { id: 'yt_720_'   + encodeURIComponent(url5), text: 'Video 720p (HD)' },
+                            { id: 'play_cancel', text: 'Cancel' },
                         ]
                     })
                 }
 
-                // ─── Cancel ───────────────────────────────────────────────────────
+                // ─── Cancel ──────────────────────────────────────────────────────────
                 if (btnId === 'play_cancel') {
-                    await conn.sendMessage(m.chat, { text: '❌ Search cancelled.' }, { quoted: m }).catch(() => {})
+                    await conn.sendMessage(m.chat, { text: 'Search cancelled.' }, { quoted: m }).catch(() => {})
                     return
                 }
 
-                // ─── COPY button ──────────────────────────────────────────────────
+                // ─── Copy button ──────────────────────────────────────────────────────
                 if (btnId.startsWith('copy_')) {
                     const stored = global.beraLastOutput?.[m.chat]
-                    await conn.sendMessage(m.chat, { text: stored ? '📋 *Long-press to copy:*
-
-' + stored : '📋 Tap and hold the original message to copy!' }, { quoted: m }).catch(() => {})
+                    await conn.sendMessage(m.chat, { text: stored ? 'Tap and hold below to copy:' + ' ' + stored : 'Tap and hold the original message to copy!' }, { quoted: m }).catch(() => {})
                     return
                 }
 
-                // ─── MEDIA format buttons: yt_audio/yt_video/yt_360 etc ──────────
-                // Set m.text to the mapped command string, then break out of the
-                // try/catch WITHOUT returning — the code falls through past the
-                // if(irm) block below and the normal command dispatch at L440+
-                // picks up m.text and executes the download command.
+                // ─── Media format buttons: yt_audio / yt_video / yt_360 etc ──────────
+                // Sets m.text to the mapped command, then falls through to cmd dispatch.
+                // NO return here — the if(irm) block closes and L440+ picks up m.text.
                 if (/^(yt|tt|sp|ig|fb|tw)_/.test(btnId)) {
                     const segs   = btnId.split('_')
                     const action = segs[1]
@@ -403,7 +399,7 @@ const handleMessage = async (conn, rawMsg) => {
                     }
                 }
 
-                // ─── WARN action buttons ──────────────────────────────────────────
+                // ─── Warn action buttons ──────────────────────────────────────────────
                 if (btnId.startsWith('warn_')) {
                     const segs4   = btnId.split('_')
                     const action4 = segs4[1]
@@ -412,23 +408,22 @@ const handleMessage = async (conn, rawMsg) => {
                     const wkey    = m.chat + '_' + jid4
                     if (action4 === 'forgive') {
                         warns4[wkey] = Math.max(0, (warns4[wkey] || 1) - 1)
-                        await conn.sendMessage(m.chat, { text: '✅ Warning removed for @' + jid4.split('@')[0], mentions: [jid4] }).catch(() => {})
+                        await conn.sendMessage(m.chat, { text: 'Warning removed for @' + jid4.split('@')[0], mentions: [jid4] }).catch(() => {})
                     } else if (action4 === 'kick') {
                         await conn.groupParticipantsUpdate(m.chat, [jid4], 'remove').catch(async () => {
-                            await conn.sendMessage(m.chat, { text: '❌ Could not kick — bot needs admin.' })
+                            await conn.sendMessage(m.chat, { text: 'Could not kick - bot needs admin.' })
                         })
                     } else if (action4 === 'mute') {
-                        await conn.sendMessage(m.chat, { text: '🔕 Mute noted for @' + jid4.split('@')[0], mentions: [jid4] }).catch(() => {})
+                        await conn.sendMessage(m.chat, { text: 'Mute noted for @' + jid4.split('@')[0], mentions: [jid4] }).catch(() => {})
                     }
                     return
                 }
 
-                // ─── Generic: button id starts with prefix → inject as command ────
+                // ─── Generic: prefix-based command button ─────────────────────────────
                 if (btnId && btnId.startsWith(pref)) {
                     m.text = btnId
                     m.body = btnId
                     rawMsg.message.conversation = btnId
-                    // fall through to command dispatch
                 }
             } catch (e) {
                 console.error('[BtnHandler]', e?.message || e)
