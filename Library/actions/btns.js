@@ -82,7 +82,11 @@ const sendBtn = async (conn, jid, opts_or_m, textArg, buttonsArg, extraArg) => {
  */
 const sendList = async (conn, jid, opts_or_m, textArg, sectionsArg, buttonTextArg) => {
     const opts     = _resolveList(opts_or_m, textArg, sectionsArg, buttonTextArg)
-    const sections = opts.sections || []
+    // Normalise rows: gifted-btns needs 'id', not 'rowId'
+    const sections = (opts.sections || []).map(s => ({
+        ...s,
+        rows: (s.rows || []).map(({ rowId, id, ...rest }) => ({ ...rest, id: id || rowId || '' }))
+    }))
     if (!_sendButtons) return sendListFallback(conn, jid, opts)
     try {
         const listBtn = {
