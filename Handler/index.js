@@ -383,9 +383,10 @@ const handleMessage = async (conn, rawMsg) => {
                 }
 
                 // ─── MEDIA format buttons: yt_audio/yt_video/yt_360 etc ──────────
-                // Set m.text to the mapped command, then RETURN so control passes
-                // to the normal command dispatch loop below — do NOT fall through
-                // to the generic btnId injector which would overwrite m.text
+                // Set m.text to the mapped command string, then break out of the
+                // try/catch WITHOUT returning — the code falls through past the
+                // if(irm) block below and the normal command dispatch at L440+
+                // picks up m.text and executes the download command.
                 if (/^(yt|tt|sp|ig|fb|tw)_/.test(btnId)) {
                     const segs   = btnId.split('_')
                     const action = segs[1]
@@ -401,7 +402,7 @@ const handleMessage = async (conn, rawMsg) => {
                         m.text = pref + mapped + ' ' + url2
                         m.body = m.text
                         rawMsg.message.conversation = m.text
-                        return
+                        // NO return — fall through to command dispatch
                     }
                 }
 
