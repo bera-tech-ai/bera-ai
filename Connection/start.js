@@ -9,7 +9,7 @@ const {
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore,
     jidNormalizedUser
-} = require('toxic-baileys')
+} = require('@whiskeysockets/baileys')
 const { Boom } = require('@hapi/boom')
 const pino = require('pino')
 const fs = require('fs')
@@ -37,7 +37,7 @@ const printBanner = () => {
   ██║ ╚████║██║╚██████╗██║  ██╗
   ╚═╝  ╚═══╝╚═╝ ╚═════╝╚═╝  ╚═╝
     `))
-    console.log(chalk.green(`  🤖 ${config.botName} Bot | toxic-baileys`))
+    console.log(chalk.green(`  🤖 ${config.botName} Bot | @whiskeysockets/baileys`))
     console.log(chalk.gray(`  Prefix: ${config.prefix} | Owner: ${config.owner}`))
     console.log(chalk.gray(`  AI Endpoint: ${config.nickApiEndpoint}`))
     console.log('')
