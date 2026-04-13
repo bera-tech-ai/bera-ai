@@ -245,6 +245,21 @@ const nickAi = async (userText, history = [], onAction = null, imageBuffer = nul
         throw new Error('Image analysis is temporarily unavailable. Try again later.')
     }
 
+    // ── Advanced engine: tool-calling (bash / search / scrape / system) ──────
+    // Use generateAdvancedReply for all text messages — it has full tool access
+    // and falls back to a normal reply if no tool is needed.
+    try {
+        const chatKey = (history[0]?.sender) || 'bera_cmd'
+        const { generateAdvancedReply } = require('../actions/beraai')
+        const result = await generateAdvancedReply(userText, chatKey, null, null)
+        if (result.success && result.reply && result.reply.length > 1) {
+            return result.reply
+        }
+    } catch (advErr) {
+        console.error('[BERAAI] Advanced engine failed, falling back:', advErr.message)
+    }
+
+    // ── Fallback: legacy apiskeith endpoints ──────────────────────────────────
     const query = buildQuery(userText, history)
     const answer = await tryEndpoints(
         AI_ENDPOINTS,
