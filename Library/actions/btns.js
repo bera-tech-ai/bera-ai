@@ -15,7 +15,12 @@
         const Module = require('module')
         const _orig  = Module._resolveFilename.bind(Module)
         Module._resolveFilename = function (request, parent, isMain, opts) {
-            if (request === '@whiskeysockets/baileys') request = 'gifted-baileys'
+            if (request === '@whiskeysockets/baileys') {
+                // Try gifted-baileys first (same ecosystem as gifted-btns)
+                // Fall back to toxic-baileys which is always installed
+                try { require.resolve('gifted-baileys'); return _orig('gifted-baileys', parent, isMain, opts) } catch {}
+                try { require.resolve('toxic-baileys');  return _orig('toxic-baileys',  parent, isMain, opts) } catch {}
+            }
             return _orig(request, parent, isMain, opts)
         }
     } catch (_) {}
