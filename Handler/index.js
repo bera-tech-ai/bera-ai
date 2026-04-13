@@ -352,14 +352,13 @@ const handleMessage = async (conn, rawMsg) => {
                     const name5  = track5?.title || 'Track ' + (idx5 + 1)
                     return sendButtons(conn, m.chat, {
                         title:   '🎵 Choose Format',
-                        text:    '╭══〈 *🎵 ' + name5.slice(0, 42) + '* 〉═╰
-┃
-┃ Choose your download format:
-╰══════════════════⊷',
+                        text:    '*🎵 ' + name5.slice(0, 42) + '*
+
+Choose your download format:',
                         footer:  'Tap to download',
                         buttons: [
                             { id: 'yt_audio_' + encodeURIComponent(url5), text: '🎵 Audio Only (MP3)' },
-                            { id: 'yt_video_' + encodeURIComponent(url5), text: '🎬 Video + Sound (MP4)' },
+                            { id: 'yt_video_' + encodeURIComponent(url5), text: '🎾 Video + Sound (MP4)' },
                             { id: 'yt_360_'   + encodeURIComponent(url5), text: '📺 Video 360p' },
                             { id: 'yt_720_'   + encodeURIComponent(url5), text: '🖥️ Video 720p (HD)' },
                             { id: 'play_cancel',                           text: '❌ Cancel' },
