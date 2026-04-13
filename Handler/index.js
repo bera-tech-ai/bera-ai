@@ -315,100 +315,126 @@ const handleMessage = async (conn, rawMsg) => {
         if (!m || !m.message) return
 
         // ── INTERACTIVE BUTTON CLICK HANDLER ─────────────────────────────────
-        // When user taps a quick_reply button, WA sends interactiveResponseMessage
+        // When user taps a quick_reply/cta button, WA sends interactiveResponseMessage
         const irm = m.message?.interactiveResponseMessage
         if (irm) {
             try {
-                const nfr   = irm.nativeFlowResponseMessage
-                const body  = irm.body?.text || ''
+                const nfr    = irm.nativeFlowResponseMessage
+                const body   = irm.body?.text || ''
                 const params = nfr?.paramsJson ? JSON.parse(nfr.paramsJson) : {}
                 const btnId  = params.id || body || ''
-                // ─── COPY button clicks (copy_type_timestamp) ──────────────────────────
-                
-                // ─── .play pick — user selected a track ─────────────────────────
+                const { sendButtons }           = require('gifted-btns')
+                const { setBtnMode }            = require('../Library/actions/btnmode')
+                const pref   = global.prefix || '.'
+
+                // ─── Button Mode toggle: btns_off_<chat> / btns_on_<chat> ──────────
+                if (btnId.startsWith('btns_off_') && btnId !== 'btns_off_keep') {
+                    setBtnMode(btnId.slice('btns_off_'.length), false)
+                    await conn.sendMessage(m.chat, { text: '✅ *Buttons OFF* for this chat. Commands will use plain text.' }, { quoted: m }).catch(() => {})
+                    return
+                }
+                if (btnId.startsWith('btns_on_') && btnId !== 'btns_on_keep') {
+                    setBtnMode(btnId.slice('btns_on_'.length), true)
+                    await conn.sendMessage(m.chat, { text: '✅ *Buttons ON* for this chat. Commands will use interactive buttons!' }, { quoted: m }).catch(() => {})
+                    return
+                }
+                if (btnId === 'btns_on_keep' || btnId === 'btns_off_keep') {
+                    await conn.sendMessage(m.chat, { text: '👍 Button mode kept as-is.' }, { quoted: m }).catch(() => {})
+                    return
+                }
+
+                // ─── .play track pick → show format buttons ────────────────────────
                 if (btnId.startsWith('play_pick_')) {
                     const segs5  = btnId.split('_')
                     const idx5   = parseInt(segs5[2]) || 0
                     const url5   = decodeURIComponent(segs5.slice(3).join('_'))
-                    const cache5 = global.beraPlaySearch && global.beraPlaySearch[m.chat]
-                    const track5 = cache5 ? cache5[idx5] : null
-                    const name5  = track5 ? track5.title : 'Track ' + (idx5 + 1)
-                    const { getBtnMode } = require('./Library/actions/btnmode')
-                    const { sendBtn }    = require('./Library/actions/btns')
-                    const pref5          = global.prefix || '.'
-                    const head5 = '╭══〈 *🎵 ' + name5.slice(0,42) + '* 〉═╰\n┃\n┃ Choose your download format:\n╰══════════════════⊷'
-                    return sendBtn(conn, m.chat, m, head5, [
-                        { id: 'yt_audio_' + encodeURIComponent(url5), text: '🎵 Audio Only (MP3)'         },
-                        { id: 'yt_video_' + encodeURIComponent(url5), text: '🎬 Video with Sound (MP4)'   },
-                        { id: 'yt_360_'   + encodeURIComponent(url5), text: '📺 Video 360p (Medium)'      },
-                        { id: 'yt_720_'   + encodeURIComponent(url5), text: '🖥️ Video 720p (HD)'    },
-                        { id: 'play_cancel',                           text: '❌ Cancel'                      },
-                    ])
+                    const track5 = global.beraPlaySearch?.[m.chat]?.[idx5]
+                    const name5  = track5?.title || 'Track ' + (idx5 + 1)
+                    return sendButtons(conn, m.chat, {
+                        title:   '🎵 Choose Format',
+                        text:    '╭══〈 *🎵 ' + name5.slice(0, 42) + '* 〉═╰
+┃
+┃ Choose your download format:
+╰══════════════════⊷',
+                        footer:  'Tap to download',
+                        buttons: [
+                            { id: 'yt_audio_' + encodeURIComponent(url5), text: '🎵 Audio Only (MP3)' },
+                            { id: 'yt_video_' + encodeURIComponent(url5), text: '🎬 Video + Sound (MP4)' },
+                            { id: 'yt_360_'   + encodeURIComponent(url5), text: '📺 Video 360p' },
+                            { id: 'yt_720_'   + encodeURIComponent(url5), text: '🖥️ Video 720p (HD)' },
+                            { id: 'play_cancel',                           text: '❌ Cancel' },
+                        ]
+                    })
                 }
+
+                // ─── Cancel ───────────────────────────────────────────────────────
                 if (btnId === 'play_cancel') {
                     await conn.sendMessage(m.chat, { text: '❌ Search cancelled.' }, { quoted: m }).catch(() => {})
                     return
                 }
+
+                // ─── COPY button ──────────────────────────────────────────────────
                 if (btnId.startsWith('copy_')) {
-                    const stored = global.beraLastOutput && global.beraLastOutput[m.chat]
-                    if (stored) {
-                        await conn.sendMessage(m.chat, { text: String.fromCharCode(128203) + ' *Long-press below to copy:*' + String.fromCharCode(10) + String.fromCharCode(10) + stored }, { quoted: m }).catch(() => {})
-                    } else {
-                        await conn.sendMessage(m.chat, { text: String.fromCharCode(128203) + ' Tap and hold the original message to copy it!' }, { quoted: m }).catch(() => {})
-                    }
+                    const stored = global.beraLastOutput?.[m.chat]
+                    await conn.sendMessage(m.chat, { text: stored ? '📋 *Long-press to copy:*
+
+' + stored : '📋 Tap and hold the original message to copy!' }, { quoted: m }).catch(() => {})
                     return
                 }
-                // ─── MEDIA format button clicks (src_action_encodedUrl) ─────────────────
+
+                // ─── MEDIA format buttons: yt_audio/yt_video/yt_360 etc ──────────
+                // Set m.text to the mapped command, then RETURN so control passes
+                // to the normal command dispatch loop below — do NOT fall through
+                // to the generic btnId injector which would overwrite m.text
                 if (/^(yt|tt|sp|ig|fb|tw)_/.test(btnId)) {
-                    const segs   = btnId.split("_")
-                    const src2   = segs[0]
+                    const segs   = btnId.split('_')
                     const action = segs[1]
                     const url2   = decodeURIComponent(segs.slice(2).join('_'))
-                    const pref   = global.prefix || '.'
                     const cmdMap = {
                         audio: 'tomp3', video: 'ytv', '144': 'ytv', '360': 'ytv', '720': 'ytv',
-                        nowm: 'tiktok nowatermark', thumb: 'tiktok thumbnail',
-                        dl: 'spotify', photo: 'ig photo', reel: 'ig reel', story: 'ig story',
-                        hd: 'fb hd', sd: 'fb sd', mp3: 'fb audio', gif: 'twitter gif'
+                        nowm:  'tiktok nowatermark', thumb: 'tiktok thumbnail',
+                        dl:    'spotify', photo: 'ig photo', reel: 'ig reel', story: 'ig story',
+                        hd:    'fb hd', sd: 'fb sd', mp3: 'fb audio', gif: 'twitter gif'
                     }
                     const mapped = cmdMap[action]
                     if (mapped) {
-                        m.text = pref + mapped + " " + url2
+                        m.text = pref + mapped + ' ' + url2
                         m.body = m.text
+                        rawMsg.message.conversation = m.text
+                        return
                     }
                 }
-                // ─── WARN action button clicks (warn_action_jid) ───────────────────────────
+
+                // ─── WARN action buttons ──────────────────────────────────────────
                 if (btnId.startsWith('warn_')) {
-                    const segs4   = btnId.split("_")
+                    const segs4   = btnId.split('_')
                     const action4 = segs4[1]
                     const jid4    = segs4.slice(2).join('_')
                     const warns4  = global.beraWarns || (global.beraWarns = {})
-                    const wkey    = m.chat + "_" + jid4
+                    const wkey    = m.chat + '_' + jid4
                     if (action4 === 'forgive') {
                         warns4[wkey] = Math.max(0, (warns4[wkey] || 1) - 1)
-                        await conn.sendMessage(m.chat, { text: 'Forgiven - warning removed.', mentions: [jid4] })
+                        await conn.sendMessage(m.chat, { text: '✅ Warning removed for @' + jid4.split('@')[0], mentions: [jid4] }).catch(() => {})
                     } else if (action4 === 'kick') {
-                        await conn.groupParticipantsUpdate(m.chat, [jid4], "remove").catch(async () => {
-                            await conn.sendMessage(m.chat, { text: 'Could not kick - bot needs admin permissions.' })
+                        await conn.groupParticipantsUpdate(m.chat, [jid4], 'remove').catch(async () => {
+                            await conn.sendMessage(m.chat, { text: '❌ Could not kick — bot needs admin.' })
                         })
                     } else if (action4 === 'mute') {
-                        await conn.sendMessage(m.chat, { text: 'Mute noted. (Requires admin enforcement)', mentions: [jid4] })
+                        await conn.sendMessage(m.chat, { text: '🔕 Mute noted for @' + jid4.split('@')[0], mentions: [jid4] }).catch(() => {})
                     }
                     return
                 }
-                if (btnId) {
-                    // Inject button id as text so normal command handling picks it up
+
+                // ─── Generic: button id starts with prefix → inject as command ────
+                if (btnId && btnId.startsWith(pref)) {
                     m.text = btnId
                     m.body = btnId
-                    // If it starts with prefix, treat as command
-                    const cfg2   = global.db?.data?.settings || {}
-                    const pref   = cfg2.prefix || require('../Config').prefix || '.'
-                    if (btnId.startsWith(pref)) {
-                        m.text  = btnId
-                        rawMsg.message.conversation = btnId
-                    }
+                    rawMsg.message.conversation = btnId
+                    // fall through to command dispatch
                 }
-            } catch {}
+            } catch (e) {
+                console.error('[BtnHandler]', e?.message || e)
+            }
         }
 
         // ── AUTO STATUS VIEW & LIKE ─────────────────────────────────────
