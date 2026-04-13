@@ -1,5 +1,5 @@
 // Library/actions/gcstatus.js
-// Replicates gifted-baileys GiftedStatus class for toxic-baileys
+// Replicates gifted-baileys GiftedStatus class for @whiskeysockets/baileys
 // Sends WhatsApp group stories (groupStatusMessageV2) to any group JID
 // Works by calling conn.relayMessage directly — no gifted-baileys required
 
@@ -23,11 +23,11 @@ const COLORS = [
 ]
 const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)]
 
-// Try importing generateWAMessageContent from baileys (toxic-baileys fork)
+// Try importing generateWAMessageContent from baileys (@whiskeysockets/baileys fork)
 let generateWAMessageContent
 let generateWAMessageFromContent
 try {
-    const tb = require('toxic-baileys')
+    const tb = require('@whiskeysockets/baileys')
     generateWAMessageContent   = tb.generateWAMessageContent
     generateWAMessageFromContent = tb.generateWAMessageFromContent
 } catch {}
@@ -249,7 +249,7 @@ const downloadQuotedMedia = async (conn, m) => {
     const mtype = q.mtype || Object.keys(q.message || {})[0]
     const msg   = q.msg   || q.message?.[mtype] || {}
     try {
-        const { downloadMediaMessage } = require('toxic-baileys')
+        const { downloadMediaMessage } = require('@whiskeysockets/baileys')
         const buf = await downloadMediaMessage({ key: q.key, message: q.message }, 'buffer', {})
         return { buf, mtype }
     } catch {
