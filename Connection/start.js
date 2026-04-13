@@ -93,7 +93,7 @@ const applyBotImage = async (conn, botJid) => {
             console.log(chalk.yellow(`[BOT] BOT_IMAGE not found: ${src}`))
             return
         }
-        // toxic-baileys uses updateProfilePicture(jid, { url }) or (jid, buffer)
+        // @whiskeysockets/baileys uses updateProfilePicture(jid, { url }) or (jid, buffer)
         if (typeof conn.updateProfilePicture === 'function') {
             await conn.updateProfilePicture(botJid, buffer)
         } else if (typeof conn.pp === 'function') {
