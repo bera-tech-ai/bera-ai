@@ -1235,20 +1235,25 @@ const handleMessage = async (conn, rawMsg) => {
 
                 // ══ AGENT: MEDIA ═════════════════════════════════════════════════
                 if (intent === 'music') {
-                    const queryM = text.match(/(?:play|send|download|get)\s+(?:music|song|audio|track)?\s*(?:for\s+)?(.+)/i)
+                    const queryM = text.match(/(?:play|send|find|search|download|get)\s+(?:music|song|audio|track|me)?\s*(?:for\s+)?(.+)/i)
                     const query  = queryM ? queryM[1].trim() : text
                     try {
                         await react('🎵')
-                        const agent = require('../Library/actions/agent')
-                        const r = await agent.httpRequest({ method:'GET', url:'https://keith-api.vercel.app/api/ytdl/search?query='+encodeURIComponent(query) })
-                        if (r.success && r.data?.results?.[0]) {
-                            const song = r.data.results[0]
-                            const dl = await agent.httpRequest({ method:'GET', url:'https://keith-api.vercel.app/api/ytdl/audio?url='+encodeURIComponent(song.url||song.id) })
-                            if (dl.success && dl.data?.url) {
-                                await conn.sendMessage(chat, { audio: { url: dl.data.url }, mimetype: 'audio/mpeg', fileName: (song.title||query)+'.mp3' }, { quoted: m })
-                            } else { await reply('❌ Could not download audio. Try: *.music ' + query + '*') }
-                        } else { await reply('❌ No results for "' + query + '". Try: *.music ' + query + '*') }
-                    } catch(e) { await reply('❌ Music error: ' + e.message) }
+                        const axios = require('axios')
+                        const { downloadAudio } = require('../Library/actions/music')
+                        const sr = await axios.get('https://apiskeith.top/search/yts?q=' + encodeURIComponent(query), { timeout: 10000 })
+                        const results = sr.data?.result || []
+                        if (!results.length) { await reply('❌ No results for "' + query + '". Try: *.play ' + query + '*'); return }
+                        const song = results[0]
+                        const songUrl = song.url || ('https://youtu.be/' + song.id)
+                        await reply('🎵 Found: *' + (song.title || query) + '*\n⏳ Downloading audio...')
+                        const dl = await downloadAudio(songUrl)
+                        if (dl.success && (dl.url || dl.audioUrl)) {
+                            if (dl.thumbnail) await conn.sendMessage(chat, { image: { url: dl.thumbnail }, caption: 'Now Playing: ' + (song.title || query) }).catch(() => {})
+                            await conn.sendMessage(chat, { audio: { url: dl.url || dl.audioUrl }, mimetype: 'audio/mpeg', fileName: (song.title || query) + '.mp3' }, { quoted: m })
+                            await react('✅')
+                        } else { await reply('❌ Could not download audio. Try: *.play ' + query + '*') }
+                    } catch(e) { await reply('❌ Music error: ' + e.message + '. Try: *.play ' + query + '*') }
                     return
                 }
 
