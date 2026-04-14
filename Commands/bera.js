@@ -539,6 +539,83 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
         return reply(res.success ? res.result : `❌ Search failed: ${res.error}`)
     }
 
+    // ── Voice note transcription (explicit only) ──────────────────────────────
+    // Triggered by: quoting a voice note and saying "bera transcribe this"
+    //           or: .transcribe command while quoting a voice note
+    if (intent === 'transcribe' || command === 'transcribe' || command === 'listen') {
+        await react(conn, m, '🎙️')
+
+        // Check for a quoted voice note
+        const qType = m.quoted?.mtype || ''
+        const isVoiceQuote = qType === 'audioMessage' || qType === 'pttMessage' ||
+                             (m.quoted?.mimetype && /audio/.test(m.quoted.mimetype))
+
+        if (!m.quoted || !isVoiceQuote) {
+            return reply(
+                `🎙️ *Voice Transcription*\n\n` +
+                `To transcribe a voice note:\n` +
+                `1. Find the voice note in the chat\n` +
+                `2. Quote (reply to) it\n` +
+                `3. Say: *bera transcribe this*\n` +
+                `   or use: *.transcribe*\n\n` +
+                `_I only transcribe when you specifically ask — I don't listen to every voice note automatically._`
+            )
+        }
+
+        await reply(`🎙️ _Downloading and transcribing voice note..._`)
+
+        let audioBuf
+        try {
+            const quotedMsg = {
+                key: m.quoted.key,
+                message: m.quoted.message
+            }
+            audioBuf = await conn.downloadMediaMessage(quotedMsg)
+        } catch {
+            audioBuf = null
+        }
+
+        if (!audioBuf || audioBuf.length < 100) {
+            await react(conn, m, '❌')
+            return reply(`❌ Couldn't download the voice note. Try again.`)
+        }
+
+        const { transcribeAudio } = require('../Library/actions/beraai')
+        const result = await transcribeAudio(audioBuf)
+
+        if (!result.success || !result.text) {
+            await react(conn, m, '❌')
+            return reply(
+                `❌ *Transcription failed*\n\n` +
+                `The voice transcription service is currently unavailable.\n` +
+                `Try again in a moment.`
+            )
+        }
+
+        await react(conn, m, '✅')
+        const transcribed = result.text.trim()
+
+        // Also ask AI if the user wants analysis
+        const wantsAnalysis = /\b(analyze|analyse|summarize|respond|reply|answer|what|explain|tell me)\b/i.test(text)
+        if (wantsAnalysis) {
+            const { nickAi } = require('../Library/lib/bera')
+            const history = getUserHistory(sender)
+            let aiReply
+            try {
+                aiReply = await nickAi(`The user sent a voice note that said: "${transcribed}". Respond to what they said.`, history)
+            } catch { aiReply = null }
+
+            if (aiReply) {
+                history.push({ role: 'user', content: `[voice] ${transcribed}` })
+                history.push({ role: 'assistant', content: aiReply })
+                await saveHistory(sender, history)
+                return reply(`🎙️ *Transcribed:*\n_"${transcribed}"_\n\n${aiReply}`)
+            }
+        }
+
+        return reply(`🎙️ *Transcribed:*\n\n_"${transcribed}"_`)
+    }
+
     if (intent === 'translate') {
         await react(conn, m, '🌐')
         const langMatch = text.match(/\bto\s+(\w+)$/i) || text.match(/\bin\s+(\w+)$/i) || text.match(/\binto\s+(\w+)$/i)
@@ -1029,7 +1106,7 @@ handle.before = async (m, { conn, reply, prefix }) => {
     }
 }
 
-handle.command = ['bera', 'chatbot', 'beraclone', 'workspace', 'setghtoken', 'tagreply']
+handle.command = ['bera', 'chatbot', 'beraclone', 'workspace', 'setghtoken', 'tagreply', 'transcribe', 'listen']
 handle.tags = ['ai']
 
 module.exports = handle

@@ -525,6 +525,10 @@ const detectIntent = (text) => {
     if (/\b(generate\s*(a\s*)?qr|create\s*(a\s*)?qr\s*code|qr\s*code\s*for)\b/i.test(t)) return 'qr2'
     if (/\b(search\s*(the\s*)?(web|google|internet)|find\s+info\s+about)\b/i.test(t)) return 'search2'
 
+    // ── Voice transcription (explicit request only) ───────────────────────────
+    if (/\b(transcribe|transcription|listen\s+to|convert\s+(this\s+)?voice|voice\s+to\s+text|speech\s+to\s+text|what\s+(did|was)\s+(he|she|they|it)\s+say(ing)?)\b/i.test(t) ||
+        /\b(read\s+(this\s+)?voice|turn\s+(this\s+)?voice\s+(note\s+)?to\s+text|convert\s+(this\s+)?audio)\b/i.test(t)) return 'transcribe'
+
     // ── Code run / execute ────────────────────────────────────────────────────
     // Natural phrases: "run this", "can you run this code for me", "execute this",
     //                  "run my code", "bera run this", "execute this script please"

@@ -529,81 +529,9 @@ const handleMessage = async (conn, rawMsg) => {
             return
         }
 
-        // ── VOICE NOTE (PTT) HANDLER ───────────────────────────────────────────
-        // When someone sends a voice note in DM or mentions Bera in a group,
-        // Bera downloads + transcribes the audio, then responds intelligently.
-        if ((m.mtype === 'audioMessage' && m.msg?.ptt === true) || m.mtype === 'pttMessage') {
-            const { authorized } = isAuthorized(m.sender)
-            if (!authorized) return
-
-            // In groups, only respond if Bera is mentioned in the caption/context
-            // In DMs, always process voice notes
-            const isGroupVoice = m.isGroup
-            const chatbera = global.db?.data?.settings?.chatbera
-            if (isGroupVoice && !chatbera) return
-
-            try {
-                await conn.sendMessage(m.chat, { react: { text: '🎙️', key: m.key } }).catch(() => {})
-
-                // Download the audio buffer
-                let audioBuf
-                try {
-                    audioBuf = await conn.downloadMediaMessage(rawMsg)
-                } catch {
-                    audioBuf = null
-                }
-
-                if (!audioBuf || audioBuf.length < 100) {
-                    await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {})
-                    return
-                }
-
-                // Transcribe
-                const { transcribeAudio } = require('../Library/actions/beraai')
-                const transcription = await transcribeAudio(audioBuf)
-
-                if (!transcription.success || !transcription.text) {
-                    await conn.sendMessage(m.chat, {
-                        text: `🎙️ _I heard your voice note but couldn't transcribe it yet. Voice transcription is coming soon! For now, type your message._`,
-                    }, { quoted: rawMsg }).catch(() => {})
-                    await conn.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {})
-                    return
-                }
-
-                const transcribedText = transcription.text
-                await conn.sendMessage(m.chat, { react: { text: '🧠', key: m.key } }).catch(() => {})
-
-                // Show what was heard, then respond
-                const { nickAi } = require('../Library/lib/bera')
-                const sender = m.sender
-
-                if (!global.db.data.users[sender]) global.db.data.users[sender] = {}
-                if (!Array.isArray(global.db.data.users[sender].nickHistory)) global.db.data.users[sender].nickHistory = []
-                const history = global.db.data.users[sender].nickHistory
-
-                let aiAnswer
-                try {
-                    aiAnswer = await nickAi(`[Voice note] ${transcribedText}`, history)
-                } catch (e) {
-                    aiAnswer = `I heard: _"${transcribedText}"_\n\nBut my AI engine is unavailable right now — try again shortly!`
-                }
-
-                history.push({ role: 'user', content: `[voice] ${transcribedText}` })
-                history.push({ role: 'assistant', content: aiAnswer })
-                global.db.data.users[sender].nickHistory = history.slice(-20)
-                global.db.write().catch(() => {})
-
-                await conn.sendMessage(m.chat, {
-                    text: `🎙️ *Heard:* _"${transcribedText}"_\n\n${aiAnswer}`,
-                    linkPreview: false
-                }, { quoted: rawMsg }).catch(() => {})
-                await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {})
-            } catch (e) {
-                console.error('[VoiceNote]', e.message)
-                await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {})
-            }
-            return
-        }
+        // Voice notes are NOT auto-transcribed — user must explicitly request it.
+        // Use: .transcribe (while quoting a voice note)
+        //  or: quote the voice note and say "bera transcribe this"
 
         const prefix = getPrefix()
         const noPrefix = global.db?.data?.settings?.noPrefix || false
