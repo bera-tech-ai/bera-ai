@@ -176,71 +176,37 @@ handle.all = async (m, { conn, command, args, prefix, reply, sender } = {}) => {
             return reply('🐦 *Twitter Download*\n' + prefix + 'twitter ' + url)
         }
     }
-    // ── .PLAY — Search YouTube → pick result → Audio/Video format ─────────────
+    // ── .PLAY — Search → auto-download first result as MP3 (no buttons) ────────
     if (['play','music','playaudio','playvideo','playsong','song','findmusic'].includes(command)) {
         if (!text) return reply(
             '🎵 *Usage:* ' + prefix + 'play <song name or artist>\n\n' +
             '*Examples:*\n' +
             prefix + 'play Blinding Lights Weeknd\n' +
-            prefix + 'play Burna Boy Last Last\n\n' +
-            '_I will search and show you Audio + Video buttons!_'
+            prefix + 'play Burna Boy Last Last'
         )
-        await conn.sendMessage(chat, { react: { text: '🔍', key: m.key } }).catch(() => {})
-        const ytSearchUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(text)
-
-        // Try to fetch real search results from YouTube HTML
-        let results = []
         try {
-            const r = await axios.get(ytSearchUrl, {
-                timeout: 8000,
-                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-            })
-            const html   = r.data
-            const regex  = /"videoId":"([^"]{5,20})","thumbnail":.*?"title":\{"runs":\[\{"text":"([^"]{3,120})"/g
-            let   match
-            while ((match = regex.exec(html)) !== null && results.length < 5) {
-                const id    = match[1], title = match[2]
-                if (!results.find(x => x.id === id)) results.push({ id, title, url: 'https://youtu.be/' + id })
-            }
-        } catch {}
-
-        const header = '╭══〈 *🎵 Music Search* 〉═╰\n┃\n┃ Query: *' + text + '*\n┃ ' + (results.length || 'Searching') + ' results' + (results.length ? ' found! Pick one 👇' : '...') + '\n╰══════════════════⊷'
-
-        if (results.length > 0 && useBtns) {
-            global.beraPlaySearch = global.beraPlaySearch || {}
-            global.beraPlaySearch[chat] = results
-            // Atassa pattern: sendButtons with quick_reply, always works, no rowId bug
-            const { sendButtons } = require('gifted-btns')
-            const btnList = results.slice(0, 5).map((r, i) => ({
-                id:   'play_pick_' + i + '_' + encodeURIComponent(r.url),
-                text: (i + 1) + '. ' + r.title.slice(0, 55)
-            }))
-            btnList.push({ id: 'play_cancel', text: '❌ Cancel' })
-            return sendButtons(conn, chat, {
-                title:   '🎵 Music Search',
-                text:    header,
-                footer:  'Tap a track to choose format',
-                buttons: btnList
-            })
-        }
-
-        // Buttons off or no results → search apiskeith and download first result directly
-        try {
+            await conn.sendMessage(chat, { react: { text: '🔍', key: m.key } }).catch(() => {})
             const sr = await axios.get('https://apiskeith.top/search/yts?q=' + encodeURIComponent(text), { timeout: 10000 })
-            const apiResults = sr.data?.result || []
-            const song = apiResults[0] || results[0]
+            const song = (sr.data?.result || [])[0]
             if (!song) return reply('❌ No results found for: *' + text + '*')
             const songUrl = song.url || ('https://youtu.be/' + song.id)
+            const songTitle = song.title || text
             await conn.sendMessage(chat, { react: { text: '⏳', key: m.key } }).catch(() => {})
-            await reply('🎵 *' + (song.title || text) + '*\n⏳ Downloading audio...')
+            await reply('🎵 *' + songTitle + '*\n⏳ Downloading...')
             const { downloadAudio } = require('../Library/actions/music')
             const dl = await downloadAudio(songUrl)
             if (dl.success && (dl.url || dl.audioUrl)) {
-                if (dl.thumbnail) await conn.sendMessage(chat, { image: { url: dl.thumbnail }, caption: '🎵 ' + (song.title || text) }).catch(() => {})
-                await conn.sendMessage(chat, { audio: { url: dl.url || dl.audioUrl }, mimetype: 'audio/mpeg', fileName: (song.title || text) + '.mp3' }, { quoted: m })
+                if (dl.thumbnail) {
+                    await conn.sendMessage(chat, { image: { url: dl.thumbnail }, caption: '🎵 ' + songTitle }).catch(() => {})
+                }
+                await conn.sendMessage(chat, {
+                    audio:    { url: dl.url || dl.audioUrl },
+                    mimetype: 'audio/mpeg',
+                    fileName: songTitle + '.mp3'
+                }, { quoted: m })
                 await conn.sendMessage(chat, { react: { text: '✅', key: m.key } }).catch(() => {})
             } else {
-                return reply('❌ Download failed. Try: *' + prefix + 'tomp3 ' + songUrl + '*')
+                return reply('❌ Download failed. Try:\n*' + prefix + 'tomp3 ' + songUrl + '*')
             }
         } catch (e) {
             return reply('❌ Error: ' + e.message)
