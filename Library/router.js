@@ -134,7 +134,54 @@ const detectIntent = (text) => {
     if (/git\s*clone\b|clone\s+(repo|this|the|https?|git@)/.test(t)) return 'git_clone'
     if (/git\s*push\b|push\s+(to|code|this|changes?|my)\b/.test(t)) return 'git_push'
 
-    // ── GitHub ───────────────────────────────────────────────────────────────
+    // ── GitHub — specific intents (must come before generic github catch-all) ─
+    // Create repo
+    if (/\b(create|make|start|init|new|open|setup|build)\b.{0,25}\b(repo|repository|project)\b/i.test(t) ||
+        /\b(repo|repository)\b.{0,20}\b(for|called?|named?)\b/i.test(t) ||
+        /\bnew\s+(private|public)\s+(repo|repository|project)\b/i.test(t)) return 'github_create_repo'
+
+    // Scaffold + push a project
+    if (/\b(scaffold|bootstrap|generate|template|starter)\b.{0,30}\b(project|app|api|repo)\b/i.test(t) ||
+        /\b(create|build|make|setup)\b.{0,30}\b(express|react|flask|python|node|html|website|bot|api)\b.{0,30}\b(project|app|repo|on\s+github|to\s+github)\b/i.test(t) ||
+        /\b(create|build|make)\b.{0,15}\b(project|app)\b.{0,30}\b(push|github|upload|host)\b/i.test(t)) return 'github_create_project'
+
+    // Push / upload file to repo
+    if (/\b(push|upload|add|send|put)\b.{0,20}\b(file|code|this|content)\b.{0,30}\b(to|into)\b.{0,20}\b(repo|repository|github)\b/i.test(t) ||
+        /\b(push|upload|add)\b.{0,20}\b(to|into)\b.{0,15}\b(repo|repository|github|branch)\b/i.test(t)) return 'github_push_file'
+
+    // List repos
+    if (/\b(list|show|display|view|what|my)\b.{0,15}\b(repos?|repositories|projects?)\b/i.test(t) ||
+        /\b(repos?|repositories)\b.{0,15}\b(i have|you see|available|of mine)\b/i.test(t)) return 'github_list_repos'
+
+    // Delete repo
+    if (/\b(delete|remove|drop|destroy)\b.{0,20}\b(repo|repository|project)\b/i.test(t)) return 'github_delete_repo'
+
+    // Repo info
+    if (/\b(info|details?|about|stats?|status)\b.{0,20}\b(repo|repository)\b/i.test(t) ||
+        /\bwhat'?s?\b.{0,10}\bin\b.{0,10}\b(repo|repository)\b/i.test(t)) return 'github_repo_info'
+
+    // List files in repo
+    if (/\b(list|show|what|view)\b.{0,15}\b(files?|folders?|contents?)\b.{0,20}\b(in|of|inside|from)\b.{0,20}\b(repo|repository)\b/i.test(t) ||
+        /\bwhat'?s?\b.{0,10}\bin\b.{0,10}\b(folder|directory)\b/i.test(t)) return 'github_list_files'
+
+    // Create issue
+    if (/\b(create|open|add|raise|file|new)\b.{0,15}\b(issue|bug|ticket|task)\b/i.test(t)) return 'github_create_issue'
+
+    // Fork repo
+    if (/\b(fork|copy|duplicate)\b.{0,15}\b(repo|repository)\b/i.test(t)) return 'github_fork'
+
+    // List branches
+    if (/\b(list|show)\b.{0,10}\b(branches?)\b/i.test(t) ||
+        /\b(branches?)\b.{0,15}\b(of|in|for)\b/i.test(t)) return 'github_branches'
+
+    // Create branch
+    if (/\b(create|make|new|add)\b.{0,10}\b(branch)\b/i.test(t)) return 'github_create_branch'
+
+    // Recent commits
+    if (/\b(commits?|recent\s+changes?|commit\s+history)\b.{0,20}\b(repo|repository|on)\b/i.test(t) ||
+        /\b(show|list)\b.{0,10}\b(commits?|history)\b/i.test(t)) return 'github_commits'
+
+    // Generic GitHub catch-all
     if (/\b(list|show|my)\b.{0,15}\b(repo|repos|repositories)\b/.test(t) ||
         /\b(create|make|new)\b.{0,10}\b(repo|repository)\b/.test(t) ||
         /\bgithub\b/.test(t)) return 'github'

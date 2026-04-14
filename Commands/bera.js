@@ -2,7 +2,12 @@ const { nickAi, MAX_HISTORY } = require('../Library/lib/bera')
 const config = require('../Config')
 const { detectIntent } = require('../Library/router')
 const { cloneRepo, setupRepoRemote, gitPush, gitStatus, gitLog, listWorkspace, runShell } = require('../Library/actions/shell')
-const { getUser: ghUser, listRepos, createRepo, deleteRepo } = require('../Library/actions/github')
+const {
+    getUser: ghUser, getOwner, listRepos, createRepo, deleteRepo, getRepo,
+    listFiles: ghListFiles, getFile: ghGetFile, upsertFile, pushMultipleFiles,
+    createIssue, listIssues, forkRepo, createBranch, getCommits, listBranches,
+    searchRepos, PROJECT_TEMPLATES, detectProjectType
+} = require('../Library/actions/github')
 const { generateImage } = require('../Library/actions/imagegen')
 const { searchAndDownload } = require('../Library/actions/music')
 const { webSearch } = require('../Library/actions/search')
@@ -238,6 +243,240 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
         return reply(`❌ Push failed:\n${res.output.slice(0, 400)}`)
     }
 
+    // ── GitHub helper (shared across all github_* intents) ────────────────────
+    const extractRepoName = (txt) => {
+        const t2 = txt.trim()
+        return (
+            t2.match(/(?:named?|called?|name(?:d)?\s+it|title)\s+["']?([\w.-]+)["']?/i)?.[1] ||
+            t2.match(/(?:repo|repository|project)\s+["']?([\w.-]+)["']?/i)?.[1] ||
+            t2.match(/["']([\w.-]+)["']/)?.[1] ||
+            t2.match(/\b([\w.-]{3,40})\s*$/)?.[1] ||
+            null
+        )
+    }
+
+    // ── GitHub: list repos ────────────────────────────────────────────────────
+    if (intent === 'github_list_repos') {
+        await react(conn, m, '🐙')
+        const res = await listRepos()
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        if (!res.length) return reply(`You have no repositories yet. Say "create a repo named X" to make one.`)
+        const lines = res.map((r, i) => `${i + 1}. ${r.private ? '🔒' : '🌐'} *${r.name}*${r.language ? ` _(${r.language})_` : ''}${r.description ? `\n   ${r.description}` : ''}\n   ${r.url}`).join('\n\n')
+        await react(conn, m, '✅')
+        return reply(`🐙 *Your GitHub Repositories (${res.length})*\n\n${lines}`)
+    }
+
+    // ── GitHub: create repo ───────────────────────────────────────────────────
+    if (intent === 'github_create_repo') {
+        await react(conn, m, '🐙')
+        const name = extractRepoName(text)
+        if (!name) return reply(`❌ Tell me the repo name. E.g: "create a repo called my-project" or "make a private repo named bera-tools"`)
+        const isPrivate = /private/i.test(text)
+        const descMatch = text.match(/desc(?:ription)?\s+["']?([^"'\n]+)["']?/i)
+        const description = descMatch?.[1]?.trim() || ''
+        await reply(`🔧 Creating ${isPrivate ? 'private' : 'public'} repo *${name}*...`)
+        const res = await createRepo(name, isPrivate, description)
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        await react(conn, m, '✅')
+        return reply(`✅ *Repo Created!*\n\n🐙 *${res.full_name}*\n${isPrivate ? '🔒 Private' : '🌐 Public'}\n🔗 ${res.html_url}\n\nTell me to add files, scaffold a project, or create a branch!`)
+    }
+
+    // ── GitHub: scaffold + push a full project ────────────────────────────────
+    if (intent === 'github_create_project') {
+        await react(conn, m, '⚙️')
+        const name = extractRepoName(text)
+        if (!name) return reply(`❌ Tell me the project name. E.g: "build an Express project called my-api on GitHub"`)
+        const type = detectProjectType(text)
+        const template = PROJECT_TEMPLATES[type]
+        const isPrivate = /private/i.test(text)
+        await reply(`⚙️ *Scaffolding ${template.label} project: ${name}*\n\nStep 1: Creating GitHub repo...`)
+        const repo = await createRepo(name, isPrivate, `${template.label} project — created by Bera AI`)
+        if (repo.error) return reply(`❌ Could not create repo: ${repo.error}`)
+        const owner = repo.owner?.login || await getOwner()
+        if (!owner) return reply(`❌ Could not determine GitHub username.`)
+        await reply(`✅ Repo created. Step 2: Pushing ${template.files(name).length} files...`)
+        const files = template.files(name)
+        const results = await pushMultipleFiles(owner, name, files)
+        const ok    = results.filter(r => r.ok)
+        const errs  = results.filter(r => !r.ok)
+        await react(conn, m, errs.length === 0 ? '✅' : '⚠️')
+        const fileList = ok.map(r => `  ✅ \`${r.path}\``).join('\n') + (errs.length ? '\n' + errs.map(r => `  ❌ \`${r.path}\`: ${r.error}`).join('\n') : '')
+        return reply(
+            `🚀 *${name} is live on GitHub!*\n\n` +
+            `📦 Type: ${template.label}\n` +
+            `🔗 ${repo.html_url}\n` +
+            `${isPrivate ? '🔒 Private' : '🌐 Public'}\n\n` +
+            `📁 *Files pushed:*\n${fileList}\n\n` +
+            `Clone with:\n\`git clone ${repo.clone_url}\``
+        )
+    }
+
+    // ── GitHub: push / add a file ─────────────────────────────────────────────
+    if (intent === 'github_push_file') {
+        await react(conn, m, '📤')
+        const quoted = m.quoted?.text || m.quoted?.body || ''
+        const repoMatch = text.match(/\b(?:to|into|repo|repository)\s+["']?([\w.-]+)["']?/i)
+        const pathMatch = text.match(/(?:as|named?|file\s+name|path)\s+["']?([\w./-]+)["']?/i)
+        const msgMatch  = text.match(/(?:commit\s+message|message)\s+["']?([^"'\n]+)["']?/i)
+        if (!repoMatch) return reply(`❌ Tell me which repo. E.g: "add this file to my-project" and quote the file content`)
+        if (!quoted) return reply(`❌ Quote the file content you want to push, then say "push this to [repo-name]"`)
+        const repoName  = repoMatch[1]
+        const filePath  = pathMatch?.[1] || 'file.txt'
+        const commitMsg = msgMatch?.[1] || `Add ${filePath} via Bera AI`
+        const owner = await getOwner()
+        if (!owner) return reply(`❌ Could not get GitHub username. Is your token set?`)
+        await reply(`📤 Pushing \`${filePath}\` to *${owner}/${repoName}*...`)
+        const res = await upsertFile(owner, repoName, filePath, quoted, commitMsg)
+        if (res.error) return reply(`❌ Push failed: ${res.error}`)
+        await react(conn, m, '✅')
+        return reply(`✅ *Pushed!*\n\n📄 \`${filePath}\`\n🐙 *${owner}/${repoName}*\n🔗 ${res.content?.html_url || 'https://github.com/' + owner + '/' + repoName}`)
+    }
+
+    // ── GitHub: delete repo ───────────────────────────────────────────────────
+    if (intent === 'github_delete_repo') {
+        await react(conn, m, '🗑️')
+        const name = extractRepoName(text)
+        if (!name) return reply(`❌ Which repo? E.g: "delete the repo named old-project"`)
+        const owner = await getOwner()
+        if (!owner) return reply(`❌ Could not get GitHub username.`)
+        await reply(`⚠️ Deleting *${owner}/${name}*... this cannot be undone.`)
+        const res = await deleteRepo(owner, name)
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        await react(conn, m, '✅')
+        return reply(`✅ Repo *${name}* has been permanently deleted.`)
+    }
+
+    // ── GitHub: repo info ─────────────────────────────────────────────────────
+    if (intent === 'github_repo_info') {
+        await react(conn, m, '🔍')
+        const name = extractRepoName(text)
+        if (!name) return reply(`❌ Which repo? E.g: "info on my bera-ai repo"`)
+        const owner = await getOwner()
+        if (!owner) return reply(`❌ Could not get GitHub username.`)
+        const res = await getRepo(owner, name)
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        await react(conn, m, '✅')
+        return reply(
+            `🐙 *${res.full_name}*\n\n` +
+            `📝 ${res.description || 'No description'}\n` +
+            `${res.private ? '🔒 Private' : '🌐 Public'}\n` +
+            `⭐ Stars: ${res.stargazers_count} | 🍴 Forks: ${res.forks_count}\n` +
+            `💬 Issues: ${res.open_issues_count} open\n` +
+            `🌿 Default branch: ${res.default_branch}\n` +
+            `📦 Language: ${res.language || 'Unknown'}\n` +
+            `📅 Created: ${new Date(res.created_at).toDateString()}\n` +
+            `🔄 Updated: ${new Date(res.updated_at).toDateString()}\n` +
+            `🔗 ${res.html_url}`
+        )
+    }
+
+    // ── GitHub: list files in repo ────────────────────────────────────────────
+    if (intent === 'github_list_files') {
+        await react(conn, m, '📁')
+        const name  = extractRepoName(text)
+        const pathM = text.match(/(?:in|inside|folder|path)\s+["']?([\w/./-]+)["']?/i)
+        const filePath = pathM?.[1] && !/^(repo|the|my|a)$/i.test(pathM[1]) ? pathM[1] : ''
+        if (!name) return reply(`❌ Which repo? E.g: "list files in my-project"`)
+        const owner = await getOwner()
+        if (!owner) return reply(`❌ Could not get GitHub username.`)
+        const res = await ghListFiles(owner, name, filePath)
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        if (!Array.isArray(res)) return reply(`❌ Unexpected response from GitHub.`)
+        const dirs  = res.filter(f => f.type === 'dir').map(f => `📁 ${f.name}/`)
+        const files = res.filter(f => f.type === 'file').map(f => `📄 ${f.name}`)
+        const all   = [...dirs, ...files]
+        await react(conn, m, '✅')
+        return reply(`📁 *${owner}/${name}${filePath ? '/' + filePath : ''}* (${all.length} items)\n\n${all.join('\n')}`)
+    }
+
+    // ── GitHub: create issue ──────────────────────────────────────────────────
+    if (intent === 'github_create_issue') {
+        await react(conn, m, '🐛')
+        const repoMatch = text.match(/\b(?:on|in|for|repo)\s+["']?([\w.-]+)["']?/i)
+        const titleMatch = text.match(/(?:title|about|saying|issue)\s+["']?([^"'\n]{5,100})["']?/i) ||
+                           text.match(/(?:create|open|add|raise)\s+(?:an?\s+)?(?:issue|bug|ticket)\s+(.+)/i)
+        if (!repoMatch) return reply(`❌ Which repo? E.g: "create an issue on my-project titled Fix login bug"`)
+        if (!titleMatch) return reply(`❌ What's the issue about? E.g: "create issue on my-api titled User login fails"`)
+        const repoName = repoMatch[1]
+        const title    = titleMatch[1]?.trim()
+        const bodyM    = text.match(/body\s+["']?([^"'\n]{10,})["']?/i)
+        const owner = await getOwner()
+        if (!owner) return reply(`❌ Could not get GitHub username.`)
+        const res = await createIssue(owner, repoName, title, bodyM?.[1] || '')
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        await react(conn, m, '✅')
+        return reply(`✅ *Issue created!*\n\n🐛 #${res.number}: ${res.title}\n🐙 *${owner}/${repoName}*\n🔗 ${res.html_url}`)
+    }
+
+    // ── GitHub: fork repo ─────────────────────────────────────────────────────
+    if (intent === 'github_fork') {
+        await react(conn, m, '🍴')
+        const urlMatch = text.match(/github\.com\/([\w.-]+)\/([\w.-]+)/i)
+        const nameM    = urlMatch ? null : extractRepoName(text)
+        const ownerM   = text.match(/(?:from|by|of|user)\s+["']?([\w.-]+)["']?/i)
+        if (!urlMatch && !nameM) return reply(`❌ Which repo to fork? E.g: "fork github.com/expressjs/express" or "fork express from expressjs"`)
+        const srcOwner = urlMatch?.[1] || ownerM?.[1] || (await getOwner())
+        const srcRepo  = urlMatch?.[2] || nameM
+        await reply(`🍴 Forking *${srcOwner}/${srcRepo}*...`)
+        const res = await forkRepo(srcOwner, srcRepo)
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        await react(conn, m, '✅')
+        return reply(`✅ *Forked!*\n\n🍴 *${res.full_name}*\n🔗 ${res.html_url}`)
+    }
+
+    // ── GitHub: list branches ─────────────────────────────────────────────────
+    if (intent === 'github_branches') {
+        await react(conn, m, '🌿')
+        const name  = extractRepoName(text)
+        if (!name) return reply(`❌ Which repo? E.g: "list branches of my-project"`)
+        const owner = await getOwner()
+        if (!owner) return reply(`❌ Could not get GitHub username.`)
+        const res = await listBranches(owner, name)
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        const lines = res.map(b => `🌿 ${b.name}${b.protected ? ' 🔒' : ''}`).join('\n')
+        await react(conn, m, '✅')
+        return reply(`🌿 *Branches in ${owner}/${name}* (${res.length}):\n\n${lines}`)
+    }
+
+    // ── GitHub: create branch ─────────────────────────────────────────────────
+    if (intent === 'github_create_branch') {
+        await react(conn, m, '🌿')
+        const repoM   = text.match(/\b(?:in|on|for|repo)\s+["']?([\w.-]+)["']?/i)
+        const nameM   = text.match(/\b(?:branch\s+(?:named?|called?))\s+["']?([\w./-]+)["']?/i) ||
+                        text.match(/\b(?:create|make|new)\s+(?:a\s+)?branch\s+["']?([\w./-]+)["']?/i)
+        const fromM   = text.match(/\b(?:from|off)\s+["']?([\w./-]+)["']?/i)
+        if (!repoM) return reply(`❌ Which repo? E.g: "create branch feature-login in my-project"`)
+        if (!nameM) return reply(`❌ What should the branch be called? E.g: "create branch feature-auth in my-api"`)
+        const repoName  = repoM[1]
+        const branchName = nameM[1]
+        const fromBranch = fromM?.[1] || 'main'
+        const owner = await getOwner()
+        if (!owner) return reply(`❌ Could not get GitHub username.`)
+        await reply(`🌿 Creating branch *${branchName}* from *${fromBranch}* in *${owner}/${repoName}*...`)
+        const res = await createBranch(owner, repoName, branchName, fromBranch)
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        await react(conn, m, '✅')
+        return reply(`✅ *Branch created!*\n\n🌿 *${branchName}*\n📌 From: ${fromBranch}\n🐙 ${owner}/${repoName}`)
+    }
+
+    // ── GitHub: recent commits ────────────────────────────────────────────────
+    if (intent === 'github_commits') {
+        await react(conn, m, '📋')
+        const name  = extractRepoName(text)
+        if (!name) return reply(`❌ Which repo? E.g: "show commits on my-project"`)
+        const owner = await getOwner()
+        if (!owner) return reply(`❌ Could not get GitHub username.`)
+        const res = await getCommits(owner, name, 5)
+        if (res.error) return reply(`❌ GitHub: ${res.error}`)
+        if (!Array.isArray(res)) return reply(`❌ Could not fetch commits.`)
+        const lines = res.map((c, i) =>
+            `${i + 1}. \`${c.sha.slice(0, 7)}\` — ${c.commit.message.split('\n')[0]}\n   👤 ${c.commit.author.name} · ${new Date(c.commit.author.date).toDateString()}`
+        ).join('\n\n')
+        await react(conn, m, '✅')
+        return reply(`📋 *Recent commits in ${owner}/${name}:*\n\n${lines}`)
+    }
+
+    // ── GitHub: existing handler (catch-all) ──────────────────────────────────
     if (intent === 'github') {
         await react(conn, m, '🐙')
         const t = text.toLowerCase()
