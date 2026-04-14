@@ -19,6 +19,7 @@ handle.command = [
     'profilepanel', 'userpanel',
     'helpdesk', 'support',
     'allpanels', 'panellist',
+    'ghpanel', 'githubpanel', 'githubmenu',
 ]
 handle.tags = ['panel', 'menu', 'buttons', 'ui']
 handle.help = [
@@ -226,6 +227,20 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
     if (['newcmds','newcommands','whatsnew'].includes(command)) {
         return sb('🆕 New Commands',
             '╭══〘 *🆕 Recently Added* 〙═⊷\n' +
+            '┃ ── 🐙 GitHub Integration (NEW!) ──\n' +
+            '┃ setghtoken, ghrepo, ghuser\n' +
+            '┃ ghsearch, ghissue, ghgist\n' +
+            '┃\n' +
+            '┃ ── 🎵 Music Fix ──\n' +
+            '┃ play — now auto-downloads first result\n' +
+            '┃\n' +
+            '┃ ── 🧠 AI Fixes ──\n' +
+            '┃ Bera only responds when mentioned\n' +
+            '┃ No more double AI responses\n' +
+            '┃\n' +
+            '┃ ── 🔄 Auto-Updater ──\n' +
+            '┃ .update / .checkupdate commands\n' +
+            '┃\n' +
             '┃ ── 🧠 AI Tools ──\n' +
             '┃ ask2, lyrics2, define2, tr2\n' +
             '┃ weather2, calc2, qr2, search2\n' +
@@ -233,15 +248,30 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
             '┃ ── 📥 Downloads ──\n' +
             '┃ play, ytv, tiktok2, ig, fb, twitter\n' +
             '┃\n' +
-            '┃ ── 👥 Group Tools ──\n' +
-            '┃ hidetag, tagall, antilink, antispam\n' +
-            '┃ setwelcome, gcstatus, grouppanel2\n' +
-            '┃\n' +
-            '┃ Total new: *100+ commands* 🚀\n' +
+            '┃ Total: *100+ commands* 🚀\n' +
             '╰══════════════════⊷',
             'Bera AI', [
+            { id: p + 'ghpanel',   text: '🐙 GitHub Panel' },
             { id: p + 'allpanels', text: '🗂️ Browse All Panels' },
             { id: p + 'menu',      text: '📋 Full Command List' },
+        ])
+    }
+
+    // ── GITHUB PANEL ─────────────────────────────────────────────────────────
+    if (['ghpanel','githubpanel','githubmenu'].includes(command)) {
+        return sb('🐙 GitHub Panel',
+            '╭══〘 *🐙 GitHub Integration* 〙═⊷\n' +
+            '┃ Manage GitHub from WhatsApp\n' +
+            '┃ Set token first: ' + p + 'setghtoken\n' +
+            '╰══════════════════⊷',
+            'Bera AI — GitHub', [
+            { id: p + 'setghtoken',   text: '🔑 Set GitHub Token' },
+            { id: p + 'ghrepo list',  text: '📦 List My Repos' },
+            { id: p + 'ghrepo create',text: '➕ Create New Repo' },
+            { id: p + 'ghsearch ',    text: '🔍 Search GitHub Repos' },
+            { id: p + 'ghuser ',      text: '👤 GitHub User Profile' },
+            { id: p + 'ghissue ',     text: '🐛 Create an Issue' },
+            { id: p + 'ghgist ',      text: '📋 Create a Gist' },
         ])
     }
 
@@ -266,6 +296,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
             { id: p + 'bhpanel',       text: '☁️ BeraHost Panel' },
             { id: p + 'profilepanel',  text: '👤 Profile Panel' },
             { id: p + 'settingspanel', text: '⚙️ Settings Panel' },
+            { id: p + 'ghpanel',       text: '🐙 GitHub Panel' },
         ])
     }
 }
