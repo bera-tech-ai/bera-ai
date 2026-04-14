@@ -4,6 +4,18 @@ const BASE = 'https://apiskeith.top'
 const kget = (path, params, timeout = 15000) =>
     axios.get(BASE + path, { params, timeout, headers: { 'User-Agent': 'BeraBot/2.0' } })
 
+// AI getter with gpt41Nano primary, gpt as fallback
+const kgetAI = async (prompt, timeout = 20000) => {
+    const AI_PATHS = ['/ai/gpt41Nano', '/ai/gpt']
+    for (const aiPath of AI_PATHS) {
+        try {
+            const res = await axios.get(BASE + aiPath, { params: { q: prompt }, timeout, headers: { 'User-Agent': 'BeraBot/2.0' } })
+            if (res.data?.result) return res
+        } catch {}
+    }
+    return { data: { result: null } }
+}
+
 const handle = async (m, { conn, text, reply, prefix, command, sender, chat, args }) => {
     const react = (emoji) => conn.sendMessage(chat, { react: { text: emoji, key: m.key } }).catch(() => {})
 
@@ -552,7 +564,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
         if (!text) return reply(`❌ Usage: ${prefix}roast <name>\nExample: ${prefix}roast John`)
         await react('🔥')
         try {
-            const res = await kget('/ai/gpt', { q: `Give a short funny roast for someone named ${text}. Be creative and funny, not mean. One sentence only. No filler intro.` }, 20000)
+            const res = await kgetAI(`Give a short funny roast for someone named ${text}. Be creative and funny, not mean. One sentence only. No filler intro.`, 20000)
             const result = res.data?.result
             if (!result) throw new Error('no result')
             await react('😂')
@@ -567,7 +579,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
         if (!text) return reply(`❌ Usage: ${prefix}story <topic>\nExample: ${prefix}story a boy who found a magic phone`)
         await react('📖')
         try {
-            const res = await kget('/ai/gpt', { q: `Write a short creative story (3-5 sentences) about: ${text}. No filler intro, start immediately.` }, 25000)
+            const res = await kgetAI(`Write a short creative story (3-5 sentences) about: ${text}. No filler intro, start immediately.`, 25000)
             const result = res.data?.result
             if (!result) throw new Error('no result')
             await react('✅')
@@ -583,7 +595,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
         if (!text) return reply(`❌ Usage: ${prefix}rap <topic>\nExample: ${prefix}rap bots vs humans`)
         await react('🎤')
         try {
-            const res = await kget('/ai/gpt', { q: `Write 4 lines of rap about: ${text}. Make it rhyme and flow. No intro text.` }, 20000)
+            const res = await kgetAI(`Write 4 lines of rap about: ${text}. Make it rhyme and flow. No intro text.`, 20000)
             const result = res.data?.result
             if (!result) throw new Error('no result')
             await react('🎤')
@@ -597,7 +609,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
     if (command === 'riddle') {
         await react('🧩')
         try {
-            const res = await kget('/ai/gpt', { q: 'Give me one clever riddle. Format exactly as: Riddle: [riddle here]\nAnswer: [answer here]' }, 15000)
+            const res = await kgetAI('Give me one clever riddle. Format exactly as: Riddle: [riddle here]\nAnswer: [answer here]', 15000)
             const result = res.data?.result
             if (!result) throw new Error('no result')
             await react('🧩')
@@ -612,7 +624,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
         if (!text) return reply(`❌ Usage: ${prefix}recipe <dish>\nExample: ${prefix}recipe chicken stew`)
         await react('🍳')
         try {
-            const res = await kget('/ai/gpt', { q: `Give a short recipe for ${text}. List ingredients then numbered steps. Be brief.` }, 25000)
+            const res = await kgetAI(`Give a short recipe for ${text}. List ingredients then numbered steps. Be brief.`, 25000)
             const result = res.data?.result
             if (!result) throw new Error('no result')
             await react('✅')
@@ -627,7 +639,7 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
         await react('💪')
         const name = text || 'you'
         try {
-            const res = await kget('/ai/gpt', { q: `Give one powerful motivational message addressed to ${name}. Personal and uplifting. Short paragraph.` }, 15000)
+            const res = await kgetAI(`Give one powerful motivational message addressed to ${name}. Personal and uplifting. Short paragraph.`, 15000)
             const result = res.data?.result
             if (!result) throw new Error('no result')
             await react('💪')

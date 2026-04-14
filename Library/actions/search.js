@@ -7,6 +7,7 @@ const isApiError = (data) => {
 }
 
 const SEARCH_AI_ENDPOINTS = [
+    { url: `${BASE}/ai/gpt41Nano`,                      param: 'q'     },
     { url: `${BASE}/ai/searchai`,                       param: 'query' },
     { url: `${BASE}/ai/gpt`,                            param: 'q'     },
     { url: 'https://api.siputzx.my.id/api/ai/chatgpt', param: 'text'  },
@@ -35,8 +36,9 @@ const webSearch = async (query) => {
 }
 
 const BRAVE_ENDPOINTS = [
-    { url: `${BASE}/search/brave`, param: 'q' },
-    { url: `${BASE}/ai/gpt`,       param: 'q', isAi: true },
+    { url: `${BASE}/search/brave`,    param: 'q' },
+    { url: `${BASE}/ai/gpt41Nano`,    param: 'q', isAi: true },
+    { url: `${BASE}/ai/gpt`,          param: 'q', isAi: true },
 ]
 
 const braveSearch = async (query) => {

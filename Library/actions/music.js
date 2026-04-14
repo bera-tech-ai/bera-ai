@@ -84,10 +84,12 @@ const searchYoutube = async (query) => {
 // ── YouTube Audio Download ────────────────────────────────────────────────────
 const downloadAudio = async (videoUrl) => {
     const endpoints = [
-        { base: OSTYADO, path: '/api/downloader/mp3', param: 'url' },
-        { base: APISKEITH, path: '/download/ytmp3', param: 'url' },
-        { base: APISKEITH, path: '/download/dlmp3', param: 'url' },
-        { base: APISKEITH, path: '/download/mp3',   param: 'url' },
+        { base: OSTYADO,   path: '/api/downloader/mp3', param: 'url' },
+        { base: APISKEITH, path: '/download/ytmp3',     param: 'url' },
+        { base: APISKEITH, path: '/download/dlmp3',     param: 'url' },
+        { base: APISKEITH, path: '/download/mp3',       param: 'url' },
+        { base: APISKEITH, path: '/download/ytdl',      param: 'url' },
+        { base: 'https://api.siputzx.my.id', path: '/api/d/ytmp3', param: 'url' },
     ]
     for (const ep of endpoints) {
         try {
@@ -98,7 +100,7 @@ const downloadAudio = async (videoUrl) => {
             const audioUrl = toUrl(data?.result) || toUrl(data?.url) ||
                 toUrl(data?.audio) || toUrl(data?.download) || toUrl(data?.mp3)
             if (audioUrl) {
-                return { success: true, url: audioUrl, title: data?.result?.title || data?.title || '' }
+                return { success: true, url: audioUrl, audioUrl, title: data?.result?.title || data?.title || '' }
             }
         } catch { continue }
     }
@@ -108,9 +110,11 @@ const downloadAudio = async (videoUrl) => {
 // ── YouTube Video Download ────────────────────────────────────────────────────
 const downloadVideo = async (videoUrl) => {
     const endpoints = [
-        { base: OSTYADO, path: '/api/downloader/mp4', param: 'url' },
-        { base: APISKEITH, path: '/download/ytmp4',   param: 'url' },
-        { base: APISKEITH, path: '/download/dlmp4',   param: 'url' },
+        { base: OSTYADO,   path: '/api/downloader/mp4', param: 'url' },
+        { base: APISKEITH, path: '/download/ytmp4',     param: 'url' },
+        { base: APISKEITH, path: '/download/dlmp4',     param: 'url' },
+        { base: APISKEITH, path: '/download/ytdl',      param: 'url' },
+        { base: 'https://api.siputzx.my.id', path: '/api/d/ytmp4', param: 'url' },
     ]
     for (const ep of endpoints) {
         try {

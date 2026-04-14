@@ -30,7 +30,8 @@ const resolveLanguage = (lang) => {
 }
 
 const TRANSLATE_ENDPOINTS = [
-    { url: 'https://apiskeith.top/ai/gpt',       param: 'q' },
+    { url: 'https://apiskeith.top/ai/gpt41Nano',  param: 'q' },
+    { url: 'https://apiskeith.top/ai/gpt',        param: 'q' },
     { url: 'https://api.siputzx.my.id/api/ai/chatgpt', param: 'text' },
     { url: 'https://api.ryzendesu.vip/api/ai/chatgpt', param: 'text' },
     { url: 'https://bk9.fun/ai/gpt',              param: 'q' },

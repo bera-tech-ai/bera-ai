@@ -197,6 +197,7 @@ const cleanAnswer = (raw) => {
 }
 
 const AI_ENDPOINTS = [
+    `${BASE}/ai/gpt41Nano`,
     `${BASE}/ai/gpt`,
     `${BASE}/keithai`,
     `${BASE}/ai/claudeai`,

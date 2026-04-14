@@ -72,32 +72,21 @@ handle.help = [
 
 // Chat with Bera's AI using the ChatBera system (fallback to built-in logic)
 const askAI = async (prompt) => {
-    // First try the bot's own AI endpoint if available
-    try {
-        const res = await axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-3.5-turbo',
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 500,
-            temperature: 0.7
-        }, {
-            headers: { Authorization: 'Bearer ' + (process.env.OPENAI_API_KEY || '') },
-            timeout: 15000
-        })
-        return res.data?.choices?.[0]?.message?.content?.trim()
-    } catch {}
+    const APISKEITH = 'https://apiskeith.top'
+    const AI_ENDPOINTS = [
+        { url: `${APISKEITH}/ai/gpt41Nano`, param: 'q' },
+        { url: `${APISKEITH}/ai/gpt`,       param: 'q' },
+        { url: 'https://bk9.fun/ai/gpt',    param: 'q' },
+    ]
 
-    // Fallback: try free alternatives
-    try {
-        const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-            model: 'llama3-8b-8192',
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 500
-        }, {
-            headers: { Authorization: 'Bearer ' + (process.env.GROQ_API_KEY || '') },
-            timeout: 12000
-        })
-        return res.data?.choices?.[0]?.message?.content?.trim()
-    } catch {}
+    // Try apiskeith endpoints first (free, no key needed)
+    for (const ep of AI_ENDPOINTS) {
+        try {
+            const res = await axios.get(ep.url, { params: { [ep.param]: prompt.slice(0, 500) }, timeout: 15000 })
+            const result = res.data?.result || res.data?.answer || res.data?.response || res.data?.reply
+            if (typeof result === 'string' && result.length > 5) return result.slice(0, 1200)
+        } catch {}
+    }
 
     // Fallback: try pollinations AI (free, no key needed)
     try {

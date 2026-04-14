@@ -6,6 +6,7 @@ const axios = require('axios')
 const config = require('../../Config')
 
 const KEITH = 'https://keith-api.vercel.app'
+const APISKEITH = 'https://apiskeith.top'
 
 // ── Pre-built style profile (trained on real chat exports) ────────────────────
 const PREBUILT_PROFILE = {
@@ -258,7 +259,20 @@ generateStyleReply = async (incomingText, styleData) => {
             ? dbProfile : PREBUILT_PROFILE
         const sysPrompt = getSystemPrompt(profile)
 
-        // 3. Pollinations AI — free, actually respects system prompts
+        // 3. apiskeith.top gpt41Nano (fast, free, no key needed)
+        try {
+            const prompt = sysPrompt + '\n\nUser said: ' + incomingText + '\n\nReply as ' + (profile.myName || 'Bera') + ':'
+            const res = await axios.get(`${APISKEITH}/ai/gpt41Nano`, { params: { q: prompt.slice(0, 800) }, timeout: 15000 })
+            const aiReply = res.data?.result || res.data?.response
+            if (aiReply && typeof aiReply === 'string' && aiReply.length > 1) {
+                console.log('[CHATBERA] ✅ gpt41Nano replied')
+                return { success: true, reply: aiReply.slice(0, 300) }
+            }
+        } catch (e) {
+            console.log('[CHATBERA] gpt41Nano failed:', e.message)
+        }
+
+        // 4. Pollinations AI — free, actually respects system prompts
         try {
             const body = JSON.stringify({
                 model: 'openai',
@@ -324,7 +338,15 @@ const analyzeStyle = async (myMessages, myName) => {
 1. Message length, 2. Punctuation, 3. Emojis, 4. Energy/vibe, 5. Common phrases, 6. Language mix.
 Their messages:
 ${sample}`
-        const res = await axios.get(`${KEITH}/api/gpt4`, { params: { prompt }, timeout: 20000 })
+        let res
+        try {
+            res = await axios.get(`${APISKEITH}/ai/gpt41Nano`, { params: { q: prompt }, timeout: 20000 })
+            if (!res.data?.result) throw new Error('no result')
+        } catch {
+            try {
+                res = await axios.get(`${KEITH}/api/gpt4`, { params: { prompt }, timeout: 20000 })
+            } catch { return PREBUILT_PROFILE.styleAnalysis }
+        }
         return res.data?.result || res.data?.response || PREBUILT_PROFILE.styleAnalysis
     } catch {
         return PREBUILT_PROFILE.styleAnalysis

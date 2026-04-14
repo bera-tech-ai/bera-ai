@@ -395,7 +395,7 @@ const handleMessage = async (conn, rawMsg) => {
                             if (dl.thumbnail) {
                                 await conn.sendMessage(m.chat, { image: { url: dl.thumbnail }, caption: 'Now Playing: ' + dl.title }).catch(() => {})
                             }
-                            await conn.sendMessage(m.chat, { audio: { url: dl.audioUrl }, mimetype: 'audio/mpeg', fileName: (dl.title || 'audio') + '.mp3' }, { quoted: m }).catch(() => {})
+                            await conn.sendMessage(m.chat, { audio: { url: dl.url || dl.audioUrl }, mimetype: 'audio/mpeg', fileName: (dl.title || 'audio') + '.mp3' }, { quoted: m }).catch(() => {})
                             await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {})
                         }
                     } else {
