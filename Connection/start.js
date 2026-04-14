@@ -277,8 +277,12 @@ const startBot = async () => {
             }
 
             if (statusCode === 408) {
-                console.log(chalk.yellow('[BOT] Pairing timed out — requesting new code in 5s...'))
                 pairingRequested = false
+                if (state.creds?.registered) {
+                    console.log(chalk.yellow('[BOT] Connection timed out — reconnecting in 5s...'))
+                } else {
+                    console.log(chalk.yellow('[BOT] Pairing timed out — requesting new code in 5s...'))
+                }
                 setTimeout(startBot, 5000)
                 return
             }
@@ -292,7 +296,10 @@ const startBot = async () => {
 
         if (connection === 'open') {
             if (fs.existsSync(PHONE_FILE)) fs.unlinkSync(PHONE_FILE)
-            global.botReadyAt = Math.floor(Date.now() / 1000)
+            // Only stamp first-ever connect — do NOT reset on reconnects, or the
+            // message-age guard in Handler/index.js will drop messages that were
+            // sent just before a reconnect cycle.
+            if (!global.botReadyAt) global.botReadyAt = Math.floor(Date.now() / 1000)
             const botJid = jidNormalizedUser(conn.user?.id || '')
             console.log(chalk.green(`\n[BOT] ✅ Connected as ${conn.user?.name || 'Bera AI'} (${botJid})`))
             console.log(chalk.green(`[BOT] 🤖 ${config.botName} is online and ready!\n`))
