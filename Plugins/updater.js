@@ -18,6 +18,13 @@ const ZIP_URL    = `https://github.com/${REPO}/archive/${BRANCH}.zip`
 const API_URL    = `https://api.github.com/repos/${REPO}/commits/${BRANCH}`
 const HASH_FILE  = path.join(ROOT, '.last_commit')
 
+const getGithubHeaders = () => {
+    const token = global.db?.data?.settings?.githubToken
+    const headers = { 'User-Agent': 'BeraBot/2.0', Accept: 'application/vnd.github+json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    return headers
+}
+
 // Files/folders to never overwrite during update
 const EXCLUDE = [
     'session',
@@ -85,8 +92,8 @@ const handle = async (m, { conn, reply, command, isOwner, chat }) => {
             await react('🔍')
             await reply('🔍 Checking for updates...')
             const { data } = await axios.get(API_URL, {
-                timeout: 10000,
-                headers: { 'User-Agent': 'BeraBot/2.0' }
+                timeout: 20000,
+                headers: getGithubHeaders()
             })
             const latest  = data.sha
             const current = getStoredHash()
@@ -123,8 +130,8 @@ const handle = async (m, { conn, reply, command, isOwner, chat }) => {
             await reply('🔍 Checking for updates...')
 
             const { data: commitData } = await axios.get(API_URL, {
-                timeout: 10000,
-                headers: { 'User-Agent': 'BeraBot/2.0' }
+                timeout: 20000,
+                headers: getGithubHeaders()
             })
             const latestHash  = commitData.sha
             const currentHash = getStoredHash()
