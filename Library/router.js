@@ -526,21 +526,37 @@ const detectIntent = (text) => {
     if (/\b(search\s*(the\s*)?(web|google|internet)|find\s+info\s+about)\b/i.test(t)) return 'search2'
 
     // ── Code run / execute ────────────────────────────────────────────────────
-    if (/\b(run|execute|exec)\s+(this|the|my|this\s+code|the\s+code|this\s+script)\b/i.test(t) ||
-        /^(run|exec)\s+(this|it|the code)/i.test(t) ||
-        /\b(execute\s+this|run\s+it|test\s+this\s+code|run\s+this\s+snippet)\b/i.test(t)) return 'code_run'
+    // Natural phrases: "run this", "can you run this code for me", "execute this",
+    //                  "run my code", "bera run this", "execute this script please"
+    if (
+        // "run/execute/exec this/it/my" or "run the code/script" (not "run the music")
+        /\b(run|execute|exec)\s+(this|it|my)\b/i.test(t) ||
+        /\b(run|execute|exec)\s+the\s+(code|script|snippet|program|function|file)\b/i.test(t) ||
+        // "can you run this [code]", "please run this"
+        /\b(can\s+you|please|bera|just)\s+(run|execute|exec)\s+(this|it|my|the)\b/i.test(t) ||
+        // "run it for me", "run this for me"
+        /\b(run|execute)\s+(this|it)\s+(for\s+me|now|please)\b/i.test(t) ||
+        // "run this code", "execute this script" — explicit with code word
+        /\b(run|execute|exec|test)\s+(this\s+|the\s+|my\s+)?(code|script|snippet|program|function)\b/i.test(t) ||
+        // "this code, run it", "execute the code please"
+        /\b(code|script|snippet)\b.{0,20}\b(run|execute|exec)\b/i.test(t)
+    ) return 'code_run'
 
     // ── Code validate / check ─────────────────────────────────────────────────
-    if (/\b(check\s*(this\s*)?(code|script|snippet|function)|validate\s*(this\s*)?code|any\s+(errors?|bugs?)\s+in\s+(this|my)\s+code|syntax\s+check)\b/i.test(t) ||
-        /\b(is\s+(this\s+)?(code|script)\s+(correct|valid|right|ok|good))\b/i.test(t)) return 'code_validate'
+    // Catches: "check this code", "any errors in my code", "is this code correct"
+    if (/\b(check|validate|review|look\s+at)\b.{0,20}\b(this\s+)?(code|script|snippet|function)\b/i.test(t) ||
+        /\b(any\s+(errors?|bugs?|issues?|problems?)\s+in\s+(this|my)\b)/i.test(t) ||
+        /\b(is\s+(this\s+)?(code|script)\s+(correct|valid|right|ok|good|working))\b/i.test(t) ||
+        /\b(syntax\s+check|find\s+(the\s+)?(errors?|bugs?|issues?)\s+in)\b/i.test(t)) return 'code_validate'
 
     // ── Build / generate a full app or project (not via GitHub) ──────────────
     if (/\b(build|create|write|make|generate)\b.{0,20}\b(full|complete|entire|whole)\b.{0,30}\b(app|application|website|site|api|server|bot|system|script|tool)\b/i.test(t) &&
         !/github|repo|repository/i.test(t)) return 'code_build'
 
     // ── Explain / analyze code ────────────────────────────────────────────────
-    if (/\b(explain|analyze|analyse|what\s+does\s+this\s+(code|script|function)\s+do|walk\s+(me\s+)?through\s+this)\b/i.test(t) &&
-        /\b(code|script|function|snippet|class|method)\b/i.test(t)) return 'code_explain'
+    // Catches: "explain this code", "what does this function do", "walk me through this"
+    if (/\b(explain|analyze|analyse|walk\s+(me\s+)?through)\b.{0,20}\b(this|the|my)\b.{0,10}\b(code|script|function|snippet|class|method)?\b/i.test(t) ||
+        /\bwhat\s+does\s+(this|the)\s+(code|script|function|snippet)\s+(do|mean|say)\b/i.test(t)) return 'code_explain'
 
     return 'chat'
 }
