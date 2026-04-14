@@ -638,12 +638,12 @@ const handleMessage = async (conn, rawMsg) => {
             }
             // ═══════════════════════════════════════════════════════════════
             // BERA AGENT — Full Intent Router (fires before ChatBera)
-            // In GROUPS: only fires when bot is @mentioned or "bera" is said.
-            // In DMs: fires on all messages as normal.
+            // Only fires when "bera" is said OR bot is @mentioned — in both
+            // DMs and groups. Never fires on random messages.
             // ═══════════════════════════════════════════════════════════════
             const _agentMentioned = (m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []).some(j => j === conn.user?.id)
             const _agentBeraCall  = text && /\bbera\b/i.test(text)
-            const _agentAllowed   = !m.isGroup || _agentMentioned || _agentBeraCall
+            const _agentAllowed   = _agentMentioned || _agentBeraCall
             if (!m.fromMe && text && _agentAllowed) {
                 const { detectIntent } = require('../Library/router')
                 const intent = detectIntent(text)
@@ -2451,12 +2451,13 @@ const handleMessage = async (conn, rawMsg) => {
 
             // ── ChatBera mode: reply as the owner when activated ──────────────
             // ChatBera: global mode OR per-chat mode
+            // Does NOT fire when the agent already handled the message (bera mentioned)
             const chatberaGlobal = global.db?.data?.chatbera?.globalEnabled
             const chatberaChat   = global.db?.data?.chatbera?.enabled?.[chat]
             const chatberaOn = chatberaGlobal || chatberaChat
             // Skip if message is from a group (PMs only) unless group mode enabled
             const chatberaGroupOk = global.db?.data?.chatbera?.groupEnabled || false
-            if (chatberaOn && !m.fromMe && text && (!m.isGroup || chatberaGroupOk)) {
+            if (chatberaOn && !m.fromMe && text && !_agentAllowed && (!m.isGroup || chatberaGroupOk)) {
                 console.log('[CHATBERA] 🔥 Triggered for msg:', text.slice(0, 30), '| from:', sender)
                 try {
                     const { generateAdvancedReply } = require('../Library/actions/beraai')

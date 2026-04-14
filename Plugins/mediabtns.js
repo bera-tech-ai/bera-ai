@@ -224,12 +224,27 @@ handle.all = async (m, { conn, command, args, prefix, reply, sender } = {}) => {
             })
         }
 
-        // Buttons off or no results → give direct commands
-        return reply(
-            '🎵 *Playing: ' + text + '*\n\n⏳ Use these commands:\n' +
-            prefix + 'tomp3 ' + ytSearchUrl + '\n' +
-            prefix + 'ytv ' + ytSearchUrl
-        )
+        // Buttons off or no results → search apiskeith and download first result directly
+        try {
+            const sr = await axios.get('https://apiskeith.top/search/yts?q=' + encodeURIComponent(text), { timeout: 10000 })
+            const apiResults = sr.data?.result || []
+            const song = apiResults[0] || results[0]
+            if (!song) return reply('❌ No results found for: *' + text + '*')
+            const songUrl = song.url || ('https://youtu.be/' + song.id)
+            await conn.sendMessage(chat, { react: { text: '⏳', key: m.key } }).catch(() => {})
+            await reply('🎵 *' + (song.title || text) + '*\n⏳ Downloading audio...')
+            const { downloadAudio } = require('../Library/actions/music')
+            const dl = await downloadAudio(songUrl)
+            if (dl.success && (dl.url || dl.audioUrl)) {
+                if (dl.thumbnail) await conn.sendMessage(chat, { image: { url: dl.thumbnail }, caption: '🎵 ' + (song.title || text) }).catch(() => {})
+                await conn.sendMessage(chat, { audio: { url: dl.url || dl.audioUrl }, mimetype: 'audio/mpeg', fileName: (song.title || text) + '.mp3' }, { quoted: m })
+                await conn.sendMessage(chat, { react: { text: '✅', key: m.key } }).catch(() => {})
+            } else {
+                return reply('❌ Download failed. Try: *' + prefix + 'tomp3 ' + songUrl + '*')
+            }
+        } catch (e) {
+            return reply('❌ Error: ' + e.message)
+        }
     }
 
 }
