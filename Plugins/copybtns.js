@@ -115,7 +115,6 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
                 footer: 'Bera AI — Lyrics',
                 buttons: [
                     { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Lyrics', copy_code: data.lyrics.slice(0, 2000) }) },
-                    { id: p + 'lyrics2 ' + text, text: '🔄 Reload' },
                 ]
             })
         }
@@ -135,19 +134,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
             const example  = meaning?.definitions?.[0]?.example ? '\n\n💬 *Example:* ' + meaning.definitions[0].example : ''
             const partOfSpeech = meaning?.partOfSpeech || ''
             const phonetic = entry.phonetic || ''
-            const body = '📖 *' + entry.word + '* ' + (phonetic ? '(' + phonetic + ')' : '') + '\n🏷️ *' + partOfSpeech + '*\n\n' + defText + example
-            if (getBtnMode(chat)) {
-                return sendButtons(conn, chat, {
-                    title:  '📖 ' + entry.word,
-                    text:   body,
-                    footer: 'Bera AI — Dictionary',
-                    buttons: [
-                        { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Definition', copy_code: defText }) },
-                        { id: p + 'define2 ' + text, text: '🔄 Reload' },
-                    ]
-                })
-            }
-            return reply(body)
+            return reply('📖 *' + entry.word + '* ' + (phonetic ? '(' + phonetic + ')' : '') + '\n🏷️ *' + partOfSpeech + '*\n\n' + defText + example)
         } catch { return reply('❌ Could not fetch definition. Try again.') }
     }
 
@@ -162,19 +149,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
             const res = await axios.get('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(toTranslate) + '&langpair=en|' + lang, { timeout: 8000 })
             const translated = res.data?.responseData?.translatedText
             if (!translated) return reply('❌ Translation failed. Check the language code.')
-            const body = '🌍 *Translation*\n\n📝 *Original (' + 'en' + '):* ' + toTranslate + '\n\n✅ *Result (' + lang + '):* ' + translated
-            if (getBtnMode(chat)) {
-                return sendButtons(conn, chat, {
-                    title:  '🌍 Translation',
-                    text:   body,
-                    footer: 'Bera AI — Translator',
-                    buttons: [
-                        { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Result', copy_code: translated }) },
-                        { id: p + 'tr2 en ' + translated, text: '🔁 Translate Back to EN' },
-                    ]
-                })
-            }
-            return reply(body)
+            return reply('🌍 *Translation*\n\n📝 *Original:* ' + toTranslate + '\n\n✅ *Result (' + lang + '):* ' + translated)
         } catch { return reply('❌ Translation error. Try again.') }
     }
 
@@ -190,21 +165,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
             const country = res.data.nearest_area?.[0]?.country?.[0]?.value || ''
             const tempC = w.temp_C, tempF = w.temp_F
             const desc  = w.weatherDesc?.[0]?.value || ''
-            const humid = w.humidity
-            const wind  = w.windspeedKmph
-            const body = '🌍 *' + area + ', ' + country + '*\n\n🌡️ *Temp:* ' + tempC + '°C / ' + tempF + '°F\n🌤️ *Condition:* ' + desc + '\n💧 *Humidity:* ' + humid + '%\n💨 *Wind:* ' + wind + ' km/h'
-            if (getBtnMode(chat)) {
-                return sendButtons(conn, chat, {
-                    title:  '🌤️ Weather: ' + area,
-                    text:   body,
-                    footer: 'Bera AI — Weather',
-                    buttons: [
-                        { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy', copy_code: body }) },
-                        { id: p + 'weather2 ' + text, text: '🔄 Refresh' },
-                    ]
-                })
-            }
-            return reply(body)
+            return reply('🌍 *' + area + ', ' + country + '*\n\n🌡️ *Temp:* ' + tempC + '°C / ' + tempF + '°F\n🌤️ *Condition:* ' + desc + '\n💧 *Humidity:* ' + w.humidity + '%\n💨 *Wind:* ' + w.windspeedKmph + ' km/h')
         } catch { return reply('❌ Could not fetch weather. Try again.') }
     }
 
@@ -213,7 +174,6 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
         if (!text) return reply('❌ Usage: ' + p + 'calc2 <expression>\nExample: ' + p + 'calc2 15 * 3 + 7')
         let result
         try {
-            // Safe math evaluation
             const safe = text.replace(/[^0-9+\-*/().% ]/g, '')
             result = Function('"use strict"; return (' + safe + ')')()
             if (!isFinite(result)) throw new Error('infinite')
@@ -236,18 +196,7 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
     if (['qr2','qrbt','qrcode2'].includes(command)) {
         if (!text) return reply('❌ Usage: ' + p + 'qr2 <text or URL>')
         const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(text)
-        await conn.sendMessage(chat, { image: { url: qrUrl }, caption: '🔲 *QR Code*\n\n📝 Content: ' + text.slice(0, 100) + (getBtnMode(chat) ? '' : '') }, { quoted: m })
-        if (getBtnMode(chat)) {
-            return sendButtons(conn, chat, {
-                title:  '🔲 QR Code Ready',
-                text:   '📝 *Content:* ' + text.slice(0, 200),
-                footer: 'Bera AI — QR Generator',
-                buttons: [
-                    { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Content', copy_code: text }) },
-                    { name: 'cta_url',  buttonParamsJson: JSON.stringify({ display_text: '🔗 Open QR URL', url: qrUrl }) },
-                ]
-            })
-        }
+        return conn.sendMessage(chat, { image: { url: qrUrl }, caption: '🔲 *QR Code*\n\n📝 Content: ' + text.slice(0, 100) }, { quoted: m })
     }
 
     // ── ASK2 — AI with copy button ────────────────────────────────────────────
@@ -261,10 +210,9 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
             return sendButtons(conn, chat, {
                 title:  '🧠 ChatBera AI',
                 text:   body,
-                footer: 'Bera AI — ChatBera',
+                footer: 'Bera AI',
                 buttons: [
                     { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Answer', copy_code: answer }) },
-                    { id: p + 'ask2 ' + text, text: '🔄 Ask Again' },
                 ]
             })
         }
@@ -278,21 +226,10 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
         let ppUrl
         try { ppUrl = await conn.profilePictureUrl(target, 'image') } catch { ppUrl = null }
         if (!ppUrl) return reply('❌ No profile picture found for @' + num)
-        await conn.sendMessage(chat, { image: { url: ppUrl }, caption: '🖼️ *Profile Picture*\n👤 @' + num }, { quoted: m })
-        if (getBtnMode(chat)) {
-            return sendButtons(conn, chat, {
-                title:  '🖼️ Profile Picture',
-                text:   '👤 @' + num + "'s profile picture",
-                footer: 'Bera AI',
-                buttons: [
-                    { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '🔗 Open Full Size', url: ppUrl }) },
-                    { name: 'cta_copy',buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Link',     copy_code: ppUrl }) },
-                ]
-            })
-        }
+        return conn.sendMessage(chat, { image: { url: ppUrl }, caption: '🖼️ *Profile Picture*\n👤 @' + num }, { quoted: m })
     }
 
-    // ── WARN2 WITH ACTION BUTTONS ─────────────────────────────────────────────
+    // ── WARN2 ─────────────────────────────────────────────────────────────────
     if (['warn2','warnbt'].includes(command)) {
         const mentioned = m.mentionedJid?.[0]
         const reason    = args.filter(a => !a.match(/@\d+/)).join(' ').trim() || 'No reason given'
@@ -301,40 +238,16 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
         const key    = chat + '_' + mentioned
         warns[key]   = (warns[key] || 0) + 1
         const count  = warns[key]
-        const body   = '⚠️ *Warning Issued*\n\n👤 User: @' + mentioned.split('@')[0] + '\n📝 Reason: ' + reason + '\n🔢 Warnings: ' + count + '/3' + (count >= 2 ? '\n\n⚡ ' + (3-count) + ' more = auto-kick!' : '')
-        if (getBtnMode(chat)) {
-            return sendButtons(conn, chat, {
-                title:  '⚠️ Warning',
-                text:   body,
-                footer: 'Bera AI — Moderation',
-                buttons: [
-                    { id: 'warn_forgive_' + mentioned, text: '✅ Forgive' },
-                    { id: 'warn_kick_'    + mentioned, text: '⛔ Kick Now' },
-                    { id: 'warn_mute_'    + mentioned, text: '🔕 Mute 1h' },
-                ]
-            })
-        }
-        await conn.sendMessage(chat, { text: body, mentions: [mentioned] }, { quoted: m })
+        const body   = '⚠️ *Warning Issued*\n\n👤 User: @' + mentioned.split('@')[0] + '\n📝 Reason: ' + reason + '\n🔢 Warnings: ' + count + '/3' + (count >= 2 ? '\n\n⚡ ' + (3 - count) + ' more warning = auto-kick!' : '')
+        return conn.sendMessage(chat, { text: body, mentions: [mentioned] }, { quoted: m })
     }
 
-    // ── SEARCH2 WITH LINK BUTTONS ─────────────────────────────────────────────
+    // ── SEARCH2 ───────────────────────────────────────────────────────────────
     if (['search2','searchbt','googlebt'].includes(command)) {
         if (!text) return reply('❌ Usage: ' + p + 'search2 <query>')
         const googleUrl = 'https://www.google.com/search?q=' + encodeURIComponent(text)
         const ytUrl     = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(text)
-        const body      = '╭══〘 *🔍 Search: ' + text.slice(0,40) + '* 〙═⊷\n┃ Open on your preferred platform:\n╰══════════════════⊷'
-        if (getBtnMode(chat)) {
-            return sendButtons(conn, chat, {
-                title:  '🔍 Web Search',
-                text:   body,
-                footer: 'Bera AI — Search',
-                buttons: [
-                    { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '🌐 Google',  url: googleUrl }) },
-                    { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '▶️ YouTube', url: ytUrl }) },
-                ]
-            })
-        }
-        return reply(body + '\n\n' + googleUrl)
+        return reply('🔍 *Search: ' + text.slice(0, 40) + '*\n\n🌐 Google: ' + googleUrl + '\n▶️ YouTube: ' + ytUrl)
     }
 }
 

@@ -42,23 +42,42 @@ handle.all = async (m, { conn, command, args, prefix, reply, isOwner, isAdmin, i
 
     // ── AI PANEL ─────────────────────────────────────────────────────────────
     if (['aipanel','aitools','aimenu'].includes(command)) {
-        return sb('🧠 AI Tools Panel',
-            '╭══〘 *🧠 AI Tools Panel* 〙═⊷\n' +
-            '┃ Bera AI-powered writing & creativity\n' +
-            '┃ Use these tools by typing the command\n' +
-            '╰══════════════════⊷',
-            'Bera AI', [
-            { id: p + 'summarize', text: '📋 Summarize Text' },
-            { id: p + 'explain',   text: '🧠 Explain a Topic' },
-            { id: p + 'improve',   text: '✨ Improve Writing' },
-            { id: p + 'proofread', text: '📝 Proofread Text' },
-            { id: p + 'imagine',   text: '🎨 Generate AI Image' },
-            { id: p + 'roast',     text: '🔥 Roast Someone' },
-            { id: p + 'formal',    text: '👔 Make Text Formal' },
-            { id: p + 'eli5',      text: "👶 Explain Like I'm 5" },
-            { id: p + 'tweet',     text: '🐦 Write a Tweet' },
-            { id: p + 'caption2',  text: '📸 Write IG Caption' },
-        ])
+        return reply(
+            '╭══〘 *🧠 AI Tools* 〙═⊷\n' +
+            '┃ Type the command + your text\n' +
+            '┃\n' +
+            '┃ ── ✍️ Writing ──\n' +
+            '┃❍ ' + p + 'summarize <text>  — Summarize\n' +
+            '┃❍ ' + p + 'explain <topic>   — Explain clearly\n' +
+            '┃❍ ' + p + 'improve <text>    — Improve writing\n' +
+            '┃❍ ' + p + 'proofread <text>  — Fix grammar\n' +
+            '┃❍ ' + p + 'rewrite <text>    — Rephrase\n' +
+            '┃❍ ' + p + 'formal <text>     — Make formal\n' +
+            '┃❍ ' + p + 'casual <text>     — Make casual\n' +
+            '┃❍ ' + p + 'eli5 <topic>      — Explain like I\'m 5\n' +
+            '┃❍ ' + p + 'expand <text>     — Expand & elaborate\n' +
+            '┃\n' +
+            '┃ ── 📱 Social Media ──\n' +
+            '┃❍ ' + p + 'tweet <topic>     — Write a tweet\n' +
+            '┃❍ ' + p + 'caption2 <desc>   — IG caption\n' +
+            '┃❍ ' + p + 'bioai <info>      — Write a bio\n' +
+            '┃❍ ' + p + 'sloganai <brand>  — Generate slogans\n' +
+            '┃\n' +
+            '┃ ── 💻 Code & Dev ──\n' +
+            '┃❍ ' + p + 'codegen <task>    — Generate code\n' +
+            '┃❍ ' + p + 'debugcode <code>  — Find bugs\n' +
+            '┃❍ ' + p + 'code2eng <code>   — Explain code\n' +
+            '┃\n' +
+            '┃ ── 📄 Documents ──\n' +
+            '┃❍ ' + p + 'essay <topic>     — Essay outline\n' +
+            '┃❍ ' + p + 'email <topic>     — Write email\n' +
+            '┃❍ ' + p + 'cover <job>       — Cover letter\n' +
+            '┃\n' +
+            '┃ ── 🎭 Fun ──\n' +
+            '┃❍ ' + p + 'roast <name>      — Savage roast\n' +
+            '┃❍ ' + p + 'imagine <prompt>  — AI image\n' +
+            '╰══════════════════⊷'
+        )
     }
 
     // ── MEDIA DOWNLOAD PANEL ─────────────────────────────────────────────────

@@ -1,4 +1,6 @@
 const axios = require('axios')
+const { sendButtons } = require('gifted-btns')
+const { getBtnMode } = require('../Library/actions/btnmode')
 
 const BASE = 'https://apiskeith.top'
 const kget = (path, params, timeout = 15000) =>
@@ -496,7 +498,18 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
             if (typeof result === 'object') result = result?.code || result?.output || JSON.stringify(result)
             if (!result || typeof result !== 'string') throw new Error('no result')
             await react('✅')
-            return reply(`💻 *Generated Code:*\n\n\`\`\`\n${result.slice(0, 3500)}\n\`\`\``)
+            const codeBody = `💻 *Generated Code:*\n\n\`\`\`\n${result.slice(0, 3500)}\n\`\`\``
+            if (getBtnMode(chat)) {
+                return sendButtons(conn, chat, {
+                    title:   '💻 Code Generator',
+                    text:    codeBody,
+                    footer:  'Bera AI — CodeGen',
+                    buttons: [
+                        { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Code', copy_code: result.slice(0, 2000) }) },
+                    ]
+                })
+            }
+            return reply(codeBody)
         } catch {
             await react('❌')
             return reply('❌ Code generation failed. Try again.')

@@ -6,6 +6,8 @@
 //           sentiment, keyword, complete, expand
 
 const axios = require('axios')
+const { sendButtons } = require('gifted-btns')
+const { getBtnMode } = require('../Library/actions/btnmode')
 
 const handle = {}
 handle.command = [
@@ -220,12 +222,22 @@ handle.all = async (m, { conn, command, args, prefix, reply } = {}) => {
 
     await conn.sendMessage(chat, { react: { text: '✅', key: m.key } }).catch(() => {})
 
-    return reply(
-        '╭══〘 *' + emoji + ' ' + title + '* 〙═⊷\n' +
-        '┃\n' +
+    const body = '╭══〘 *' + emoji + ' ' + title + '* 〙═⊷\n┃\n' +
         result.split('\n').map(l => '┃ ' + l).join('\n') +
         '\n╰══════════════════⊷'
-    )
+
+    if (getBtnMode(chat)) {
+        return sendButtons(conn, chat, {
+            title:   emoji + ' ' + title,
+            text:    body,
+            footer:  'Bera AI',
+            buttons: [
+                { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Result', copy_code: result.slice(0, 2000) }) },
+            ]
+        })
+    }
+
+    return reply(body)
 }
 
 module.exports = handle
