@@ -226,10 +226,11 @@ const startBot = async () => {
         browser: ['Ubuntu', 'Chrome', '22.0.0'],
         markOnlineOnConnect: true,
         syncFullHistory: false,
-        generateHighQualityLinkPreview: true,
-        keepAliveIntervalMs: 30000,
+        generateHighQualityLinkPreview: false,
+        keepAliveIntervalMs: 15000,
         connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 30000,
+        retryRequestDelayMs: 250,
     })
 
     global.conn = conn
@@ -291,6 +292,7 @@ const startBot = async () => {
 
         if (connection === 'open') {
             if (fs.existsSync(PHONE_FILE)) fs.unlinkSync(PHONE_FILE)
+            global.botReadyAt = Math.floor(Date.now() / 1000)
             const botJid = jidNormalizedUser(conn.user?.id || '')
             console.log(chalk.green(`\n[BOT] ✅ Connected as ${conn.user?.name || 'Bera AI'} (${botJid})`))
             console.log(chalk.green(`[BOT] 🤖 ${config.botName} is online and ready!\n`))

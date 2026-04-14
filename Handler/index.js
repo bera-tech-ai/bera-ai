@@ -4,6 +4,14 @@ const { getUser } = require('../Database')
 const fs = require('fs')
 const path = require('path')
 
+// Pre-warm library modules so first command has zero load delay
+try { require('../Library/actions/music') } catch {}
+try { require('../Library/actions/search') } catch {}
+try { require('../Library/actions/chatbera') } catch {}
+try { require('gifted-btns') } catch {}
+
+const _seenMsgIds = new Set()
+
 const commandFiles = ['general', 'bera', 'group', 'admin', 'media', 'pterodactyl']
 const handlers = commandFiles.map(f => require(`../Commands/${f}`))
 
@@ -313,6 +321,23 @@ const handleMessage = async (conn, rawMsg) => {
     try {
         const m = smsg(conn, rawMsg)
         if (!m || !m.message) return
+
+        // ── DROP OLD / DUPLICATE MESSAGES ─────────────────────────────────────
+        // Skip any message that arrived before the bot connected (replayed history)
+        const msgTime = m.messageTimestamp || rawMsg.messageTimestamp || 0
+        const readyAt = global.botReadyAt || 0
+        if (msgTime && readyAt && msgTime < readyAt - 5) return
+
+        // Skip duplicates (WhatsApp sometimes fires upsert twice for same msg)
+        const msgId = rawMsg.key?.id
+        if (msgId) {
+            if (_seenMsgIds.has(msgId)) return
+            _seenMsgIds.add(msgId)
+            if (_seenMsgIds.size > 500) {
+                const first = _seenMsgIds.values().next().value
+                _seenMsgIds.delete(first)
+            }
+        }
 
         // ── INTERACTIVE BUTTON CLICK HANDLER ─────────────────────────────────
         // When user taps a quick_reply/cta button, WA sends interactiveResponseMessage
