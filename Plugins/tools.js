@@ -489,30 +489,92 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, arg
 
     // ── AI Code Generator ────────────────────────────────────────────────────
     if (command === 'codegen' || command === 'gencode') {
-        if (!text) return reply(`❌ Usage: ${prefix}codegen <what to code>\nExample: ${prefix}codegen REST API in Node.js`)
+        if (!text) return reply(
+            `❌ Usage: ${prefix}codegen <what to code>\n\n` +
+            `Examples:\n` +
+            `• ${prefix}codegen Express REST API with JWT auth\n` +
+            `• ${prefix}codegen Python script to scrape a website\n` +
+            `• ${prefix}codegen React hook for localStorage\n` +
+            `• ${prefix}codegen Bash script to auto-backup files\n` +
+            `• ${prefix}codegen SQL query to find duplicate emails`
+        )
         await react('💻')
+
+        // Detect language
+        const detectLang = (t) => {
+            const d = t.toLowerCase()
+            if (/\bpython\b|\.py\b|flask|django|fastapi|pandas/.test(d)) return { name: 'Python', tag: 'python' }
+            if (/\btypescript\b|\.ts\b/.test(d)) return { name: 'TypeScript', tag: 'typescript' }
+            if (/\bbash\b|shell\s+script|\.sh\b|linux\s+script/.test(d)) return { name: 'Bash', tag: 'bash' }
+            if (/\bhtml\b.{0,20}\bcss\b|landing\s+page|webpage/.test(d)) return { name: 'HTML/CSS', tag: 'html' }
+            if (/\breact\b|next\.?js\b|jsx/.test(d)) return { name: 'React (JavaScript)', tag: 'javascript' }
+            if (/\bsql\b|database\s+quer|mysql|postgres|sqlite/.test(d)) return { name: 'SQL', tag: 'sql' }
+            if (/\bjava\b(?!script)/.test(d)) return { name: 'Java', tag: 'java' }
+            if (/\bgo\b|\bgolang\b/.test(d)) return { name: 'Go', tag: 'go' }
+            if (/\brust\b/.test(d)) return { name: 'Rust', tag: 'rust' }
+            if (/\bc\+\+|cpp/.test(d)) return { name: 'C++', tag: 'cpp' }
+            return { name: 'JavaScript', tag: 'javascript' }
+        }
+        const { name: langName, tag: langTag } = detectLang(text)
+
+        const codePrompt =
+            `You are a senior ${langName} developer. Write COMPLETE, PRODUCTION-READY ${langName} code for:\n\n${text}\n\n` +
+            `STRICT REQUIREMENTS:\n` +
+            `1. ALL imports/requires at the top — NO missing dependencies\n` +
+            `2. Every function FULLY implemented — zero placeholders or "// TODO"\n` +
+            `3. Proper error handling (try/catch, null checks, validation)\n` +
+            `4. Input validation and edge cases handled\n` +
+            `5. Brief comments on non-obvious logic only\n` +
+            `6. A working usage example at the bottom\n` +
+            `7. Modern, idiomatic ${langName} syntax\n\n` +
+            `Return ONLY the code in a \`\`\`${langTag} code block. No intro text.`
+
         try {
-            const res = await kget('/ai/codegen', { q: text }, 30000)
-            const data = res.data
-            let result = data?.result
-            if (typeof result === 'object') result = result?.code || result?.output || JSON.stringify(result)
-            if (!result || typeof result !== 'string') throw new Error('no result')
+            const { generateAdvancedReply, validateAndFixCode } = require('../Library/actions/beraai')
+            const aiRes = await generateAdvancedReply(codePrompt, chat + '_codegen_' + Date.now(), null, null)
+
+            if (!aiRes.success || !aiRes.reply) throw new Error('AI returned no result')
+
+            // Validate and auto-fix code before sending
+            const validated = await validateAndFixCode(aiRes.reply, text)
+            const codeRaw   = validated.response
+
+            // Extract the best code block for the copy button
+            const codeMatch = codeRaw.match(/```[\w]*\n?([\s\S]+?)```/)
+            const codeForCopy = codeMatch?.[1]?.trim() || codeRaw
+
+            const fixNote = validated.fixed
+                ? `\n🔧 _Auto-fixed syntax errors before sending_\n`
+                : (validated.errors.length ? `\n⚠️ _Note: ${validated.errors[0]?.error?.slice(0, 80)}_\n` : '')
+
+            const header = `💻 *${langName} Code — ${text.slice(0, 60)}${text.length > 60 ? '...' : ''}*${fixNote}\n\n`
+            const fullMsg = header + codeRaw.slice(0, 3800)
+
             await react('✅')
-            const codeBody = `💻 *Generated Code:*\n\n\`\`\`\n${result.slice(0, 3500)}\n\`\`\``
             if (getBtnMode(chat)) {
                 return sendButtons(conn, chat, {
-                    title:   '💻 Code Generator',
-                    text:    codeBody,
+                    title:   `💻 ${langName} Code`,
+                    text:    fullMsg,
                     footer:  'Bera AI — CodeGen',
                     buttons: [
-                        { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Code', copy_code: result.slice(0, 2000) }) },
+                        { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copy Code', copy_code: codeForCopy.slice(0, 2000) }) },
                     ]
                 })
             }
-            return reply(codeBody)
-        } catch {
+            return reply(fullMsg)
+        } catch (e) {
+            console.error('[CodeGen]', e.message)
+            // Fallback to simple endpoint
+            try {
+                const res = await kget('/ai/codegen', { q: text }, 30000)
+                const result = res.data?.result
+                if (result && typeof result === 'string') {
+                    await react('✅')
+                    return reply(`💻 *${langName} Code:*\n\n\`\`\`${langTag}\n${result.slice(0, 3500)}\n\`\`\``)
+                }
+            } catch {}
             await react('❌')
-            return reply('❌ Code generation failed. Try again.')
+            return reply(`❌ Code generation failed. Try again or be more specific about what to build.`)
         }
     }
 

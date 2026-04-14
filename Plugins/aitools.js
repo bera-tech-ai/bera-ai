@@ -110,36 +110,58 @@ const EMOJI_MAP = {
     nameai: '🏷️', sloganai: '📢', bioai: '👤',
 }
 
+const LANG_DETECT = (desc) => {
+    const d = desc.toLowerCase()
+    if (/\bpython\b|\.py\b|flask|django|fastapi|pandas|numpy/.test(d)) return 'python'
+    if (/\btypescript\b|\.ts\b|\btype\s+safe/.test(d)) return 'typescript'
+    if (/\bbash\b|shell\s+script|\.sh\b/.test(d)) return 'bash'
+    if (/\bhtml\b|css\b|webpage|landing\s+page|frontend/.test(d)) return 'html'
+    if (/\breact\b|next\.?js\b|component/.test(d)) return 'javascript (React)'
+    if (/\bsql\b|database\s+query|mysql|postgres|sqlite/.test(d)) return 'sql'
+    if (/\bjava\b(?!script)/.test(d)) return 'java'
+    if (/\bgo\b|\bgolang\b/.test(d)) return 'go'
+    if (/\brust\b/.test(d)) return 'rust'
+    if (/\bc\+\+|cpp/.test(d)) return 'cpp'
+    return 'javascript'
+}
+
 const PROMPTS = {
-    summarize:   t => 'Summarize this in 3-5 clear sentences:\n\n' + t,
-    explain:     t => 'Explain this clearly and concisely:\n\n' + t,
-    improve:     t => 'Improve this text to be clearer, more engaging and better written. Return only the improved text:\n\n' + t,
-    proofread:   t => 'Fix ALL grammar, spelling and punctuation errors in this text. Return only the corrected text:\n\n' + t,
-    bullet:      t => 'Convert this into clear, concise bullet points:\n\n' + t,
-    outline:     t => 'Create a structured outline for:\n\n' + t,
-    eli5:        t => 'Explain this like I\'m 5 years old, very simply:\n\n' + t,
-    rewrite:     t => 'Rephrase/rewrite this completely differently while keeping the same meaning:\n\n' + t,
-    formal:      t => 'Rewrite this in formal, professional English:\n\n' + t,
-    casual:      t => 'Rewrite this in casual, friendly, conversational English:\n\n' + t,
-    tweet:       t => 'Write a compelling Twitter/X post about: ' + t + '\nMake it engaging, include 2-3 relevant hashtags, keep under 280 chars.',
-    caption2:    t => 'Write a catchy Instagram caption for: ' + t + '\nInclude 5 relevant hashtags. Make it engaging.',
-    essay:       t => 'Write a structured essay outline with intro, 3 body points, and conclusion for:\n\n' + t,
-    cover:       t => 'Write a professional 3-paragraph cover letter for a ' + t + ' position.',
-    email:       t => 'Write a professional email about:\n\n' + t,
-    code2eng:    t => 'Explain what this code does in plain English, step by step:\n\n```\n' + t + '\n```',
-    eng2code:    t => 'Write clean JavaScript code for:\n\n' + t + '\n\nOnly return the code, no explanation.',
-    debugcode:   t => 'Find and explain any bugs or issues in this code:\n\n```\n' + t + '\n```',
-    sentiment:   t => 'Analyze the sentiment and emotional tone of this text. Give: Sentiment (Positive/Negative/Neutral), Emotion, Confidence %, and a brief reason:\n\n' + t,
-    keyword:     t => 'Extract the 5-8 most important keywords and key phrases from this text. List them with relevance scores:\n\n' + t,
-    complete:    t => 'Continue and complete this text naturally:\n\n' + t,
-    expand:      t => 'Expand and elaborate on this text, adding more detail and context:\n\n' + t,
-    synonym:     t => 'Give 8-10 synonyms for the word: ' + t,
-    antonym:     t => 'Give 5-8 antonyms for the word: ' + t,
-    acronym:     t => 'Create a creative acronym meaning for the letters: ' + t.toUpperCase(),
-    nameai:      t => 'Generate 8 creative, catchy names for: ' + t + '\nMake them memorable and brandable.',
-    sloganai:    t => 'Generate 6 creative, punchy slogans for: ' + t,
-    bioai:       t => 'Write a professional, engaging 3-sentence bio based on this info:\n\n' + t,
-    roasttext:   t => 'Write a funny, savage but good-natured comedy roast of: ' + t + '\nKeep it playful, not mean-spirited.',
+    summarize:   t => `Summarize the following in 3-5 clear, well-structured sentences. Focus on the key points only:\n\n${t}`,
+    explain:     t => `Explain the following clearly and precisely. Use examples if helpful:\n\n${t}`,
+    improve:     t => `Improve the following text. Make it clearer, more engaging, better structured, and more impactful. Return ONLY the improved text without commentary:\n\n${t}`,
+    proofread:   t => `Proofread the following text. Fix ALL grammar, spelling, punctuation, and style errors. Return ONLY the corrected text:\n\n${t}`,
+    bullet:      t => `Convert the following into a clear, well-organized bulleted list. Group related items if needed:\n\n${t}`,
+    outline:     t => `Create a detailed, structured outline for the following topic. Include main sections and subsections:\n\n${t}`,
+    eli5:        t => `Explain the following in the simplest possible terms, as if explaining to a 5-year-old. Use simple words and a relatable analogy:\n\n${t}`,
+    rewrite:     t => `Completely rephrase the following text while keeping the exact same meaning. Use different words and sentence structures:\n\n${t}`,
+    formal:      t => `Rewrite the following in a formal, professional tone suitable for business or academic use. Return ONLY the rewritten text:\n\n${t}`,
+    casual:      t => `Rewrite the following in a casual, friendly, conversational tone. Sound natural and approachable. Return ONLY the rewritten text:\n\n${t}`,
+    tweet:       t => `Write an engaging Twitter/X post about: ${t}\nRequirements: compelling hook, conversational tone, 2-3 relevant hashtags, strictly under 280 characters.`,
+    caption2:    t => `Write a captivating Instagram caption for: ${t}\nInclude an engaging opening line, value/story in the middle, clear call-to-action, and 5-8 relevant hashtags at the end.`,
+    essay:       t => `Write a comprehensive, well-structured essay on: ${t}\n\nInclude:\n- Strong introduction with thesis\n- 3 developed body paragraphs with evidence\n- Conclusion that reinforces the thesis\n- Smooth transitions between sections`,
+    cover:       t => `Write a compelling 3-paragraph cover letter for a ${t} position.\n\nParagraph 1: Hook + why you want this role\nParagraph 2: Your top 2-3 relevant skills with specific examples\nParagraph 3: Call to action + closing`,
+    email:       t => `Write a clear, professional email about:\n\n${t}\n\nInclude: appropriate subject line, greeting, concise body, and professional closing.`,
+
+    code2eng: t => `You are a senior software engineer. Analyze and explain the following code comprehensively:\n\n\`\`\`\n${t}\n\`\`\`\n\nProvide:\n1. **What it does** (1-2 sentence summary)\n2. **How it works** (step-by-step walkthrough)\n3. **Key concepts used** (data structures, algorithms, patterns)\n4. **Potential issues** (edge cases, performance, security)\n5. **Improvements** (better ways to write it if any)`,
+
+    eng2code: (t) => {
+        const lang = LANG_DETECT(t)
+        return `You are a senior ${lang} developer. Write complete, production-ready ${lang} code for the following task:\n\n${t}\n\nRequirements:\n- ALL imports/requires at the top\n- Proper error handling (try/catch)\n- Input validation\n- Clear variable names\n- Brief comments for complex logic\n- Working example usage at the bottom\n- NO placeholder code — everything must be fully implemented\n\nReturn ONLY the code in a markdown code block with the correct language tag.`
+    },
+
+    debugcode: t => `You are an expert debugger and code reviewer. Analyze this code for ALL issues:\n\n\`\`\`\n${t}\n\`\`\`\n\nProvide:\n1. **Bugs Found** — list each bug with line reference and exact description\n2. **Root Cause** — why each bug occurs\n3. **Fixed Code** — the complete corrected version in a code block\n4. **What Changed** — clear explanation of every fix\n5. **Prevention** — how to avoid these bugs in the future\n\nIf no bugs found, say so clearly and suggest optimizations instead.`,
+
+    sentiment:   t => `Analyze the emotional tone and sentiment of the following text:\n\n${t}\n\nReturn:\n• **Overall Sentiment**: Positive / Negative / Neutral / Mixed\n• **Dominant Emotion**: (joy, anger, fear, sadness, surprise, disgust, etc.)\n• **Confidence**: X%\n• **Tone**: (formal, casual, sarcastic, urgent, etc.)\n• **Key Indicators**: the specific words/phrases that drove this analysis`,
+    keyword:     t => `Extract the most important keywords and key phrases from this text. Rank by relevance:\n\n${t}\n\nFormat as numbered list with each keyword/phrase and a brief note on why it's significant.`,
+    complete:    t => `Continue and complete the following text naturally. Match the tone, style, and context exactly:\n\n${t}`,
+    expand:      t => `Expand the following into a detailed, comprehensive version. Add context, examples, data points, and elaboration:\n\n${t}`,
+    synonym:     t => `Provide 10 synonyms for: "${t}"\n\nFor each: word — brief context note (when to use it). Group by formality level.`,
+    antonym:     t => `Provide 8 antonyms for: "${t}"\n\nFor each: antonym — brief context note. Note any nuances in meaning.`,
+    acronym:     t => `Create 3 creative, memorable acronym meanings for the letters: ${t.toUpperCase()}\n\nMake each one thematic — professional, fun, and inspirational versions.`,
+    nameai:      t => `Generate 10 creative, memorable brand/product names for: ${t}\n\nFor each name:\n- The name\n- 1-sentence tagline\n- Why it works (briefly)\n\nMix short/punchy names with more descriptive ones.`,
+    sloganai:    t => `Generate 8 powerful, punchy slogans for: ${t}\n\nMix different styles: emotional appeal, benefit-focused, action-driven, humorous, bold statement.`,
+    bioai:       t => `Write 3 versions of a professional bio based on this info:\n\n${t}\n\n1. **Short** (Twitter/LinkedIn headline — 1 sentence)\n2. **Medium** (3 sentences — for website About page)\n3. **Full** (2 paragraphs — professional profile)`,
+    roasttext:   t => `Write a sharp, witty, good-natured comedy roast of: ${t}\n\nKeep it clever and funny — NOT mean-spirited or offensive. Include 3-4 punchy roast lines.`,
 }
 
 handle.all = async (m, { conn, command, args, prefix, reply } = {}) => {

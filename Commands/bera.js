@@ -14,6 +14,7 @@ const { webSearch } = require('../Library/actions/search')
 const { analyzeImageFromBuffer } = require('../Library/actions/vision')
 const { readFile, writeFile, listFiles, deleteFile } = require('../Library/actions/files')
 const { evalJS } = require('../Library/actions/jseval')
+const { validateAndFixCode } = require('../Library/actions/beraai')
 const { planTask, summarizeResults } = require('../Library/actions/agent')
 const { translate } = require('../Library/actions/translate')
 const { download, detectPlatform } = require('../Library/actions/downloader')
@@ -616,6 +617,129 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
         await react(conn, m, res.success ? '✅' : '❌')
         const out = res.output.length > 2000 ? res.output.slice(0, 2000) + '\n...(truncated)' : res.output
         return reply(`${res.success ? '✅' : '❌'} *JS Result:*\n\`\`\`\n${out}\n\`\`\``)
+    }
+
+    // ── Run / execute quoted code ─────────────────────────────────────────────
+    if (intent === 'code_run') {
+        await react(conn, m, '▶️')
+        const quoted = m.quoted?.text || m.quoted?.body || ''
+        const inline = text.replace(/^(run|execute|exec)\s+(this|the|my|this\s+code|the\s+code|this\s+script|it)\b\s*/i, '').trim()
+        const code = quoted || inline
+        if (!code || code.length < 3) return reply(`❌ Quote the code you want me to run, then say "run this".`)
+
+        // Detect language
+        const langMatch = code.match(/^#!.*?(python|bash|sh)\b/i) || text.match(/\b(python|bash|shell)\b/i)
+        const lang = langMatch?.[1]?.toLowerCase()
+
+        if (lang === 'python' || lang === 'py') {
+            const { writeFileSync, unlinkSync } = require('fs')
+            const { exec } = require('child_process')
+            const os = require('os'), path = require('path')
+            const tmpFile = path.join(os.tmpdir(), `bera_run_${Date.now()}.py`)
+            writeFileSync(tmpFile, code, 'utf8')
+            await reply(`🐍 Running Python code...`)
+            await new Promise(resolve => {
+                exec(`python3 "${tmpFile}"`, { timeout: 15000, maxBuffer: 512 * 1024 }, async (err, stdout, stderr) => {
+                    unlinkSync(tmpFile)
+                    const out = (stdout || '').trim()
+                    const errOut = (stderr || '').trim()
+                    const success = !err && !errOut
+                    await react(conn, m, success ? '✅' : '❌')
+                    const result = out || errOut || '(no output)'
+                    const truncated = result.length > 2000 ? result.slice(0, 2000) + '\n...(truncated)' : result
+                    await reply(`${success ? '✅' : '❌'} *Python Output:*\n\`\`\`\n${truncated}\n\`\`\``)
+                    resolve()
+                })
+            })
+            return
+        }
+
+        // Default: JavaScript
+        const res = await evalJS(code)
+        await react(conn, m, res.success ? '✅' : '❌')
+        const out = (res.output || '').length > 2000 ? res.output.slice(0, 2000) + '\n...(truncated)' : res.output
+        return reply(`${res.success ? '✅' : '❌'} *Output:*\n\`\`\`\n${out || '(no output)'}\n\`\`\``)
+    }
+
+    // ── Validate / check code for errors ─────────────────────────────────────
+    if (intent === 'code_validate') {
+        await react(conn, m, '🔍')
+        const quoted = m.quoted?.text || m.quoted?.body || ''
+        const code = quoted || text.replace(/\b(check|validate|syntax\s+check|any\s+errors?\s+in|is\s+(this\s+)?code\s+(correct|valid|right|ok))\b/gi, '').trim()
+        if (!code || code.length < 5) return reply(`❌ Quote the code you want me to check, then say "check this code".`)
+
+        await reply(`🔍 Checking your code for errors...`)
+        const fakeResponse = `\`\`\`javascript\n${code}\n\`\`\``
+        const result = await validateAndFixCode(fakeResponse)
+
+        if (result.errors.length === 0) {
+            await react(conn, m, '✅')
+            return reply(`✅ *Code looks clean!*\n\nNo syntax errors found. Your code is valid ${result.errors.length === 0 ? '🎉' : ''}`)
+        }
+
+        await react(conn, m, result.fixed ? '🔧' : '❌')
+        const errList = result.errors.map(e => `• [${e.lang}] ${e.error}`).join('\n')
+        if (result.fixed) {
+            const fixedCode = result.response.match(/```[\w]*\n?([\s\S]+?)```/)?.[1]?.trim() || ''
+            return reply(`🔧 *Found and auto-fixed errors:*\n\n${errList}\n\n*Fixed code:*\n\`\`\`\n${fixedCode}\n\`\`\``)
+        }
+        return reply(`❌ *Errors found:*\n\n${errList}\n\nSend me the error and I'll help fix it!`)
+    }
+
+    // ── Build a complete full project ─────────────────────────────────────────
+    if (intent === 'code_build') {
+        await react(conn, m, '🏗️')
+        const task = text.replace(/\b(build|create|write|make|generate|a|an|the)\b/gi, '').trim() || text
+        await reply(`🏗️ *Building your project...*\n\n_"${task}"_\n\nAnalyzing requirements and generating complete code...`)
+
+        const buildPrompt = `You are a senior full-stack developer. Build a COMPLETE, PRODUCTION-READY ${task}.
+
+Requirements:
+- ALL files needed (entry point, config, routes, models, etc.)
+- Every function fully implemented — NO placeholders
+- Error handling in every async operation
+- Clear comments
+- Setup instructions at the end
+
+Format: show each file as a separate code block with filename as a comment at the top.
+Start immediately with the code — no lengthy intro.`
+
+        try {
+            const { generateAdvancedReply } = require('../Library/actions/beraai')
+            const r = await generateAdvancedReply(buildPrompt, m.chat + '_build', null, null)
+            if (r.success && r.reply) {
+                const validated = await validateAndFixCode(r.reply, task)
+                await react(conn, m, validated.errors.length ? '⚠️' : '✅')
+                const prefix = validated.fixed
+                    ? `🔧 _Auto-fixed ${validated.errors.length} syntax error(s) before sending_\n\n`
+                    : (validated.errors.length ? `⚠️ _Note: ${validated.errors.map(e=>e.error.slice(0,60)).join('; ')}_\n\n` : '')
+                return reply(`🏗️ *Project Built!*\n\n${prefix}${validated.response}`)
+            }
+        } catch {}
+        await react(conn, m, '❌')
+        return reply(`❌ Could not build the project. Try being more specific: "build a complete Express REST API with user auth"`)
+    }
+
+    // ── Explain / analyze code ────────────────────────────────────────────────
+    if (intent === 'code_explain') {
+        await react(conn, m, '🧠')
+        const quoted = m.quoted?.text || m.quoted?.body || ''
+        const code = quoted || text.replace(/\b(explain|analyze|analyse|what\s+does\s+this\s+(code|script|function)\s+do|walk\s+(me\s+)?through)\b/gi, '').trim()
+        if (!code || code.length < 5) return reply(`❌ Quote the code you want explained, then say "explain this code".`)
+
+        await reply(`🧠 Analyzing your code...`)
+        const prompt = `You are a senior software engineer. Analyze and explain this code comprehensively:\n\n\`\`\`\n${code}\n\`\`\`\n\nProvide:\n1. *What it does* — 1-2 sentence summary\n2. *How it works* — step-by-step walkthrough\n3. *Key concepts* — patterns/algorithms/libraries used\n4. *Potential issues* — bugs, edge cases, performance concerns\n5. *Improvements* — how you'd make it better\n\nBe thorough but concise. Use WhatsApp formatting (*bold*, _italic_).`
+
+        try {
+            const { generateAdvancedReply } = require('../Library/actions/beraai')
+            const r = await generateAdvancedReply(prompt, m.chat + '_explain', null, null)
+            if (r.success && r.reply) {
+                await react(conn, m, '✅')
+                return reply(`🧠 *Code Analysis:*\n\n${r.reply}`)
+            }
+        } catch {}
+        await react(conn, m, '❌')
+        return reply(`❌ Could not analyze the code. Try quoting a message with code first.`)
     }
 
     if (intent === 'agent') {

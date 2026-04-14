@@ -524,6 +524,24 @@ const detectIntent = (text) => {
     if (/\b(calculate|math\s*(calculation|problem)|what\s*is\s*\d)\b/i.test(t)) return 'calc2'
     if (/\b(generate\s*(a\s*)?qr|create\s*(a\s*)?qr\s*code|qr\s*code\s*for)\b/i.test(t)) return 'qr2'
     if (/\b(search\s*(the\s*)?(web|google|internet)|find\s+info\s+about)\b/i.test(t)) return 'search2'
+
+    // ── Code run / execute ────────────────────────────────────────────────────
+    if (/\b(run|execute|exec)\s+(this|the|my|this\s+code|the\s+code|this\s+script)\b/i.test(t) ||
+        /^(run|exec)\s+(this|it|the code)/i.test(t) ||
+        /\b(execute\s+this|run\s+it|test\s+this\s+code|run\s+this\s+snippet)\b/i.test(t)) return 'code_run'
+
+    // ── Code validate / check ─────────────────────────────────────────────────
+    if (/\b(check\s*(this\s*)?(code|script|snippet|function)|validate\s*(this\s*)?code|any\s+(errors?|bugs?)\s+in\s+(this|my)\s+code|syntax\s+check)\b/i.test(t) ||
+        /\b(is\s+(this\s+)?(code|script)\s+(correct|valid|right|ok|good))\b/i.test(t)) return 'code_validate'
+
+    // ── Build / generate a full app or project (not via GitHub) ──────────────
+    if (/\b(build|create|write|make|generate)\b.{0,20}\b(full|complete|entire|whole)\b.{0,30}\b(app|application|website|site|api|server|bot|system|script|tool)\b/i.test(t) &&
+        !/github|repo|repository/i.test(t)) return 'code_build'
+
+    // ── Explain / analyze code ────────────────────────────────────────────────
+    if (/\b(explain|analyze|analyse|what\s+does\s+this\s+(code|script|function)\s+do|walk\s+(me\s+)?through\s+this)\b/i.test(t) &&
+        /\b(code|script|function|snippet|class|method)\b/i.test(t)) return 'code_explain'
+
     return 'chat'
 }
 

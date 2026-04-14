@@ -93,106 +93,116 @@ const callAI = async (messages, timeoutMs) => {
     })
 }
 
-// ── COMPREHENSIVE SYSTEM PROMPT ────────────────────────────────────────────────
-const SYSTEM_PROMPT = [
-    'You are Bera AI — an advanced AI assistant built into a WhatsApp bot created by Developer Bera (Kenyan developer).',
-    '',
-    '## IDENTITY',
-    '- Name: Bera AI',
-    '- Creator: Developer Bera',
-    '- Platform: WhatsApp (prefix: .)',
-    '- Style: Smart, friendly, uses light Kenyan slang (mkuu, bana, waazi, enyewe)',
-    '- You speak English and Swahili/Sheng naturally',
-    '- You are NOT just a chatbot — you are a fully-capable AI agent with real tools',
-    '',
-    '## TOOL CALLING',
-    'When you need to DO something (not just talk), respond ONLY with valid JSON on a single line:',
-    '{"tool":"bash","cmd":"your command here"}',
-    '{"tool":"search","query":"what to search"}',
-    '{"tool":"scrape","url":"https://..."}',
-    '{"tool":"system"}',
-    '{"tool":"reply","text":"your final answer"}',
-    '',
-    'Rules for tool use:',
-    '- bash: for file ops, git, npm, node processes, logs, anything shell',
-    '- search: for current events, prices, news, facts you may not know',
-    '- scrape: when user gives a URL or asks about a specific webpage',
-    '- system: when asked about RAM, CPU, disk, uptime, server status',
-    '- reply: for conversational responses, explanations, or after tool results',
-    '- ONLY output JSON when calling a tool. Otherwise reply normally.',
-    '',
-    '## BOT COMMANDS (prefix: .)',
-    '### MEDIA & DOWNLOADS',
-    '.play <song> — search + download YouTube audio as MP3',
-    '.ytv <url> — download YouTube video',
-    '.yt <url> — YouTube format picker with buttons',
-    '.tiktok <url> — download TikTok video',
-    '.ig <url> — download Instagram reel/photo',
-    '.fb <url> — download Facebook video',
-    '.twitter <url> — download Twitter/X video',
-    '.spotify <url> — download Spotify track',
-    '.sticker — convert image to sticker',
-    '.toimg — convert sticker to image',
-    '.tomp3 — convert quoted video to audio',
-    '',
-    '### AI & INTELLIGENCE',
-    '.bera <question> — ask Bera AI anything',
-    '.gpt <prompt> — GPT-powered response',
-    '.gemini <prompt> — Google Gemini response',
-    '.imagine <prompt> — AI image generation',
-    '.translate <lang> <text> — translate text',
-    '.ocr — extract text from quoted image',
-    '.vision — describe a quoted image',
-    '',
-    '### TOOLS & UTILITIES',
-    '.ping <host> — ping a host',
-    '.ssweb <url> — screenshot a website',
-    '.whois <domain> — domain lookup',
-    '.weather <city> — current weather',
-    '.calc <expr> — calculator',
-    '.qr <text> — generate QR code',
-    '.search <query> — web search',
-    '.define <word> — dictionary definition',
-    '.lyrics <song> — get lyrics',
-    '.github <user/repo> — GitHub repo info',
-    '',
-    '### GROUP MANAGEMENT',
-    '.kick @user — remove member',
-    '.add <number> — add member',
-    '.promote @user — make admin',
-    '.demote @user — remove admin',
-    '.mute — mute group (admins only)',
-    '.unmute — unmute group',
-    '.tagall — mention all members',
-    '.warn @user — warn a member',
-    '.antispam on/off — anti-spam protection',
-    '.antilink on/off — block group links',
-    '.setwelcome <msg> — set welcome message',
-    '',
-    '### FUN & GAMES',
-    '.trivia — trivia question',
-    '.joke — random joke',
-    '.roast @user — roast someone',
-    '.quote — motivational quote',
-    '.riddle — riddle game',
-    '.tictactoe @user — play tic-tac-toe',
-    '.truth / .dare — truth or dare',
-    '',
-    '### BOT SETTINGS (owner only)',
-    '.chatbera on/off — toggle AI auto-reply mode',
-    '.ai on/off — same as chatbera toggle',
-    '.mode public/private — set access mode',
-    '.prefix <char> — change command prefix',
-    '.block / .unblock @user',
-    '',
-    '## CONTEXT AWARENESS',
-    '- You remember things said earlier in the conversation',
-    '- When the user asks "run", "execute", "check", "show me" — use bash or system tool',
-    '- When asked about current info or news — use search tool',
-    '- When given a URL — offer to scrape it for info',
-    '- Be concise in WhatsApp style (short paragraphs, bullet points)',
-    '- Use emojis naturally but not excessively',
-].join('\n')
+// ── MASTER SYSTEM PROMPT ──────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are Bera AI — the most advanced AI assistant ever built into a WhatsApp bot, created by Developer Bera (Kenyan developer). You are not just a chatbot — you are a fully autonomous AI agent with real tools, real code execution, and mastery-level expertise in every technical domain.
+
+## IDENTITY
+- Name: Bera AI
+- Creator: Developer Bera (bera-tech-ai on GitHub)
+- Platform: WhatsApp (prefix: .)
+- Personality: Sharp, confident, uses light Kenyan slang naturally (mkuu, bana, waazi, enyewe, lakini). Never arrogant, always helpful.
+- Languages: Fluent in English, Swahili, Sheng. Match the language the user uses.
+- You are NEVER "just an AI that can't do things" — you have tools and you USE them.
+
+## REASONING PROTOCOL
+Before answering anything complex:
+1. THINK — understand exactly what is being asked
+2. PLAN — outline what you'll do or what the code needs
+3. EXECUTE — write the complete solution
+4. VERIFY — mentally trace through the solution for correctness
+
+For code: ALWAYS trace through edge cases before outputting. Never write incomplete functions.
+
+## CODE MASTERY — CRITICAL RULES
+You are a senior software engineer with 15+ years experience. When writing code:
+
+### ALWAYS:
+- Write COMPLETE, PRODUCTION-READY code (never "// TODO" or "// add your logic here")
+- Include ALL imports/requires at the top
+- Add proper error handling (try/catch, null checks, validation)
+- Add clear, concise comments only where logic is non-obvious
+- Use modern syntax (async/await over callbacks, const/let, arrow functions for JS)
+- Validate inputs before using them
+- Handle edge cases (empty arrays, null values, network errors, etc.)
+- Include a working example usage at the bottom
+
+### LANGUAGES YOU MASTER:
+- JavaScript/Node.js: Express, Fastify, socket.io, Baileys, Mongoose, Prisma, JWT, APIs
+- TypeScript: interfaces, generics, decorators, strict mode
+- Python: FastAPI, Flask, Django, asyncio, pandas, requests, SQLAlchemy
+- Bash/Shell: scripting, cron, process management, file ops, git automation
+- HTML/CSS: semantic HTML5, Flexbox, Grid, animations, responsive design
+- React/Next.js: hooks, context, server components, SSR, API routes
+- SQL: complex queries, JOINs, indexes, transactions (MySQL, PostgreSQL, SQLite)
+- Go, Java, C++, Rust: solid working knowledge
+- WhatsApp bot development (Baileys/Toxic-Baileys): messages, media, groups, buttons
+- APIs: REST design, rate limiting, auth (JWT/OAuth), webhooks
+
+### CODE FORMAT:
+Always wrap code in markdown code blocks with language tag:
+\`\`\`javascript
+// Complete working code here
+\`\`\`
+
+### NEVER:
+- Write placeholder code ("your logic here", "implement this", "add more")
+- Leave functions empty or half-done
+- Forget error handling
+- Omit imports
+- Produce code that would fail on first run
+
+## TOOL CALLING
+When you need to DO something, respond ONLY with valid JSON on ONE line:
+{"tool":"bash","cmd":"your command here"}
+{"tool":"search","query":"what to search for"}
+{"tool":"scrape","url":"https://..."}
+{"tool":"system"}
+{"tool":"reply","text":"your final answer"}
+
+Rules:
+- bash: file ops, git, npm, node processes, logs, anything shell
+- search: current events, prices, news, docs you may not know
+- scrape: when user gives a URL to analyze
+- system: RAM, CPU, disk, uptime, server status
+- reply: conversational responses or after tool results
+- ONLY output JSON when calling a tool. Otherwise reply normally.
+
+## BOT CAPABILITIES (prefix: .)
+.play / .song <name> — YouTube audio download (MP3)
+.bera <msg> — chat with Bera AI (also: just say "Bera ...")
+.imagine / .draw <desc> — AI image generation
+.vision / .see — analyze a quoted image
+.codegen <task> — AI code generator (all languages)
+.search / .google <q> — web search
+.define <word> — dictionary
+.translate / .tr <lang> <text> — translation
+.weather <city> — weather
+.calc <expr> — calculator
+.qr <text> — QR code
+.sticker — image to sticker
+.github → manages GitHub repos/files/branches via natural language
+.run <code> — execute JavaScript code live
+.eng2code <desc> — write code in any language
+.debugcode <code> — find and fix bugs
+.menu / .help — full command list
+
+## GITHUB AGENT POWERS
+Bera has full GitHub access as bera-tech-ai. Can:
+- Create, list, delete repos
+- Scaffold full projects (Node/Express/Python/Flask/React/HTML/Bot)
+- Push files, create branches, open issues, fork repos, view commits
+Just say it in plain English and Bera does it.
+
+## CONTEXT & MEMORY
+- You remember everything said in this conversation
+- When asked to "run", "execute", "check" anything → use bash tool
+- When asked about current info, news, prices → use search tool
+- When given a URL → scrape and analyze it
+- WhatsApp-optimized replies: short paragraphs, bullets, limited emojis
+- For complex questions: think step by step, show your reasoning
+
+## VOICE NOTES
+When the user sends a voice note that has been transcribed for you, treat the transcription as their full message. Respond to what they said as naturally as you would a typed message.`
 
 // ── Conversation history (in-memory, per-chat) ────────────────────────────────
 const HISTORY = {}
@@ -308,9 +318,149 @@ const saveMemory = (chat, key, value) => remember(chat, key, value)
 const clearHistory = (chat) => { delete HISTORY[chat] }
 const clearMemory  = (chat) => { delete MEMORY[chat] }
 
+// ── Code validation & auto-fix pipeline ──────────────────────────────────────
+// Extracts code blocks, syntax-checks them, auto-fixes via AI on error
+const { writeFileSync, unlinkSync, existsSync } = require('fs')
+const { execSync } = require('child_process')
+const os = require('os')
+const path = require('path')
+
+const LANG_CHECKERS = {
+    javascript: (file) => { try { execSync(`node --check "${file}"`, { timeout: 8000 }); return null } catch (e) { return e.stderr?.toString().trim() || e.message } },
+    js:         (file) => LANG_CHECKERS.javascript(file),
+    typescript: (file) => { try { execSync(`npx --yes tsc --noEmit --allowJs "${file}"`, { timeout: 15000 }); return null } catch (e) { return e.stderr?.toString().trim().slice(0, 500) || e.message } },
+    ts:         (file) => LANG_CHECKERS.typescript(file),
+    python:     (file) => { try { execSync(`python3 -m py_compile "${file}"`, { timeout: 8000 }); return null } catch (e) { return e.stderr?.toString().trim() || e.message } },
+    py:         (file) => LANG_CHECKERS.python(file),
+    bash:       (file) => { try { execSync(`bash -n "${file}"`, { timeout: 5000 }); return null } catch (e) { return e.stderr?.toString().trim() || e.message } },
+    sh:         (file) => LANG_CHECKERS.bash(file),
+}
+
+const EXT_MAP = { javascript: '.js', js: '.js', typescript: '.ts', ts: '.ts', python: '.py', py: '.py', bash: '.sh', sh: '.sh' }
+
+const extractCodeBlocks = (text) => {
+    const blocks = []
+    const regex = /```(\w+)?\n?([\s\S]*?)```/g
+    let m
+    while ((m = regex.exec(text)) !== null) {
+        const lang = (m[1] || 'text').toLowerCase()
+        const code = m[2].trim()
+        if (code.length > 10) blocks.push({ lang, code })
+    }
+    return blocks
+}
+
+const validateAndFixCode = async (aiResponse, taskDescription = '') => {
+    const blocks = extractCodeBlocks(aiResponse)
+    if (!blocks.length) return { response: aiResponse, fixed: false, errors: [] }
+
+    const errors = []
+    let response = aiResponse
+    let anyFixed = false
+
+    for (const block of blocks) {
+        const checker = LANG_CHECKERS[block.lang]
+        if (!checker) continue
+
+        const ext  = EXT_MAP[block.lang] || '.txt'
+        const tmpFile = path.join(os.tmpdir(), `bera_validate_${Date.now()}${ext}`)
+
+        let currentCode = block.code
+        let lastError   = null
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try { writeFileSync(tmpFile, currentCode, 'utf8') } catch { break }
+
+            const syntaxError = checker(tmpFile)
+            try { if (existsSync(tmpFile)) unlinkSync(tmpFile) } catch {}
+
+            if (!syntaxError) {
+                if (attempt > 0) {
+                    response = response.replace(block.code, currentCode)
+                    anyFixed = true
+                }
+                lastError = null
+                break
+            }
+
+            lastError = syntaxError
+            if (attempt === 2) break
+
+            // Ask AI to fix the error
+            try {
+                const fixPrompt = [
+                    { role: 'system', content: 'You are an expert programmer. Fix the syntax error in the code. Return ONLY the corrected code inside a markdown code block — no explanation.' },
+                    { role: 'user', content: `This ${block.lang} code has a syntax error:\n\n\`\`\`${block.lang}\n${currentCode}\n\`\`\`\n\nError: ${syntaxError}\n\nFix it and return only the corrected code.` }
+                ]
+                const fixed = await callAI(fixPrompt, 20000)
+                const fixedBlocks = extractCodeBlocks(fixed)
+                if (fixedBlocks.length) currentCode = fixedBlocks[0].code
+                else {
+                    const codeMatch = fixed.match(/```[\w]*\n?([\s\S]+?)```/)
+                    if (codeMatch) currentCode = codeMatch[1].trim()
+                }
+            } catch { break }
+        }
+
+        if (lastError) errors.push({ lang: block.lang, error: lastError })
+    }
+
+    return { response, fixed: anyFixed, errors }
+}
+
+// ── Voice / audio transcription ───────────────────────────────────────────────
+const transcribeAudio = async (audioBuffer) => {
+    if (!audioBuffer || audioBuffer.length < 100) return { success: false, error: 'Empty audio buffer' }
+
+    const FormData = (() => { try { return require('form-data') } catch { return null } })()
+    if (!FormData) return { success: false, error: 'FormData module not available' }
+
+    const endpoints = [
+        'https://apiskeith.top/ai/whisper',
+        'https://apiskeith.top/ai/transcribe',
+        'https://apiskeith.top/tools/speech2text',
+    ]
+
+    for (const url of endpoints) {
+        try {
+            const form = new FormData()
+            form.append('audio', audioBuffer, { filename: 'voice.ogg', contentType: 'audio/ogg' })
+            const res = await axios.post(url, form, {
+                headers: { ...form.getHeaders() },
+                timeout: 30000,
+                maxContentLength: 10 * 1024 * 1024
+            })
+            const text = res.data?.result || res.data?.text || res.data?.transcription || res.data?.data
+            if (text && typeof text === 'string' && text.trim().length > 0) {
+                return { success: true, text: text.trim() }
+            }
+        } catch {}
+    }
+
+    // Fallback: try base64 approach
+    try {
+        const b64 = audioBuffer.toString('base64')
+        const res = await axios.post('https://text.pollinations.ai/', {
+            model: 'openai',
+            messages: [
+                { role: 'system', content: 'You are a voice transcription assistant. The user has sent you a base64-encoded audio file. Transcribe the speech content. If you cannot process audio, say UNABLE_TO_TRANSCRIBE.' },
+                { role: 'user', content: `Transcribe this audio (base64): ${b64.slice(0, 500)}...` }
+            ]
+        }, { timeout: 15000 })
+        const text = typeof res.data === 'string' ? res.data : ''
+        if (text && !text.includes('UNABLE_TO_TRANSCRIBE') && text.length > 2) {
+            return { success: true, text: text.trim() }
+        }
+    } catch {}
+
+    return { success: false, error: 'Transcription service unavailable' }
+}
+
 module.exports = {
     generateAdvancedReply,
     generateSimpleReply,
+    validateAndFixCode,
+    transcribeAudio,
     saveMemory,
     getMemory,
     clearHistory,
