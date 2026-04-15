@@ -525,6 +525,23 @@ const detectIntent = (text) => {
     if (/\b(generate\s*(a\s*)?qr|create\s*(a\s*)?qr\s*code|qr\s*code\s*for)\b/i.test(t)) return 'qr2'
     if (/\b(search\s*(the\s*)?(web|google|internet)|find\s+info\s+about)\b/i.test(t)) return 'search2'
 
+    // ── Group management (natural language) ──────────────────────────────────
+    if (/\b(kick|remove|boot|ban\s+from\s+group)\s+(@\S+|\d{7,}|\w+)\b/i.test(t) ||
+        /\b(kick|remove|boot)\s+(him|her|them|this\s+person|that\s+person)\b/i.test(t)) return 'group_kick'
+    if (/\b(add|invite)\s+(\+?\d{7,}|@\S+)\s+(to\s+(the\s+)?group)?\b/i.test(t) ||
+        /\badd\s+(\+?\d{7,})\b/i.test(t)) return 'group_add'
+    if (/\b(promote|make\s+admin|give\s+admin|add\s+admin)\s+(@\S+|\w+)/i.test(t)) return 'group_promote'
+    if (/\b(demote|remove\s+admin|take\s+admin|strip\s+admin)\s+(@\S+|\w+)/i.test(t)) return 'group_demote'
+    if (/\b(mute|lock|close)\s+(the\s+)?group\b/i.test(t) ||
+        /\bonly\s+admins?\s+(can\s+)?send\b/i.test(t)) return 'group_mute'
+    if (/\b(unmute|unlock|open)\s+(the\s+)?group\b/i.test(t) ||
+        /\beveryone\s+can\s+send\b/i.test(t)) return 'group_unmute'
+    if (/\b(group\s+link|invite\s+link|get\s+(the\s+)?link)\b/i.test(t)) return 'group_link'
+    if (/\b(tag\s+all|mention\s+all|ping\s+all|notify\s+all|@\s*everyone)\b/i.test(t)) return 'group_tagall'
+    if (/\b(list\s+(all\s+)?admins?|who\s+(are|is)\s+(the\s+)?admins?|show\s+admins?)\b/i.test(t)) return 'group_admins'
+    if (/\b(group\s+info|group\s+stats?|about\s+this\s+group|members?\s+count)\b/i.test(t)) return 'group_info'
+    if (/\b(warn\s+(@\S+|\w+))\b/i.test(t)) return 'group_warn'
+
     // ── Server & VPS stats ────────────────────────────────────────────────────
     if (/\b(server\s+stats?|vps\s+stats?|system\s+stats?|server\s+status|vps\s+status|server\s+info|system\s+info)\b/i.test(t) ||
         /\b(my\s+server\s+stats?|show\s+(me\s+)?server|server\s+memory|server\s+disk|server\s+uptime|server\s+load)\b/i.test(t) ||

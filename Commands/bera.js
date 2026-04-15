@@ -663,6 +663,171 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
         )
     }
 
+    // ── GROUP MANAGEMENT — natural language ───────────────────────────────────
+    // All group actions require Bera to be an admin. Owner can always trigger.
+    const isGroup  = m.chat?.endsWith('@g.us')
+    const getBotJid = () => (conn.user?.id || '').replace(/:[0-9]+@/, '@')
+    const getGroupMeta = async () => { try { return await conn.groupMetadata(m.chat) } catch { return null } }
+    const botIsAdmin = async () => {
+        const meta = await getGroupMeta()
+        if (!meta) return false
+        const me = getBotJid()
+        const p = meta.participants.find(x => x.id === me)
+        return p?.admin === 'admin' || p?.admin === 'superadmin'
+    }
+    const senderIsAdmin = async () => {
+        if (sender === `${require('../config').owner.replace(/\D/g, '')}@s.whatsapp.net`) return true
+        const meta = await getGroupMeta()
+        if (!meta) return false
+        const p = meta.participants.find(x => x.id === sender)
+        return p?.admin === 'admin' || p?.admin === 'superadmin'
+    }
+    const getMentionedOrQuotedJid = () => {
+        if (m.quoted?.sender) return m.quoted.sender
+        const mentions = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []
+        if (mentions.length) return mentions[0]
+        const numMatch = text.match(/\b(\d{7,15})\b/)
+        if (numMatch) return numMatch[1] + '@s.whatsapp.net'
+        return null
+    }
+
+    if (intent === 'group_kick') {
+        if (!isGroup) return reply(`❌ This command only works in groups.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only group admins can kick members.`)
+        if (!await botIsAdmin()) return reply(`❌ Make me an admin first so I can kick members.`)
+        const target = getMentionedOrQuotedJid()
+        if (!target) return reply(`❌ Who should I kick? Mention or quote the person.`)
+        await react(conn, m, '⏳')
+        try {
+            await conn.groupParticipantsUpdate(m.chat, [target], 'remove')
+            await react(conn, m, '✅')
+            return reply(`✅ Kicked @${target.split('@')[0]} from the group.`, { mentions: [target] })
+        } catch (e) { await react(conn, m, '❌'); return reply(`❌ Failed: ${e.message}`) }
+    }
+
+    if (intent === 'group_add') {
+        if (!isGroup) return reply(`❌ This command only works in groups.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only group admins can add members.`)
+        if (!await botIsAdmin()) return reply(`❌ Make me an admin first so I can add members.`)
+        const numMatch = text.match(/\b(\d{7,15})\b/)
+        if (!numMatch) return reply(`❌ Provide a phone number. E.g: _"Bera add 254712345678"_`)
+        const jid = numMatch[1] + '@s.whatsapp.net'
+        await react(conn, m, '⏳')
+        try {
+            await conn.groupParticipantsUpdate(m.chat, [jid], 'add')
+            await react(conn, m, '✅')
+            return reply(`✅ Added ${numMatch[1]} to the group.`)
+        } catch (e) { await react(conn, m, '❌'); return reply(`❌ Failed: ${e.message}`) }
+    }
+
+    if (intent === 'group_promote') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only admins can promote members.`)
+        if (!await botIsAdmin()) return reply(`❌ Make me an admin first.`)
+        const target = getMentionedOrQuotedJid()
+        if (!target) return reply(`❌ Who should I promote? Mention or quote them.`)
+        await react(conn, m, '⏳')
+        try {
+            await conn.groupParticipantsUpdate(m.chat, [target], 'promote')
+            await react(conn, m, '✅')
+            return reply(`✅ @${target.split('@')[0]} is now an admin 👑`, { mentions: [target] })
+        } catch (e) { await react(conn, m, '❌'); return reply(`❌ Failed: ${e.message}`) }
+    }
+
+    if (intent === 'group_demote') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only admins can demote members.`)
+        if (!await botIsAdmin()) return reply(`❌ Make me an admin first.`)
+        const target = getMentionedOrQuotedJid()
+        if (!target) return reply(`❌ Who should I demote? Mention or quote them.`)
+        await react(conn, m, '⏳')
+        try {
+            await conn.groupParticipantsUpdate(m.chat, [target], 'demote')
+            await react(conn, m, '✅')
+            return reply(`✅ @${target.split('@')[0]} has been removed from admin.`)
+        } catch (e) { await react(conn, m, '❌'); return reply(`❌ Failed: ${e.message}`) }
+    }
+
+    if (intent === 'group_mute') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only admins can mute the group.`)
+        if (!await botIsAdmin()) return reply(`❌ Make me an admin first.`)
+        try {
+            await conn.groupSettingUpdate(m.chat, 'announcement')
+            return reply(`🔇 Group muted — only admins can send messages now.`)
+        } catch (e) { return reply(`❌ ${e.message}`) }
+    }
+
+    if (intent === 'group_unmute') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only admins can unmute the group.`)
+        if (!await botIsAdmin()) return reply(`❌ Make me an admin first.`)
+        try {
+            await conn.groupSettingUpdate(m.chat, 'not_announcement')
+            return reply(`🔊 Group opened — everyone can send messages.`)
+        } catch (e) { return reply(`❌ ${e.message}`) }
+    }
+
+    if (intent === 'group_link') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only admins can get the group link.`)
+        try {
+            const code = await conn.groupInviteCode(m.chat)
+            return reply(`🔗 *Group Invite Link:*\nhttps://chat.whatsapp.com/${code}`)
+        } catch (e) { return reply(`❌ ${e.message}`) }
+    }
+
+    if (intent === 'group_tagall') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only admins can tag all members.`)
+        const meta = await getGroupMeta()
+        if (!meta) return reply(`❌ Could not fetch group info.`)
+        const members = meta.participants.map(p => p.id)
+        const mentions = members
+        const text2 = `📢 *Attention everyone!*\n${members.map(j => `@${j.split('@')[0]}`).join(' ')}`
+        return conn.sendMessage(m.chat, { text: text2, mentions })
+    }
+
+    if (intent === 'group_admins') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        const meta = await getGroupMeta()
+        if (!meta) return reply(`❌ Could not fetch group info.`)
+        const admins = meta.participants.filter(p => p.admin)
+        if (!admins.length) return reply(`ℹ️ No admins found in this group.`)
+        const list = admins.map(p => `• @${p.id.split('@')[0]} (${p.admin})`).join('\n')
+        return reply(`👑 *Group Admins (${admins.length}):*\n\n${list}`, { mentions: admins.map(p => p.id) })
+    }
+
+    if (intent === 'group_info') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        const meta = await getGroupMeta()
+        if (!meta) return reply(`❌ Could not fetch group info.`)
+        const admins  = meta.participants.filter(p => p.admin).length
+        const members = meta.participants.length
+        const created = meta.creation ? new Date(meta.creation * 1000).toDateString() : '?'
+        return reply(
+            `╭══〘 *👥 GROUP INFO* 〙═⊷\n` +
+            `┃ 📛 *Name:* ${meta.subject}\n` +
+            `┃ 👥 *Members:* ${members}\n` +
+            `┃ 👑 *Admins:* ${admins}\n` +
+            `┃ 📅 *Created:* ${created}\n` +
+            `┃ 📝 *Desc:* ${(meta.desc || 'None').slice(0, 100)}\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
+    if (intent === 'group_warn') {
+        if (!isGroup) return reply(`❌ Groups only.`)
+        if (!await senderIsAdmin()) return reply(`⛔ Only admins can warn members.`)
+        const target = getMentionedOrQuotedJid()
+        if (!target) return reply(`❌ Who should I warn? Mention or quote them.`)
+        const reason = text.replace(/bera\s*(warn\s*)?/i, '').replace(/@\S+/g, '').trim() || 'No reason given'
+        return reply(
+            `⚠️ *WARNING*\n\n@${target.split('@')[0]} has been warned.\n📝 Reason: ${reason}\n\n_3 warnings = kick._`,
+            { mentions: [target] }
+        )
+    }
+
     // ── Voice note transcription (explicit only) ──────────────────────────────
     // Triggered by: quoting a voice note and saying "bera transcribe this"
     //           or: .transcribe command while quoting a voice note

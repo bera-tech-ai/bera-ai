@@ -2472,7 +2472,9 @@ const handleMessage = async (conn, rawMsg) => {
                         'fun_ship','fun_roast','fun_story','fun_rap','fun_riddle',
                         'fun_motivate','gen_password','fun_trivia','menu',
                         'translate','bot_update','bot_status',
-                        'server_stats','pm2_list','pm2_logs','pm2_restart','pm2_stop','bot_stats'
+                        'server_stats','pm2_list','pm2_logs','pm2_restart','pm2_stop','bot_stats',
+                        'group_kick','group_add','group_promote','group_demote','group_mute',
+                        'group_unmute','group_link','group_tagall','group_admins','group_info','group_warn'
                     ]
                     if (beraIntents.includes(intent)) {
                         try {
