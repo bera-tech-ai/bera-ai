@@ -641,7 +641,6 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
         const mins    = Math.floor((upSecs % 3600) / 60)
         const memMb   = (process.memoryUsage().rss / 1048576).toFixed(1)
         const heapMb  = (process.memoryUsage().heapUsed / 1048576).toFixed(1)
-        const config  = require('../config')
         await react(conn, m, '✅')
         return reply(
             `╭══〘 *🤖 BERA AI — BOT STATS* 〙═⊷\n` +
@@ -676,7 +675,7 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
         return p?.admin === 'admin' || p?.admin === 'superadmin'
     }
     const senderIsAdmin = async () => {
-        if (sender === `${require('../config').owner.replace(/\D/g, '')}@s.whatsapp.net`) return true
+        if (sender === `${config.owner.replace(/\D/g, '')}@s.whatsapp.net`) return true
         const meta = await getGroupMeta()
         if (!meta) return false
         const p = meta.participants.find(x => x.id === sender)
