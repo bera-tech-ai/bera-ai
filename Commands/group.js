@@ -623,6 +623,32 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         return reply(`✅ Anti-demote ${val === 'on' ? '*enabled* — unauthorized demotions will be reversed' : '*disabled*'}.`)
     }
 
+    // ── ANTI-DELETE ───────────────────────────────────────────────────────
+    if (['antidelete', 'antidel'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        const val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}antidelete on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`antidelete_${chat}`] = val === 'on'
+        await global.db.write()
+        return reply(`✅ Anti-delete ${val === 'on' ? '*enabled* — deleted messages will be re-sent by the bot' : '*disabled*'}.`)
+    }
+
+    // ── ANTI-EDIT ─────────────────────────────────────────────────────────
+    if (['antiedit', 'antiediton', 'antieditoff'].includes(command)) {
+        if (groupOnly()) return
+        if (await adminOnly()) return
+        let val = text?.toLowerCase()
+        if (command === 'antiediton') val = 'on'
+        if (command === 'antieditoff') val = 'off'
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}antiedit on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings[`antiedit_${chat}`] = val === 'on'
+        await global.db.write()
+        return reply(`✅ Anti-edit ${val === 'on' ? '*enabled* — edited messages will be revealed with the original content' : '*disabled*'}.`)
+    }
+
     // ── LEAVE GROUP ───────────────────────────────────────────────────────
     if (['leave', 'leavegroup', 'left', 'leftgroup'].includes(command)) {
         if (groupOnly()) return
@@ -744,6 +770,8 @@ handle.command = [
     'antibadwords', 'antibad', 'setantibad',
     'antipromote', 'antipromotion',
     'antidemote', 'antidemoted',
+    'antidelete', 'antidel',
+    'antiedit', 'antiediton', 'antieditoff',
     // Welcome/goodbye
     'welcome', 'setwelcome',
     'setwelcomemsg', 'welcomemessage', 'welcomemsg',

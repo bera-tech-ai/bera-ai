@@ -19,7 +19,7 @@ const readline = require('readline')
 
 const axios = require('axios')
 const { initDb } = require('../Database')
-const { handleMessage, handleGroupEvents } = require('../Handler')
+const { handleMessage, handleGroupEvents, handleAntiDelete, handleAntiEdit } = require('../Handler')
 const config = require('../Config')
 
 const SESSION_DIR = path.resolve('./session')
@@ -358,6 +358,16 @@ const startBot = async () => {
 
     conn.ev.on('group-participants.update', async (event) => {
         await handleGroupEvents(conn, { 'group-participants.update': [event] }).catch(() => {})
+    })
+
+    // ── Anti-Delete: intercept message deletions ───────────────────────────
+    conn.ev.on('messages.delete', async (deleteEvent) => {
+        await handleAntiDelete(conn, deleteEvent).catch(() => {})
+    })
+
+    // ── Anti-Edit: intercept message edits ────────────────────────────────
+    conn.ev.on('messages.update', async (updates) => {
+        await handleAntiEdit(conn, { updates }).catch(() => {})
     })
 
     return conn

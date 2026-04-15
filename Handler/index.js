@@ -284,24 +284,202 @@ const checkAntiLink = async (conn, m, text, isOwner) => {
     return true
 }
 
+// ── Anti-Badwords enforcement ──────────────────────────────────────────────
+const checkAntiBadwords = async (conn, m, text, isOwner) => {
+    if (!m.isGroup || !text || isOwner) return false
+    const antibadOn = global.db?.data?.settings?.[`antibad_${m.chat}`]
+    if (!antibadOn) return false
+    const badwordList = global.db?.data?.settings?.[`badwords_${m.chat}`] || []
+    if (!badwordList.length) return false
+    const lower = text.toLowerCase()
+    const found = badwordList.find(w => lower.includes(w.toLowerCase()))
+    if (!found) return false
+    try {
+        await conn.sendMessage(m.chat, { delete: m.key })
+        await conn.sendMessage(m.chat, {
+            text: `🤬 @${m.sender.split('@')[0]} — *Bad word detected* and message removed. Please keep it clean!`,
+            mentions: [m.sender]
+        })
+    } catch {}
+    return true
+}
+
+// ── Anti-Delete: cache + re-send ───────────────────────────────────────────
+const _deletedMsgCache = new Map()
+const ANTI_DEL_CACHE_SIZE = 500
+
+const cacheForAntiDelete = (m, chat) => {
+    if (!m?.key?.id || !chat) return
+    const textContent = m.text || m.body || ''
+    const hasMedia = !!(m.mimetype || m.msg?.imageMessage || m.msg?.videoMessage || m.msg?.audioMessage || m.msg?.documentMessage || m.msg?.stickerMessage)
+    if (!textContent && !hasMedia) return
+    _deletedMsgCache.set(m.key.id, {
+        chat,
+        sender: m.sender || m.key?.participant || m.key?.remoteJid,
+        text: textContent,
+        mimetype: m.mimetype,
+        hasMedia,
+        msg: m.msg || m.message,
+        timestamp: Date.now()
+    })
+    if (_deletedMsgCache.size > ANTI_DEL_CACHE_SIZE) {
+        const oldest = _deletedMsgCache.keys().next().value
+        _deletedMsgCache.delete(oldest)
+    }
+}
+
+const handleAntiDelete = async (conn, deleteEvent) => {
+    try {
+        const keys = deleteEvent?.keys || deleteEvent?.['messages.delete']?.keys || []
+        for (const key of keys) {
+            const chat  = key.remoteJid
+            const msgId = key.id
+            if (!chat || !msgId) continue
+            const antidelOn = global.db?.data?.settings?.[`antidelete_${chat}`]
+                || global.db?.data?.groups?.[chat]?.antidelete
+                || global.beraGroupSettings?.[chat]?.antidelete
+            if (!antidelOn) continue
+            const cached = _deletedMsgCache.get(msgId)
+            if (!cached) continue
+            const deleterNum = key.participant || key.remoteJid || 'someone'
+            const num = cached.sender?.split('@')[0] || 'them'
+            const header = `🗑️ *Anti-Delete Alert*\n📌 @${num} deleted a message:\n\n`
+            try {
+                if (cached.text) {
+                    await conn.sendMessage(chat, {
+                        text: header + cached.text,
+                        mentions: [cached.sender]
+                    })
+                } else if (cached.hasMedia && cached.msg) {
+                    const imgMsg = cached.msg?.imageMessage
+                    const vidMsg = cached.msg?.videoMessage
+                    const audMsg = cached.msg?.audioMessage
+                    const docMsg = cached.msg?.documentMessage
+                    const stkMsg = cached.msg?.stickerMessage
+                    await conn.sendMessage(chat, { text: header, mentions: [cached.sender] })
+                    if (imgMsg)      await conn.sendMessage(chat, { image: imgMsg,  caption: '🗑️ Deleted image' }).catch(() => {})
+                    else if (vidMsg) await conn.sendMessage(chat, { video: vidMsg,  caption: '🗑️ Deleted video' }).catch(() => {})
+                    else if (audMsg) await conn.sendMessage(chat, { audio: audMsg,  mimetype: 'audio/ogg; codecs=opus' }).catch(() => {})
+                    else if (docMsg) await conn.sendMessage(chat, { document: docMsg, fileName: docMsg.fileName || 'file' }).catch(() => {})
+                    else if (stkMsg) await conn.sendMessage(chat, { sticker: stkMsg }).catch(() => {})
+                }
+            } catch {}
+        }
+    } catch {}
+}
+
+// ── Anti-Edit: reveal original when someone edits a message ───────────────
+const handleAntiEdit = async (conn, updateEvent) => {
+    try {
+        const updates = updateEvent?.updates || updateEvent || []
+        for (const update of updates) {
+            const chat = update?.key?.remoteJid
+            if (!chat) continue
+            const antieditOn = global.db?.data?.settings?.[`antiedit_${chat}`]
+                || global.db?.data?.groups?.[chat]?.antiedit
+            if (!antieditOn) continue
+            const editContent = update?.update?.message?.editedMessage || update?.message?.editedMessage
+            if (!editContent) continue
+            const origId   = editContent?.message?.protocolMessage?.key?.id
+                           || editContent?.protocolMessage?.key?.id
+            const newText  = editContent?.message?.conversation
+                           || editContent?.message?.extendedTextMessage?.text
+                           || editContent?.conversation
+                           || editContent?.extendedTextMessage?.text
+            if (!newText) continue
+            const cached  = origId ? _deletedMsgCache.get(origId) : null
+            const sender  = update?.key?.participant || update?.key?.remoteJid
+            const num     = sender?.split('@')[0] || '?'
+            const origTxt = cached?.text || '_(original not cached)_'
+            await conn.sendMessage(chat, {
+                text: `✏️ *Anti-Edit Alert*\n@${num} edited their message:\n\n*Before:* ${origTxt}\n*After:* ${newText}`,
+                mentions: [sender]
+            })
+        }
+    } catch {}
+}
+
 const handleGroupEvents = async (conn, event) => {
     try {
         const updates = event['group-participants.update']
         if (!updates) return
         for (const update of updates) {
             const { id: chat, participants, action } = update
-            if (action !== 'add') continue
-            const welcomeOn = global.db?.data?.settings?.[`welcome_${chat}`]
-            if (!welcomeOn) continue
-            for (const jid of participants) {
-                const name = jid.split('@')[0]
+
+            // ── Welcome / Goodbye ───────────────────────────────────────────
+            if (action === 'add') {
+                const welcomeOn = global.db?.data?.settings?.[`welcome_${chat}`]
+                    || global.db?.data?.groups?.[chat]?.welcome
+                if (welcomeOn) {
+                    for (const jid of participants) {
+                        const name = jid.split('@')[0]
+                        try {
+                            const meta = await conn.groupMetadata(chat)
+                            const customMsg = global.db?.data?.settings?.[`welcomemsg_${chat}`]
+                                || global.beraGroupSettings?.[chat]?.welcome
+                            const msg = customMsg
+                                ? customMsg.replace('{name}', `@${name}`).replace('{group}', meta.subject).replace('{count}', meta.participants.length)
+                                : `👋 Welcome @${name} to *${meta.subject}*!\n\nWe're glad to have you here. Feel free to introduce yourself!`
+                            await conn.sendMessage(chat, { text: msg, mentions: [jid] })
+                        } catch {}
+                    }
+                }
+            }
+
+            if (action === 'remove') {
+                const byeOn = global.db?.data?.settings?.[`bye_${chat}`]
+                    || global.db?.data?.groups?.[chat]?.bye
+                if (byeOn) {
+                    for (const jid of participants) {
+                        const name = jid.split('@')[0]
+                        try {
+                            const meta = await conn.groupMetadata(chat)
+                            const customMsg = global.db?.data?.settings?.[`byemsg_${chat}`]
+                                || global.beraGroupSettings?.[chat]?.bye
+                            const msg = customMsg
+                                ? customMsg.replace('{name}', `@${name}`).replace('{group}', meta.subject)
+                                : `👋 *${name}* has left *${meta.subject}*. Goodbye!`
+                            await conn.sendMessage(chat, { text: msg, mentions: [jid] })
+                        } catch {}
+                    }
+                }
+            }
+
+            // ── Anti-Promote: reverse unauthorized admin grants ─────────────
+            if (action === 'promote') {
+                const antiprOn = global.db?.data?.settings?.[`antipromote_${chat}`]
+                if (!antiprOn) continue
                 try {
-                    const meta = await conn.groupMetadata(chat)
-                    const customMsg = global.db?.data?.settings?.[`welcomemsg_${chat}`]
-                    const msg = customMsg
-                        ? customMsg.replace('{name}', `@${name}`).replace('{group}', meta.subject)
-                        : `👋 Welcome @${name} to *${meta.subject}*!\n\nWe're glad to have you here. Feel free to introduce yourself!`
-                    await conn.sendMessage(chat, { text: msg, mentions: [jid] })
+                    const meta  = await conn.groupMetadata(chat)
+                    const botJid = conn.user?.id?.split(':')[0] + '@s.whatsapp.net'
+                    const botIsAdmin = meta.participants.some(p => p.id === botJid && p.admin)
+                    if (!botIsAdmin) continue
+                    for (const jid of participants) {
+                        await conn.groupParticipantsUpdate(chat, [jid], 'demote')
+                        await conn.sendMessage(chat, {
+                            text: `🚫 *Anti-Promote*: @${jid.split('@')[0]} was promoted without authorization — demoted back.`,
+                            mentions: [jid]
+                        })
+                    }
+                } catch {}
+            }
+
+            // ── Anti-Demote: reverse unauthorized admin removal ─────────────
+            if (action === 'demote') {
+                const antidmOn = global.db?.data?.settings?.[`antidemote_${chat}`]
+                if (!antidmOn) continue
+                try {
+                    const meta  = await conn.groupMetadata(chat)
+                    const botJid = conn.user?.id?.split(':')[0] + '@s.whatsapp.net'
+                    const botIsAdmin = meta.participants.some(p => p.id === botJid && p.admin)
+                    if (!botIsAdmin) continue
+                    for (const jid of participants) {
+                        await conn.groupParticipantsUpdate(chat, [jid], 'promote')
+                        await conn.sendMessage(chat, {
+                            text: `🚫 *Anti-Demote*: @${jid.split('@')[0]} was demoted without authorization — restored to admin.`,
+                            mentions: [jid]
+                        })
+                    }
                 } catch {}
             }
         }
@@ -587,11 +765,14 @@ const handleMessage = async (conn, rawMsg) => {
             // for anyone who isn't the owner. Silent exit — no message sent.
             if (!authorized) return
 
-            // Anti-spam only for group messages
+            // Anti-spam / anti-link / anti-badwords for group messages
             if (m.isGroup) {
+                cacheForAntiDelete(m, chat)
                 const spammed = await checkAntiSpam(conn, m, isOwner)
                 if (spammed) return
                 await checkAntiLink(conn, m, text, isOwner)
+                const badword = await checkAntiBadwords(conn, m, text, isOwner)
+                if (badword) return
             }
             // Auto-reply (DM and group)
             // Auto-reply (DM and group)
@@ -2583,4 +2764,4 @@ const handleMessage = async (conn, rawMsg) => {
     }
 }
 
-module.exports = { handleMessage, handleGroupEvents, handleReaction }
+module.exports = { handleMessage, handleGroupEvents, handleReaction, handleAntiDelete, handleAntiEdit }
