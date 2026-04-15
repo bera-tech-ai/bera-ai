@@ -247,11 +247,21 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
     // ── GitHub helper (shared across all github_* intents) ────────────────────
     const extractRepoName = (txt) => {
         const t2 = txt.trim()
+        // IMPORTANT: "name it X" / "call it X" must come BEFORE "named?" / "called?"
+        // otherwise the regex engine matches "name" alone and captures "it" as the repo name
         return (
-            t2.match(/(?:named?|called?|name(?:d)?\s+it|title)\s+["']?([\w.-]+)["']?/i)?.[1] ||
-            t2.match(/(?:repo|repository|project)\s+["']?([\w.-]+)["']?/i)?.[1] ||
-            t2.match(/["']([\w.-]+)["']/)?.[1] ||
-            t2.match(/\b([\w.-]{3,40})\s*$/)?.[1] ||
+            // "name it X" / "named it X" / "call it X"
+            t2.match(/\b(?:name(?:d)?\s+it|call(?:ed)?\s+it|make\s+it|titled?)\s+["']?([\w.-]{2,})\b/i)?.[1] ||
+            // "named X" / "called X" / "named 'X'"
+            t2.match(/\b(?:named?|called?)\s+["']?([\w.-]{2,})["']?/i)?.[1] ||
+            // "repo X" or "repository X" at the end
+            t2.match(/\b(?:repo|repository|project)\s+(?:called?|named?)?\s*["']?([\w.-]{2,})["']?/i)?.[1] ||
+            // quoted names
+            t2.match(/["']([\w.-]{2,})["']/)?.[1] ||
+            // "create repo X" — word after repo/project with no qualifier
+            t2.match(/\b(?:repo|repository|project)\s+([\w.-]{2,})\s*$/i)?.[1] ||
+            // last word as fallback (only if 3+ chars to avoid "it", "a", etc.)
+            t2.match(/\b([a-z][\w.-]{2,40})\s*$/i)?.[1] ||
             null
         )
     }
@@ -489,17 +499,13 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
             return reply(`*Your repos (${res.length}):*\n${lines}`)
         }
         if (/\b(create|make|new)\b.{0,10}\b(repo|repository)\b/.test(t)) {
-            // Extract repo name: handles "create repo X", "create a repo named X", "name it X", "called X"
-            const nameMatch =
-                text.match(/(?:name(?:d)?s+it|named?|called?)s+["']?([a-zA-Z0-9_.-]+)["']?/i) ||
-                text.match(/(?:create|make|new)s+(?:as+)?(?:repo|repository)s+["']?([a-zA-Z0-9_.-]+)["']?/i) ||
-                text.match(/repo(?:sitory)?s+(?:called?|named?)s+["']?([a-zA-Z0-9_.-]+)["']?/i)
-            if (!nameMatch) return reply(`❌ Specify repo name. E.g: "create repo my-project" or "create a repo named cloudtechs"`)
+            const name = extractRepoName(text)
+            if (!name) return reply(`❌ Tell me the repo name. E.g: "create a repo name it my-project" or "create a repo named cloudtechs"`)
             const isPrivate = /private/.test(t)
-            const res = await createRepo(nameMatch[1], isPrivate)
+            const res = await createRepo(name, isPrivate)
             if (res.error) return reply(`❌ GitHub: ${res.error}`)
             await react(conn, m, '✅')
-            return reply(`✅ Created: ${res.html_url}`)
+            return reply(`✅ *Repo Created!*\n\n🐙 *${name}*\n${isPrivate ? '🔒 Private' : '🌐 Public'}\n🔗 ${res.html_url}`)
         }
         if (/\b(delete|remove)\b.{0,10}\b(repo|repository)\b/.test(t)) {
             const nameMatch = text.match(/(?:delete|remove|drop)\s+(?:a\s+)?(?:repo|repository|this)\s+["']?([a-zA-Z0-9_.-]+)["']?/i) ||
@@ -1110,3 +1116,4 @@ handle.command = ['bera', 'chatbot', 'beraclone', 'workspace', 'setghtoken', 'ta
 handle.tags = ['ai']
 
 module.exports = handle
+module.exports.handleAction = handleAction

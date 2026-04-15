@@ -2450,6 +2450,39 @@ const handleMessage = async (conn, rawMsg) => {
                     await reply(`╭══〘 *📁 GIT STATUS* 〙═⊷\n${fmt(r.output)}\n╰══════════════════⊷`)
                     return
                 }
+
+                // ── Fallback: delegate remaining intents to bera.js handleAction ─
+                // This handles: github_create_repo, github_list_repos, github_delete_repo,
+                // github_create_project, github_push_file, github_create_issue, github_fork,
+                // github_branches, github_create_branch, github_commits, github_repo_info,
+                // github_list_files, music, image_gen, translate, download, transcribe,
+                // search, schedule_msg, code_run, code_validate, code_build, code_explain,
+                // code_review, bug_finder, and any future intent added to bera.js
+                {
+                    const beraIntents = [
+                        'github_create_repo','github_list_repos','github_delete_repo',
+                        'github_create_project','github_push_file','github_create_issue',
+                        'github_fork','github_branches','github_create_branch',
+                        'github_commits','github_repo_info','github_list_files',
+                        'github','music','image_gen','translate','download',
+                        'transcribe','search','schedule_msg',
+                        'code_run','code_validate','code_build','code_explain',
+                        'git_clone','git_push','chat','fun_joke','fun_fact',
+                        'fun_quote','fun_coin','fun_8ball','fun_truth','fun_dare',
+                        'fun_ship','fun_roast','fun_story','fun_rap','fun_riddle',
+                        'fun_motivate','gen_password','fun_trivia','menu',
+                        'translate','bot_update','bot_status'
+                    ]
+                    if (beraIntents.includes(intent)) {
+                        try {
+                            const { handleAction } = require('../Commands/bera')
+                            await handleAction(m, conn, reply, text, sender, null)
+                        } catch (e) {
+                            console.error('[BERA-FALLBACK]', e.message)
+                        }
+                        return
+                    }
+                }
             }
             // ═══════════════════════════════════════════════════════════════
 

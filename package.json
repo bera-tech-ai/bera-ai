@@ -1,7 +1,7 @@
 {
   "name": "bera-ai",
   "version": "1.0.0",
-  "description": "Bera AI WhatsApp Bot — toxic-baileys (connection) + @whiskeysockets/baileys",
+  "description": "Bera AI WhatsApp Bot — @whiskeysockets/baileys (stable connection)",
   "main": "Connection/start.js",
   "type": "commonjs",
   "scripts": {
@@ -25,7 +25,6 @@
     "node-cache": "^5.1.2",
     "node-cron": "^3.0.0",
     "pino": "^8.0.0",
-    "sharp": "^0.32.6",
-    "toxic-baileys": "latest"
+    "sharp": "^0.32.6"
   }
 }
