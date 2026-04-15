@@ -284,6 +284,51 @@ const checkAntiLink = async (conn, m, text, isOwner) => {
     return true
 }
 
+// ── Anti-ViewOnce: re-send view-once media without restriction ─────────────
+const checkAntiViewOnce = async (conn, m) => {
+    try {
+        const chat   = m.chat
+        const raw    = m.message || {}
+        // Detect view-once message types
+        const voImg  = raw.viewOnceMessage?.message?.imageMessage
+                    || raw.viewOnceMessageV2?.message?.imageMessage
+                    || raw.viewOnceMessageV2Extension?.message?.imageMessage
+        const voVid  = raw.viewOnceMessage?.message?.videoMessage
+                    || raw.viewOnceMessageV2?.message?.videoMessage
+                    || raw.viewOnceMessageV2Extension?.message?.videoMessage
+        const voAud  = raw.viewOnceMessage?.message?.audioMessage
+                    || raw.viewOnceMessageV2?.message?.audioMessage
+        if (!voImg && !voVid && !voAud) return
+
+        const key = m.isGroup ? `antiviewonce_${chat}` : 'antiviewonce'
+        const antivoOn = global.db?.data?.settings?.[key]
+        if (!antivoOn) return
+
+        const sender = m.sender || m.key?.participant || m.key?.remoteJid
+        const num    = sender?.split('@')[0] || '?'
+
+        await conn.sendMessage(chat, {
+            text: `👁️ *Anti-ViewOnce Alert*\n@${num} sent a view-once ${voImg ? 'image' : voVid ? 'video' : 'audio'}:`,
+            mentions: [sender]
+        })
+
+        // Re-download and re-send without view-once
+        const msgForDownload = {
+            key: m.key,
+            message: raw.viewOnceMessage?.message
+                   || raw.viewOnceMessageV2?.message
+                   || raw.viewOnceMessageV2Extension?.message
+                   || raw
+        }
+        const buf = await conn.downloadMediaMessage(msgForDownload).catch(() => null)
+        if (!buf) return
+
+        if (voImg)      await conn.sendMessage(chat, { image: buf,  caption: '👁️ View-once image (revealed)' }).catch(() => {})
+        else if (voVid) await conn.sendMessage(chat, { video: buf,  caption: '👁️ View-once video (revealed)' }).catch(() => {})
+        else if (voAud) await conn.sendMessage(chat, { audio: buf,  mimetype: 'audio/ogg; codecs=opus' }).catch(() => {})
+    } catch {}
+}
+
 // ── Anti-Badwords enforcement ──────────────────────────────────────────────
 const checkAntiBadwords = async (conn, m, text, isOwner) => {
     if (!m.isGroup || !text || isOwner) return false
@@ -764,6 +809,9 @@ const handleMessage = async (conn, rawMsg) => {
             // This blocks Bera Agent, ChatBera AI, auto-reply, and all NLP responses
             // for anyone who isn't the owner. Silent exit — no message sent.
             if (!authorized) return
+
+            // Anti-viewonce (groups + DMs)
+            await checkAntiViewOnce(conn, m)
 
             // Anti-spam / anti-link / anti-badwords for group messages
             if (m.isGroup) {

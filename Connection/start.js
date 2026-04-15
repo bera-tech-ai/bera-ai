@@ -370,6 +370,24 @@ const startBot = async () => {
         await handleAntiEdit(conn, { updates }).catch(() => {})
     })
 
+    // ── Anti-Call: auto-reject all incoming calls ──────────────────────────
+    conn.ev.on('call', async (callEvents) => {
+        const anticallOn = global.db?.data?.settings?.anticall
+        if (!anticallOn) return
+        for (const callEvent of callEvents) {
+            if (callEvent.status !== 'offer') continue
+            try {
+                await conn.rejectCall(callEvent.id, callEvent.from)
+                await conn.sendMessage(callEvent.from, {
+                    text: '📵 *Anti-Call is enabled.*\nVoice and video calls are automatically rejected by this bot.'
+                })
+                console.log('[ANTICALL] Rejected call from:', callEvent.from)
+            } catch (e) {
+                console.log('[ANTICALL] Could not reject call:', e.message)
+            }
+        }
+    })
+
     return conn
 }
 

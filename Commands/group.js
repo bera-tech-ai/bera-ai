@@ -649,6 +649,33 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         return reply(`✅ Anti-edit ${val === 'on' ? '*enabled* — edited messages will be revealed with the original content' : '*disabled*'}.`)
     }
 
+    // ── ANTI-CALL ─────────────────────────────────────────────────────────
+    if (['anticall', 'blockcall', 'rejectcall', 'nocall'].includes(command)) {
+        if (!isOwner) return reply('⛔ Owner only — this affects the entire bot.')
+        let val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}anticall on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        global.db.data.settings.anticall = val === 'on'
+        await global.db.write()
+        return reply(val === 'on'
+            ? '✅ *Anti-Call ON* — All incoming calls will be automatically rejected.'
+            : '❌ *Anti-Call OFF* — Calls are allowed.')
+    }
+
+    // ── ANTI-VIEWONCE ─────────────────────────────────────────────────────
+    if (['antiviewonce', 'antiviewonce', 'viewonce', 'antiview', 'unviewonce'].includes(command)) {
+        if (!isOwner && !isAdmin) return reply('⛔ Admins only.')
+        let val = text?.toLowerCase()
+        if (!val || !['on', 'off'].includes(val)) return reply(`Usage: ${prefix}antiviewonce on/off`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        const key = m.isGroup ? `antiviewonce_${chat}` : 'antiviewonce'
+        global.db.data.settings[key] = val === 'on'
+        await global.db.write()
+        return reply(val === 'on'
+            ? '✅ *Anti-ViewOnce ON* — View-once media will be re-sent without restriction.'
+            : '❌ *Anti-ViewOnce OFF* — View-once messages are protected.')
+    }
+
     // ── LEAVE GROUP ───────────────────────────────────────────────────────
     if (['leave', 'leavegroup', 'left', 'leftgroup'].includes(command)) {
         if (groupOnly()) return
@@ -772,6 +799,8 @@ handle.command = [
     'antidemote', 'antidemoted',
     'antidelete', 'antidel',
     'antiedit', 'antiediton', 'antieditoff',
+    'anticall', 'blockcall', 'rejectcall', 'nocall',
+    'antiviewonce', 'antiview', 'viewonce', 'unviewonce',
     // Welcome/goodbye
     'welcome', 'setwelcome',
     'setwelcomemsg', 'welcomemessage', 'welcomemsg',
