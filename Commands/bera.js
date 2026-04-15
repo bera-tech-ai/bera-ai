@@ -548,7 +548,7 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
     // ── Voice note transcription (explicit only) ──────────────────────────────
     // Triggered by: quoting a voice note and saying "bera transcribe this"
     //           or: .transcribe command while quoting a voice note
-    if (intent === 'transcribe' || command === 'transcribe' || command === 'listen') {
+    if (intent === 'transcribe') {
         await react(conn, m, '🎙️')
 
         // Check for a quoted voice note
@@ -1058,6 +1058,10 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
         if (!text) return reply(`Usage: ${prefix}setghtoken <github_personal_access_token>`)
         process.env.GITHUB_TOKEN = text.trim()
         return reply(`✅ GitHub token set.`)
+    }
+
+    if (command === 'transcribe' || command === 'listen') {
+        return handleAction(m, conn, reply, 'transcribe this voice note', sender, null)
     }
 }
 
