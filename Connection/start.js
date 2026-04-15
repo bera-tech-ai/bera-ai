@@ -28,6 +28,60 @@ const logger      = pino({ level: 'silent' })
 
 if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true })
 
+// ── Socket lifecycle tracking — prevents dual-socket crypto conflicts ──────
+let _activeConn    = null
+let _reconnecting  = false
+let _bannerShown   = false
+
+const closeActiveConn = async () => {
+    if (!_activeConn) return
+    const c = _activeConn
+    _activeConn = null
+    try { c.ev.removeAllListeners() } catch {}
+    try { c.ws?.terminate?.() }       catch {}
+    try { c.end?.() }                 catch {}
+    // give signal store time to flush before we create a new socket
+    await new Promise(r => setTimeout(r, 800))
+}
+
+const scheduleReconnect = (delayMs = 5000) => {
+    if (_reconnecting) return
+    _reconnecting = true
+    setTimeout(async () => {
+        _reconnecting = false
+        await closeActiveConn()
+        startBot().catch(e => {
+            console.error('[FATAL]', e.message)
+            setTimeout(() => startBot().catch(() => {}), 10000)
+        })
+    }, delayMs)
+}
+
+// ── Catch the aesDecryptGCM / noise-handler crypto error ──────────────────
+// This crash happens when an old socket and new socket share the same
+// Signal keys — closing the old socket properly prevents it, but we also
+// catch it here as a last resort to avoid a silent death.
+process.on('uncaughtException', (err) => {
+    const msg = err?.message || ''
+    if (msg.includes('Unsupported state') || msg.includes('authenticate data') || msg.includes('aesDecryptGCM')) {
+        console.log(chalk.red('[BOT] Crypto/noise error — scheduling clean reconnect in 6s...'))
+        scheduleReconnect(6000)
+        return
+    }
+    console.error(chalk.red('[UNCAUGHT]'), err.message)
+    scheduleReconnect(8000)
+})
+
+process.on('unhandledRejection', (reason) => {
+    const msg = reason?.message || String(reason)
+    if (msg.includes('Unsupported state') || msg.includes('authenticate data')) {
+        console.log(chalk.red('[BOT] Unhandled crypto rejection — reconnecting in 6s...'))
+        scheduleReconnect(6000)
+        return
+    }
+    console.error(chalk.yellow('[UNHANDLED REJECTION]'), msg.slice(0, 200))
+})
+
 const printBanner = () => {
     console.log(chalk.cyan(`
   ███╗   ██╗██╗ ██████╗██╗  ██╗
@@ -183,7 +237,7 @@ const startReminderLoop = (conn) => {
 }
 
 const startBot = async () => {
-    printBanner()
+    if (!_bannerShown) { printBanner(); _bannerShown = true }
     await initDb()
 
     const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR)
@@ -227,13 +281,16 @@ const startBot = async () => {
         markOnlineOnConnect: true,
         syncFullHistory: false,
         generateHighQualityLinkPreview: false,
-        keepAliveIntervalMs: 15000,
-        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 20000,   // slightly longer to reduce keepalive noise
+        connectTimeoutMs:   90000,    // 90s gives more time before 408
         defaultQueryTimeoutMs: 30000,
         retryRequestDelayMs: 250,
+        maxMsgRetryCount: 3,
     })
 
-    global.conn = conn
+    // Track for proper teardown — MUST be set before any listeners are added
+    _activeConn   = conn
+    global.conn   = conn
 
     let pairingRequested = false
 
@@ -261,37 +318,46 @@ const startBot = async () => {
         }
 
         if (connection === 'close') {
-            const err = lastDisconnect?.error
+            const err        = lastDisconnect?.error
             const statusCode = err instanceof Boom ? err.output.statusCode : null
-            const reason = DisconnectReason
 
             console.log(chalk.red(`[BOT] Disconnected — code: ${statusCode}`))
 
-            if (statusCode === reason.loggedOut) {
+            // ── 401: Logged out — clear session, start fresh ─────────────
+            if (statusCode === DisconnectReason.loggedOut) {
                 console.log(chalk.red('[BOT] Logged out. Clearing session...'))
                 fs.rmSync(SESSION_DIR, { recursive: true, force: true })
                 fs.mkdirSync(SESSION_DIR, { recursive: true })
                 console.log(chalk.yellow('[BOT] Session cleared. Restarting in 3s...'))
-                setTimeout(startBot, 3000)
+                scheduleReconnect(3000)
                 return
             }
 
+            // ── 515: restartRequired — clean reconnect, longer delay ──────
+            // This is WhatsApp telling us to restart the stream. We MUST
+            // close the current socket fully before opening a new one or
+            // the next connection will get the crypto error.
+            if (statusCode === 515) {
+                console.log(chalk.yellow('[BOT] Restart required by WhatsApp — reconnecting in 8s...'))
+                scheduleReconnect(8000)
+                return
+            }
+
+            // ── 408: connectionTimedOut ────────────────────────────────────
             if (statusCode === 408) {
                 pairingRequested = false
                 if (state.creds?.registered) {
-                    console.log(chalk.yellow('[BOT] Connection timed out — reconnecting in 5s...'))
+                    console.log(chalk.yellow('[BOT] Connection timed out — reconnecting in 6s...'))
                 } else {
-                    console.log(chalk.yellow('[BOT] Pairing timed out — requesting new code in 5s...'))
+                    console.log(chalk.yellow('[BOT] Pairing timed out — requesting new code in 6s...'))
                 }
-                setTimeout(startBot, 5000)
+                scheduleReconnect(6000)
                 return
             }
 
-            const shouldReconnect = statusCode !== reason.loggedOut
-            if (shouldReconnect) {
-                console.log(chalk.yellow('[BOT] Reconnecting in 5s...'))
-                setTimeout(startBot, 5000)
-            }
+            // ── All other codes — reconnect ───────────────────────────────
+            console.log(chalk.yellow('[BOT] Reconnecting in 5s...'))
+            scheduleReconnect(5000)
         }
 
         if (connection === 'open') {
