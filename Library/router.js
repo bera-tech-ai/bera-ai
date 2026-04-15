@@ -525,6 +525,26 @@ const detectIntent = (text) => {
     if (/\b(generate\s*(a\s*)?qr|create\s*(a\s*)?qr\s*code|qr\s*code\s*for)\b/i.test(t)) return 'qr2'
     if (/\b(search\s*(the\s*)?(web|google|internet)|find\s+info\s+about)\b/i.test(t)) return 'search2'
 
+    // ── Server & VPS stats ────────────────────────────────────────────────────
+    if (/\b(server\s+stats?|vps\s+stats?|system\s+stats?|server\s+status|vps\s+status|server\s+info|system\s+info)\b/i.test(t) ||
+        /\b(my\s+server\s+stats?|show\s+(me\s+)?server|server\s+memory|server\s+disk|server\s+uptime|server\s+load)\b/i.test(t) ||
+        /\b(how\s+is\s+my\s+server|how\s+much\s+(memory|ram|disk))\b/i.test(t)) return 'server_stats'
+
+    // ── PM2 list processes ────────────────────────────────────────────────────
+    if (/\b(pm2\s+list|list\s+(pm2\s+)?processes?|show\s+(me\s+)?(all\s+)?processes?|running\s+processes?|what\s+(processes?|apps?)\s+(are\s+)?running)\b/i.test(t)) return 'pm2_list'
+
+    // ── PM2 logs ──────────────────────────────────────────────────────────────
+    if (/\b(pm2\s+logs?|get\s+(me\s+)?(the\s+)?(last\s+\d+\s+)?logs?\s+(?:of|for)\s+\w|show\s+(me\s+)?logs?\s+(of|for)|logs?\s+of\s+\w|check\s+logs?\s+(of|for)\s+\w)\b/i.test(t)) return 'pm2_logs'
+
+    // ── PM2 restart ───────────────────────────────────────────────────────────
+    if (/\b(pm2\s+restart|restart\s+(the\s+)?process|restart\s+\w+\s+(process|app|bot))\b/i.test(t)) return 'pm2_restart'
+
+    // ── PM2 stop ──────────────────────────────────────────────────────────────
+    if (/\b(pm2\s+stop|stop\s+(the\s+)?process|stop\s+\w+\s+(process|app|bot))\b/i.test(t)) return 'pm2_stop'
+
+    // ── Bot stats ─────────────────────────────────────────────────────────────
+    if (/\b(bot\s+stats?|bera\s+stats?|bot\s+info|what\s+(are\s+)?your\s+stats?|how\s+(are\s+)?you\s+doing|bot\s+status)\b/i.test(t)) return 'bot_stats'
+
     // ── Voice transcription (explicit request only) ───────────────────────────
     if (/\b(transcribe|transcription|listen\s+to|convert\s+(this\s+)?voice|voice\s+to\s+text|speech\s+to\s+text|what\s+(did|was)\s+(he|she|they|it)\s+say(ing)?)\b/i.test(t) ||
         /\b(read\s+(this\s+)?voice|turn\s+(this\s+)?voice\s+(note\s+)?to\s+text|convert\s+(this\s+)?audio)\b/i.test(t)) return 'transcribe'

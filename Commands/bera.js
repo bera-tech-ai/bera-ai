@@ -545,6 +545,124 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
         return reply(res.success ? res.result : `❌ Search failed: ${res.error}`)
     }
 
+    // ── Server / VPS stats ────────────────────────────────────────────────────
+    if (intent === 'server_stats') {
+        await react(conn, m, '🖥️')
+        const { richServerStats } = require('../Library/actions/beraai')
+        const s = await richServerStats()
+        const pm2lines = s.pm2.length
+            ? s.pm2.map(p =>
+                `${p.status === 'online' ? '🟢' : '🔴'} *${p.name}* — CPU: ${p.cpu} | MEM: ${p.memory} | ↺ ${p.restarts}`
+            ).join('\n')
+            : '_(PM2 not running on this host)_'
+        await react(conn, m, '✅')
+        return reply(
+            `╭══〘 *🖥️ SERVER STATS* 〙═⊷\n` +
+            `┃\n` +
+            `┃ 💾 *Memory*\n` +
+            `┃❍ Used: ${s.memory.used} / ${s.memory.total} (${s.memory.pct})\n` +
+            `┃❍ Free: ${s.memory.free}\n` +
+            `┃\n` +
+            `┃ 💿 *Disk*\n` +
+            `┃❍ Used: ${s.disk.used} / ${s.disk.total} (${s.disk.pct})\n` +
+            `┃❍ Free: ${s.disk.free}\n` +
+            `┃\n` +
+            `┃ ⚡ *Load Average:* ${s.load}\n` +
+            `┃ ⏱️ *Uptime:* ${s.uptime}\n` +
+            `┃ 🔧 *CPUs:* ${s.cpus} core(s)\n` +
+            `┃\n` +
+            `┃ ⚙️ *PM2 Processes*\n` +
+            `┃ ${pm2lines.replace(/\n/g, '\n┃ ')}\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
+    // ── PM2 list ──────────────────────────────────────────────────────────────
+    if (intent === 'pm2_list') {
+        await react(conn, m, '⚙️')
+        const { pm2List } = require('../Library/actions/beraai')
+        const r = await pm2List()
+        await react(conn, m, '✅')
+        if (r.output && r.output.includes('PM2_NOT_FOUND')) {
+            return reply(`⚙️ PM2 is not installed or not running on this host.\n\n_This BeraHost environment may not have PM2._`)
+        }
+        return reply(`╭══〘 *⚙️ PM2 PROCESSES* 〙═⊷\n\`\`\`\n${r.output.slice(0, 3000)}\n\`\`\`\n╰══════════════════⊷`)
+    }
+
+    // ── PM2 logs ──────────────────────────────────────────────────────────────
+    if (intent === 'pm2_logs') {
+        await react(conn, m, '📋')
+        const { pm2Logs } = require('../Library/actions/beraai')
+        const processName = text.match(/\b(?:logs?\s+(?:of|for)|of|for)\s+([\w.-]+)/i)?.[1] ||
+                            text.match(/\b([\w.-]+)\s+(?:logs?|process)\b/i)?.[1]
+        const linesMatch  = text.match(/(?:last\s+)?(\d+)\s+(?:lines?|logs?)/i)
+        const lines       = linesMatch ? parseInt(linesMatch[1]) : 15
+        if (!processName) {
+            return reply(`📋 Which process? E.g: _"get me the last 15 logs of bera-ai"_`)
+        }
+        await reply(`📋 _Fetching last ${lines} lines of *${processName}* logs..._`)
+        const r = await pm2Logs(processName, lines)
+        await react(conn, m, '✅')
+        return reply(
+            `╭══〘 *📋 PM2 LOGS: ${processName}* 〙═⊷\n\`\`\`\n${(r.output || 'No logs found').slice(0, 3000)}\n\`\`\`\n╰══════════════════⊷`
+        )
+    }
+
+    // ── PM2 restart ───────────────────────────────────────────────────────────
+    if (intent === 'pm2_restart') {
+        await react(conn, m, '🔄')
+        const { pm2Restart } = require('../Library/actions/beraai')
+        const processName = text.match(/\b(?:restart\s+(?:the\s+)?)([\w.-]+)/i)?.[1]
+        if (!processName) return reply(`🔄 Which process? E.g: _"pm2 restart bera-ai"_`)
+        await reply(`🔄 _Restarting *${processName}*..._`)
+        const r = await pm2Restart(processName)
+        await react(conn, m, r.success ? '✅' : '❌')
+        return reply(`╭══〘 *🔄 PM2 RESTART* 〙═⊷\n\`\`\`\n${(r.output || 'Done').slice(0, 2000)}\n\`\`\`\n╰══════════════════⊷`)
+    }
+
+    // ── PM2 stop ──────────────────────────────────────────────────────────────
+    if (intent === 'pm2_stop') {
+        await react(conn, m, '🛑')
+        const { pm2Stop } = require('../Library/actions/beraai')
+        const processName = text.match(/\b(?:stop\s+(?:the\s+)?)([\w.-]+)/i)?.[1]
+        if (!processName) return reply(`🛑 Which process? E.g: _"pm2 stop old-bot"_`)
+        await reply(`🛑 _Stopping *${processName}*..._`)
+        const r = await pm2Stop(processName)
+        await react(conn, m, r.success ? '✅' : '❌')
+        return reply(`╭══〘 *🛑 PM2 STOP* 〙═⊷\n\`\`\`\n${(r.output || 'Done').slice(0, 2000)}\n\`\`\`\n╰══════════════════⊷`)
+    }
+
+    // ── Bot stats ─────────────────────────────────────────────────────────────
+    if (intent === 'bot_stats') {
+        await react(conn, m, '🤖')
+        const upSecs  = Math.floor(process.uptime())
+        const days    = Math.floor(upSecs / 86400)
+        const hrs     = Math.floor((upSecs % 86400) / 3600)
+        const mins    = Math.floor((upSecs % 3600) / 60)
+        const memMb   = (process.memoryUsage().rss / 1048576).toFixed(1)
+        const heapMb  = (process.memoryUsage().heapUsed / 1048576).toFixed(1)
+        const config  = require('../config')
+        await react(conn, m, '✅')
+        return reply(
+            `╭══〘 *🤖 BERA AI — BOT STATS* 〙═⊷\n` +
+            `┃\n` +
+            `┃ 🏷️ *Name:* ${config.botName}\n` +
+            `┃ 👤 *Owner:* ${config.owner}\n` +
+            `┃ ⚡ *Prefix:* ${global.db?.data?.settings?.prefix || config.prefix || '.'}\n` +
+            `┃\n` +
+            `┃ ⏱️ *Uptime:* ${days}d ${hrs}h ${mins}m\n` +
+            `┃ 💾 *Memory (RSS):* ${memMb} MB\n` +
+            `┃ 🔥 *Heap Used:* ${heapMb} MB\n` +
+            `┃ 🟢 *Node.js:* ${process.version}\n` +
+            `┃ 🐙 *GitHub:* bera-tech-ai/bera-ai\n` +
+            `┃\n` +
+            `┃ 🧠 *AI Engine:* Pollinations AI\n` +
+            `┃    (openai → gemini → mistral → deepseek)\n` +
+            `┃ 🌍 *Platform:* WhatsApp Multi-Device\n` +
+            `╰══════════════════⊷`
+        )
+    }
+
     // ── Voice note transcription (explicit only) ──────────────────────────────
     // Triggered by: quoting a voice note and saying "bera transcribe this"
     //           or: .transcribe command while quoting a voice note

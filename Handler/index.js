@@ -2471,7 +2471,8 @@ const handleMessage = async (conn, rawMsg) => {
                         'fun_quote','fun_coin','fun_8ball','fun_truth','fun_dare',
                         'fun_ship','fun_roast','fun_story','fun_rap','fun_riddle',
                         'fun_motivate','gen_password','fun_trivia','menu',
-                        'translate','bot_update','bot_status'
+                        'translate','bot_update','bot_status',
+                        'server_stats','pm2_list','pm2_logs','pm2_restart','pm2_stop','bot_stats'
                     ]
                     if (beraIntents.includes(intent)) {
                         try {

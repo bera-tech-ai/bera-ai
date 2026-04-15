@@ -73,17 +73,23 @@ const systemInfo = async () => {
     return { ram: ram.output, disk: disk.output, cpu: cpu.output, uptime: uptime.output, node: node.output }
 }
 
-// ── AI caller (Pollinations — free, respects system prompts) ─────────────────
-const callAI = async (messages, timeoutMs) => {
-    const body = JSON.stringify({ model: 'openai', messages, seed: Math.floor(Math.random() * 99999) })
+// ── Multi-model AI caller with automatic fallback ─────────────────────────────
+// Models rotate: openai → gemini → mistral → deepseek (all free via Pollinations)
+// Falls back to apiskeith.top if Pollinations is down
+const AI_MODELS = ['openai', 'gemini', 'mistral', 'deepseek']
+let _modelIdx = 0
+
+const callPollinationsModel = (messages, model, timeoutMs) => {
+    const body = JSON.stringify({ model, messages, seed: Math.floor(Math.random() * 99999) })
     return new Promise((resolve, reject) => {
         const req = require('https').request({
             hostname: 'text.pollinations.ai', path: '/', method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'User-Agent': 'BeraAI/2.0' }
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'User-Agent': 'BeraAI/3.0' }
         }, res => {
             let d = ''; res.on('data', c => d += c)
             res.on('end', () => {
                 if (res.statusCode === 429) return resolve('RATELIMIT')
+                if (res.statusCode >= 500) return resolve('ERROR')
                 resolve(d.trim())
             })
         })
@@ -93,16 +99,141 @@ const callAI = async (messages, timeoutMs) => {
     })
 }
 
-// ── MASTER SYSTEM PROMPT ──────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are Bera AI — the most advanced AI assistant ever built into a WhatsApp bot, created by Developer Bera (Kenyan developer). You are not just a chatbot — you are a fully autonomous AI agent with real tools, real code execution, and mastery-level expertise in every technical domain.
+const callApiskeith = async (messages, timeoutMs) => {
+    const endpoints = [
+        'https://apiskeith.top/ai/gpt41Nano',
+        'https://apiskeith.top/ai/gpt',
+    ]
+    for (const url of endpoints) {
+        try {
+            const r = await axios.post(url, { messages }, { timeout: timeoutMs || 25000 })
+            const text = r.data?.result || r.data?.response || r.data?.message || r.data?.text ||
+                         (typeof r.data === 'string' ? r.data : null)
+            if (text && text.length > 1) return text.trim()
+        } catch {}
+    }
+    return null
+}
 
-## IDENTITY
-- Name: Bera AI
-- Creator: Developer Bera (bera-tech-ai on GitHub)
-- Platform: WhatsApp (prefix: .)
-- Personality: Sharp, confident, uses light Kenyan slang naturally (mkuu, bana, waazi, enyewe, lakini). Never arrogant, always helpful.
-- Languages: Fluent in English, Swahili, Sheng. Match the language the user uses.
-- You are NEVER "just an AI that can't do things" — you have tools and you USE them.
+const callAI = async (messages, timeoutMs) => {
+    // Try Pollinations models in rotation (primary)
+    const startIdx = _modelIdx
+    for (let i = 0; i < AI_MODELS.length; i++) {
+        const model = AI_MODELS[(_modelIdx + i) % AI_MODELS.length]
+        try {
+            const reply = await callPollinationsModel(messages, model, timeoutMs)
+            if (reply && reply !== 'RATELIMIT' && reply !== 'ERROR' && reply.length > 1) {
+                _modelIdx = (_modelIdx + i + 1) % AI_MODELS.length
+                return reply
+            }
+        } catch {}
+    }
+    // Fallback to apiskeith
+    const fallback = await callApiskeith(messages, timeoutMs)
+    if (fallback) return fallback
+    return 'RATELIMIT'
+}
+
+// ── PM2 process management ─────────────────────────────────────────────────────
+const pm2List = async () => {
+    const r = await runBash("pm2 list --no-color 2>/dev/null || echo 'PM2_NOT_FOUND'")
+    return r
+}
+
+const pm2Logs = async (name, lines = 15) => {
+    const safe = (name || '').replace(/[^a-zA-Z0-9_.-]/g, '')
+    if (!safe) return { success: false, output: 'Invalid process name' }
+    const r = await runBash(`pm2 logs ${safe} --lines ${lines} --nostream --no-color 2>&1 | tail -${lines}`)
+    return r
+}
+
+const pm2Show = async (name) => {
+    const safe = (name || '').replace(/[^a-zA-Z0-9_.-]/g, '')
+    if (!safe) return { success: false, output: 'Invalid process name' }
+    return runBash(`pm2 show ${safe} --no-color 2>/dev/null`)
+}
+
+const pm2Restart = async (name) => {
+    const safe = (name || '').replace(/[^a-zA-Z0-9_.-]/g, '')
+    if (!safe) return { success: false, output: 'Invalid process name' }
+    return runBash(`pm2 restart ${safe} 2>&1`)
+}
+
+const pm2Stop = async (name) => {
+    const safe = (name || '').replace(/[^a-zA-Z0-9_.-]/g, '')
+    if (!safe) return { success: false, output: 'Invalid process name' }
+    return runBash(`pm2 stop ${safe} 2>&1`)
+}
+
+// ── Rich server stats ─────────────────────────────────────────────────────────
+const richServerStats = async () => {
+    const os = require('os')
+    const totalMem  = os.totalmem()
+    const freeMem   = os.freemem()
+    const usedMem   = totalMem - freeMem
+    const load      = os.loadaverage ? os.loadaverage() : os.loadavg()
+    const upSecs    = os.uptime()
+    const days      = Math.floor(upSecs / 86400)
+    const hrs       = Math.floor((upSecs % 86400) / 3600)
+    const mins      = Math.floor((upSecs % 3600) / 60)
+    const uptimeStr = `${days}d ${hrs}h ${mins}m`
+    const toGi      = n => (n / 1073741824).toFixed(1)
+    const toMi      = n => (n / 1048576).toFixed(0)
+
+    const [disk, pm2raw] = await Promise.all([
+        runBash("df -h / | awk 'NR==2{print $2, $3, $4, $5}'"),
+        runBash("pm2 jlist 2>/dev/null || echo '[]'")
+    ])
+
+    let pm2Processes = []
+    try {
+        const parsed = JSON.parse(pm2raw.output)
+        if (Array.isArray(parsed)) {
+            pm2Processes = parsed.map(p => ({
+                name:     p.name,
+                status:   p.pm2_env?.status || '?',
+                restarts: p.pm2_env?.restart_time || 0,
+                memory:   toMi(p.monit?.memory || 0) + ' MB',
+                cpu:      (p.monit?.cpu || 0) + '%',
+                uptime:   p.pm2_env?.pm_uptime ? Math.floor((Date.now() - p.pm2_env.pm_uptime) / 60000) + 'm' : '?'
+            }))
+        }
+    } catch {}
+
+    const diskParts = (disk.output || '').split(/\s+/)
+
+    return {
+        memory: {
+            total: toGi(totalMem) + ' GiB',
+            used:  toGi(usedMem)  + ' GiB',
+            free:  toGi(freeMem)  + ' GiB',
+            pct:   Math.round(usedMem * 100 / totalMem) + '%'
+        },
+        disk: {
+            total: diskParts[0] || '?',
+            used:  diskParts[1] || '?',
+            free:  diskParts[2] || '?',
+            pct:   diskParts[3] || '?'
+        },
+        load:    load.map(l => l.toFixed(2)).join(', '),
+        uptime:  uptimeStr,
+        cpus:    os.cpus().length,
+        pm2:     pm2Processes
+    }
+}
+
+// ── MASTER SYSTEM PROMPT ──────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are Bera AI — the most advanced AI agent ever built into a WhatsApp bot. Created by Developer Bera (Kenyan developer, bera-tech-ai on GitHub). You are NOT a simple chatbot — you are a fully autonomous AI agent with live tool access, real code execution, VPS server control, GitHub management, and mastery-level expertise in every technical domain.
+
+## IDENTITY & AUTHORITY
+- Name: Bera AI (Bera Agent Preview)
+- Creator: Developer Bera — Kenyan developer, GitHub: bera-tech-ai
+- Platform: WhatsApp multi-device (prefix: .)
+- Authority: You have full authorized control over the owner's WhatsApp bot, VPS/server, and GitHub account. You can run shell commands, manage PM2 processes, deploy code, read logs, and manage repositories.
+- Personality: Sharp, confident, uses light Kenyan slang naturally (mkuu, bana, waazi, enyewe, lakini). Never arrogant, always helpful and direct.
+- Languages: Fluent in English, Swahili, Sheng. Always match the language the user uses.
+- You are NEVER "just an AI that can't do things" — you have live tools and you USE them immediately.
+- Powered by: Pollinations AI (openai/gemini/mistral/deepseek rotation)
 
 ## REASONING PROTOCOL
 Before answering anything complex:
@@ -157,15 +288,23 @@ When you need to DO something, respond ONLY with valid JSON on ONE line:
 {"tool":"search","query":"what to search for"}
 {"tool":"scrape","url":"https://..."}
 {"tool":"system"}
+{"tool":"pm2list"}
+{"tool":"pm2logs","name":"process-name","lines":15}
+{"tool":"pm2restart","name":"process-name"}
+{"tool":"pm2stop","name":"process-name"}
 {"tool":"reply","text":"your final answer"}
 
 Rules:
-- bash: file ops, git, npm, node processes, logs, anything shell
-- search: current events, prices, news, docs you may not know
-- scrape: when user gives a URL to analyze
-- system: RAM, CPU, disk, uptime, server status
-- reply: conversational responses or after tool results
-- ONLY output JSON when calling a tool. Otherwise reply normally.
+- bash: file ops, git, npm, node scripts, anything shell-level
+- search: current events, prices, news, live data you may not know
+- scrape: when user provides a URL to analyze or read
+- system: RAM, CPU, disk, uptime, load average, full server stats
+- pm2list: list all PM2 managed processes with status, memory, CPU
+- pm2logs: fetch last N lines of logs for a named PM2 process
+- pm2restart: restart a PM2 process by name
+- pm2stop: stop a PM2 process by name
+- reply: conversational responses or final answer after tool results
+- ONLY output JSON when calling a tool. Otherwise reply normally in plain text.
 
 ## BOT CAPABILITIES (prefix: .)
 .play / .song <name> — YouTube audio download (MP3)
@@ -279,8 +418,24 @@ const generateAdvancedReply = async (text, chat, conn, m) => {
                 const r = await scrapeUrl(toolCall.url)
                 toolResult = r.success ? r.text : 'Scrape failed: ' + r.error
             } else if (toolCall.tool === 'system') {
-                const r = await systemInfo()
-                toolResult = 'RAM: ' + r.ram + '\nDisk: ' + r.disk + '\nCPU: ' + r.cpu + '\nUptime: ' + r.uptime + '\nNode: ' + r.node
+                const r = await richServerStats()
+                const p = r.pm2.length
+                    ? '\n\nPM2 Processes (' + r.pm2.length + '):\n' + r.pm2.map(p =>
+                        `• ${p.name} [${p.status}] CPU:${p.cpu} MEM:${p.memory} ↺${p.restarts}`).join('\n')
+                    : '\n\nPM2: not running / no processes'
+                toolResult = `Memory: ${r.memory.used}/${r.memory.total} (${r.memory.pct} used)\nDisk: ${r.disk.used}/${r.disk.total} (${r.disk.pct} used, ${r.disk.free} free)\nLoad: ${r.load}\nUptime: ${r.uptime}\nCPUs: ${r.cpus}${p}`
+            } else if (toolCall.tool === 'pm2list') {
+                const r = await pm2List()
+                toolResult = r.output || 'No PM2 output'
+            } else if (toolCall.tool === 'pm2logs') {
+                const r = await pm2Logs(toolCall.name, toolCall.lines || 15)
+                toolResult = r.output || 'No logs'
+            } else if (toolCall.tool === 'pm2restart') {
+                const r = await pm2Restart(toolCall.name)
+                toolResult = r.output || 'Restart issued'
+            } else if (toolCall.tool === 'pm2stop') {
+                const r = await pm2Stop(toolCall.name)
+                toolResult = r.output || 'Stop issued'
             }
         } catch (e) {
             toolResult = 'Tool error: ' + e.message
@@ -468,5 +623,11 @@ module.exports = {
     webSearch,
     scrapeUrl,
     runBash,
-    systemInfo
+    systemInfo,
+    richServerStats,
+    pm2List,
+    pm2Logs,
+    pm2Show,
+    pm2Restart,
+    pm2Stop
 }
