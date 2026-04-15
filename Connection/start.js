@@ -57,6 +57,31 @@ const scheduleReconnect = (delayMs = 5000) => {
     }, delayMs)
 }
 
+// ── Suppress libsignal-protocol session dump noise ────────────────────────
+// The Signal Protocol library logs full session objects (key buffers,
+// chain data, etc.) on every session rotation. This is completely normal
+// behaviour but floods the logs with thousands of useless lines.
+// We intercept console.log/warn/error and silently drop these lines.
+const _signalNoise = [
+    'Closing session:', 'Closing open session', 'Decrypted message with closed session',
+    '_chains:', 'registrationId:', 'currentRatchet:', 'ephemeralKeyPair:',
+    'pubKey: <Buffer', 'privKey: <Buffer', 'lastRemoteEphemeralKey:',
+    'previousCounter:', 'rootKey: <Buffer', 'indexInfo:', 'baseKey: <Buffer',
+    'baseKeyType:', 'remoteIdentityKey:', 'pendingPreKey:', 'signedKeyId:',
+    'preKeyId:', 'closed: -1', 'used: 17', 'created: 17', 'messageKeys: {}',
+    'chainKey: [Object]', 'chainType:', 'SessionEntry {',
+]
+const _isSignalNoise = (args) => {
+    const s = String(args[0] || '')
+    return _signalNoise.some(p => s.includes(p))
+}
+const _origLog   = console.log.bind(console)
+const _origWarn  = console.warn.bind(console)
+const _origError = console.error.bind(console)
+console.log   = (...a) => { if (!_isSignalNoise(a)) _origLog(...a) }
+console.warn  = (...a) => { if (!_isSignalNoise(a)) _origWarn(...a) }
+console.error = (...a) => { if (!_isSignalNoise(a)) _origError(...a) }
+
 // ── Catch the aesDecryptGCM / noise-handler crypto error ──────────────────
 // This crash happens when an old socket and new socket share the same
 // Signal keys — closing the old socket properly prevents it, but we also
