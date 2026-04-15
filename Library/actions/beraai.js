@@ -89,6 +89,22 @@ const isPollinationsError = (text) => {
     return false
 }
 
+// ── Extract clean text from an AI response (strips reasoning_content JSON) ────
+const parseAiText = (raw) => {
+    if (!raw || typeof raw !== 'string') return null
+    const t = raw.trim()
+    // DeepSeek-R1 / o1-style: {"role":"assistant","reasoning_content":"...","content":"..."}
+    if (t.startsWith('{') && t.includes('"content"')) {
+        try {
+            const obj = JSON.parse(t)
+            if (obj.content && typeof obj.content === 'string' && obj.content.length > 1) {
+                return obj.content.trim()
+            }
+        } catch {}
+    }
+    return t
+}
+
 const callPollinationsModel = (messages, model, timeoutMs) => {
     const body = JSON.stringify({ model, messages, seed: Math.floor(Math.random() * 99999) })
     return new Promise((resolve, reject) => {
@@ -108,9 +124,12 @@ const callPollinationsModel = (messages, model, timeoutMs) => {
                 if (res.statusCode >= 500)              return resolve('ERROR')
                 if (res.statusCode === 404 ||
                     res.statusCode === 400)              return resolve('ERROR')
-                const text = d.trim()
-                if (isPollinationsError(text))          return resolve('ERROR')
-                resolve(text)
+                const raw = d.trim()
+                if (isPollinationsError(raw))           return resolve('ERROR')
+                // Strip reasoning_content blobs before returning
+                const clean = parseAiText(raw)
+                if (!clean || clean.length < 2)         return resolve('ERROR')
+                resolve(clean)
             })
         })
         req.on('error', reject)
@@ -119,24 +138,71 @@ const callPollinationsModel = (messages, model, timeoutMs) => {
     })
 }
 
+// ── apiskeith.top: fast GET with just a query string (no 431 risk) ────────────
+const callApiskeithFast = async (userText, timeoutMs) => {
+    const FAST_ENDPOINTS = [
+        'https://apiskeith.top/ai/gpt41Nano',
+        'https://apiskeith.top/ai/gpt',
+        'https://apiskeith.top/keithai',
+    ]
+    const q = `You are Bera AI — a smart WhatsApp assistant. Answer concisely.\n\nUser: ${(userText || '').slice(0, 500)}\nBera AI:`
+    for (const url of FAST_ENDPOINTS) {
+        try {
+            const r = await axios.get(url, { params: { q }, timeout: timeoutMs || 12000 })
+            const text = r.data?.result || r.data?.reply || r.data?.response || r.data?.message ||
+                         r.data?.text || (typeof r.data === 'string' ? r.data : null)
+            const clean = text && parseAiText(text)
+            if (clean && clean.length > 1) return clean.trim()
+        } catch {}
+    }
+    return null
+}
+
+// ── apiskeith.top: POST with full message array (history + system prompt) ─────
 const callApiskeith = async (messages, timeoutMs) => {
+    // Trim messages to avoid 431 — keep system + last 6 exchanges
+    const trimmed = [
+        messages[0], // system prompt (always keep)
+        ...messages.slice(1).slice(-6)
+    ].filter(Boolean)
+
+    // Also trim system prompt content if it's enormous (> 2000 chars)
+    if (trimmed[0]?.content?.length > 2000) {
+        trimmed[0] = {
+            ...trimmed[0],
+            content: trimmed[0].content.slice(0, 2000) + '\n[truncated for speed]'
+        }
+    }
+
     const endpoints = [
         'https://apiskeith.top/ai/gpt41Nano',
         'https://apiskeith.top/ai/gpt',
     ]
     for (const url of endpoints) {
         try {
-            const r = await axios.post(url, { messages }, { timeout: timeoutMs || 25000 })
+            const r = await axios.post(url, { messages: trimmed }, { timeout: timeoutMs || 20000 })
             const text = r.data?.result || r.data?.response || r.data?.message || r.data?.text ||
                          (typeof r.data === 'string' ? r.data : null)
-            if (text && text.length > 1) return text.trim()
+            const clean = text && parseAiText(text)
+            if (clean && clean.length > 1) return clean.trim()
         } catch {}
     }
     return null
 }
 
 const callAI = async (messages, timeoutMs) => {
-    // Try Pollinations models in rotation (primary)
+    // ── PRIMARY: apiskeith fast GET — sub-second, no 431 risk ─────────────────
+    const lastUser = [...messages].reverse().find(m => m.role === 'user')?.content || ''
+    if (lastUser) {
+        const fast = await callApiskeithFast(lastUser, Math.min(timeoutMs || 12000, 12000))
+        if (fast) return fast
+    }
+
+    // ── SECONDARY: apiskeith POST with trimmed history ─────────────────────────
+    const apiskeithResult = await callApiskeith(messages, Math.min(timeoutMs || 20000, 20000))
+    if (apiskeithResult) return apiskeithResult
+
+    // ── TERTIARY: Pollinations rotation (slowest, most capable) ───────────────
     for (let i = 0; i < AI_MODELS.length; i++) {
         const model = AI_MODELS[(_modelIdx + i) % AI_MODELS.length]
         try {
@@ -147,9 +213,7 @@ const callAI = async (messages, timeoutMs) => {
             }
         } catch {}
     }
-    // Fallback to apiskeith
-    const fallback = await callApiskeith(messages, timeoutMs)
-    if (fallback) return fallback
+
     return 'RATELIMIT'
 }
 
@@ -252,7 +316,7 @@ const SYSTEM_PROMPT = `You are Bera AI — the most advanced AI agent ever built
 - Personality: Sharp, confident, uses light Kenyan slang naturally (mkuu, bana, waazi, enyewe, lakini). Never arrogant, always helpful and direct.
 - Languages: Fluent in English, Swahili, Sheng. Always match the language the user uses.
 - You are NEVER "just an AI that can't do things" — you have live tools and you USE them immediately.
-- Powered by: Pollinations AI (openai/gemini/mistral/deepseek rotation)
+- Powered by: Bera AI Engine (Keith API primary, Pollinations fallback)
 
 ## REASONING PROTOCOL
 Before answering anything complex:
@@ -486,7 +550,7 @@ const generateAdvancedReply = async (text, chat, conn, m) => {
 
     const messages = [
         { role: 'system', content: SYSTEM_PROMPT + memStr },
-        ...getHistory(chat).slice(-10)
+        ...getHistory(chat).slice(-6)   // keep 6 exchanges max — reduces request size & 431 risk
     ]
 
     let lastToolResult = null

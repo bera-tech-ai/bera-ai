@@ -176,17 +176,33 @@ Your rules:
 - If someone asks who you are: "I'm Bera AI, built by Bera Tech."
 - Be helpful, friendly, not robotic.`
 
+// Max chars for the GET query — servers reject very long URL params (HTTP 431)
+const MAX_QUERY_CHARS = 700
+
 const buildQuery = (userText, history = []) => {
-    const recent = history.slice(-8)
-    const context = recent.length
-        ? recent.map(h => `${h.role === 'user' ? 'User' : 'Bera AI'}: ${h.content}`).join('\n')
-        : ''
-    const ctxBlock = context ? `\n\nRecent conversation:\n${context}\n\n` : '\n\n'
-    return `${PERSONALITY}${ctxBlock}User: ${userText}\nBera AI:`
+    // Simple, short query first — keeps total under MAX_QUERY_CHARS
+    const bare = `You are Bera AI — a smart WhatsApp assistant built by Bera Tech. Answer concisely.\n\nUser: ${userText}\nBera AI:`
+    if (bare.length <= MAX_QUERY_CHARS) return bare
+
+    // If even the bare query is too long, just send the message
+    return `User: ${(userText || '').slice(0, 500)}\nBera AI:`
 }
 
 const cleanAnswer = (raw) => {
-    let clean = String(raw).trim()
+    let clean = String(raw || '').trim()
+
+    // ── Strip DeepSeek / reasoning_content JSON blobs ─────────────────────────
+    // Models like deepseek-r1 return: {"role":"assistant","reasoning_content":"...","content":"actual answer"}
+    if (clean.startsWith('{') && clean.includes('"content"')) {
+        try {
+            const obj = JSON.parse(clean)
+            if (obj.content && typeof obj.content === 'string') clean = obj.content.trim()
+        } catch {}
+    }
+    // Also strip fenced-JSON blocks that appear mid-response
+    clean = clean.replace(/```json\s*\{[^`]*"reasoning_content"[^`]*\}\s*```/gs, '').trim()
+
+    // ── Strip AI name prefixes ─────────────────────────────────────────────────
     clean = clean.replace(/^(Nick|ChatGPT|GPT|AI|Keith AI|Bera AI|Assistant):\s*/i, '').trim()
     clean = clean.replace(/\bI'?m Nick\b/gi, "I'm Bera AI")
     clean = clean.replace(/\bNick AI\b/gi, 'Bera AI')
@@ -260,14 +276,34 @@ const nickAi = async (userText, history = [], onAction = null, imageBuffer = nul
         console.error('[BERAAI] Advanced engine failed, falling back:', advErr.message)
     }
 
-    // ── Fallback: legacy apiskeith endpoints ──────────────────────────────────
+    // ── Fast path: apiskeith GET with short query ─────────────────────────────
+    // Try this first — it's 5-10x faster than Pollinations and never 431s
+    // because buildQuery now limits to MAX_QUERY_CHARS.
     const query = buildQuery(userText, history)
-    const answer = await tryEndpoints(
-        AI_ENDPOINTS,
-        () => ({ q: query }),
+    try {
+        const answer = await tryEndpoints(
+            AI_ENDPOINTS,
+            () => ({ q: query }),
+            (data) => data?.result || data?.reply || data?.message || data?.response
+        )
+        if (answer && answer.length > 1) return cleanAnswer(answer)
+    } catch (e) {
+        // 431 = request too large, 5xx = server error — fall through
+        if (!e.response || (e.response.status !== 431 && e.response.status < 500)) {
+            // Unexpected error — rethrow
+            throw e
+        }
+        // Server-side issue — fall through to next attempt
+    }
+
+    // ── Ultra-short fallback: just the raw question ───────────────────────────
+    const shortQuery = (userText || '').slice(0, 400)
+    const answer2 = await tryEndpoints(
+        AI_ENDPOINTS.slice(0, 3),
+        () => ({ q: shortQuery }),
         (data) => data?.result || data?.reply || data?.message || data?.response
     )
-    return cleanAnswer(answer)
+    return cleanAnswer(answer2)
 }
 
 module.exports = { nickAi, MAX_HISTORY }
