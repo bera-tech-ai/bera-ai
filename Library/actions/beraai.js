@@ -74,23 +74,43 @@ const systemInfo = async () => {
 }
 
 // ── Multi-model AI caller with automatic fallback ─────────────────────────────
-// Models rotate: openai → gemini → mistral → deepseek (all free via Pollinations)
-// Falls back to apiskeith.top if Pollinations is down
-const AI_MODELS = ['openai', 'gemini', 'mistral', 'deepseek']
+// Models rotate through available Pollinations free models.
+// Falls back to apiskeith.top if Pollinations is down or rate-limited.
+// NOTE: 'gemini' was removed — Pollinations retired that model name.
+const AI_MODELS = ['openai', 'mistral', 'deepseek', 'llama']
 let _modelIdx = 0
+
+const isPollinationsError = (text) => {
+    if (!text) return true
+    const t = text.trim()
+    // Detect JSON error responses like {"error":"Model not found",...}
+    if (t.startsWith('{') && t.includes('"error"')) return true
+    if (t.startsWith('{') && t.includes('"status"') && t.includes('404')) return true
+    return false
+}
 
 const callPollinationsModel = (messages, model, timeoutMs) => {
     const body = JSON.stringify({ model, messages, seed: Math.floor(Math.random() * 99999) })
     return new Promise((resolve, reject) => {
         const req = require('https').request({
             hostname: 'text.pollinations.ai', path: '/', method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'User-Agent': 'BeraAI/3.0' }
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+                'User-Agent': 'Mozilla/5.0 (compatible; BeraAI/3.0)',
+                'Referer': 'https://bera-ai.app',
+                'Origin':  'https://bera-ai.app'
+            }
         }, res => {
             let d = ''; res.on('data', c => d += c)
             res.on('end', () => {
-                if (res.statusCode === 429) return resolve('RATELIMIT')
-                if (res.statusCode >= 500) return resolve('ERROR')
-                resolve(d.trim())
+                if (res.statusCode === 429)             return resolve('RATELIMIT')
+                if (res.statusCode >= 500)              return resolve('ERROR')
+                if (res.statusCode === 404 ||
+                    res.statusCode === 400)              return resolve('ERROR')
+                const text = d.trim()
+                if (isPollinationsError(text))          return resolve('ERROR')
+                resolve(text)
             })
         })
         req.on('error', reject)
@@ -117,7 +137,6 @@ const callApiskeith = async (messages, timeoutMs) => {
 
 const callAI = async (messages, timeoutMs) => {
     // Try Pollinations models in rotation (primary)
-    const startIdx = _modelIdx
     for (let i = 0; i < AI_MODELS.length; i++) {
         const model = AI_MODELS[(_modelIdx + i) % AI_MODELS.length]
         try {

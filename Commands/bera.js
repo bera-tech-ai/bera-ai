@@ -656,7 +656,7 @@ const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
             `┃ 🐙 *GitHub:* bera-tech-ai/bera-ai\n` +
             `┃\n` +
             `┃ 🧠 *AI Engine:* Pollinations AI\n` +
-            `┃    (openai → gemini → mistral → deepseek)\n` +
+            `┃    (openai → mistral → deepseek → llama)\n` +
             `┃ 🌍 *Platform:* WhatsApp Multi-Device\n` +
             `╰══════════════════⊷`
         )

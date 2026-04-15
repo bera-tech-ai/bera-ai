@@ -90,11 +90,13 @@ const askAI = async (prompt) => {
         } catch {}
     }
 
-    // Fallback: try pollinations AI (free, no key needed)
+    // Fallback: try pollinations AI GET (free, anonymous, no model param needed)
     try {
         const encoded = encodeURIComponent(prompt)
         const res = await axios.get('https://text.pollinations.ai/' + encoded, { timeout: 10000 })
-        if (typeof res.data === 'string' && res.data.length > 10) return res.data.slice(0, 1000)
+        const txt = typeof res.data === 'string' ? res.data.trim() : ''
+        const isErr = txt.startsWith('{') && (txt.includes('"error"') || txt.includes('"status"'))
+        if (txt && txt.length > 10 && !isErr) return txt.slice(0, 1000)
     } catch {}
 
     return null
