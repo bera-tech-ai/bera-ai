@@ -76,9 +76,61 @@ const detectIntent = (text) => {
         /\b(music|song|audio)\b.{0,20}\b(by|from|called|named)\b/.test(t) ||
         /^play\s+\S/.test(t)) return 'music'
 
+    // ── YouTube Download ──────────────────────────────────────────────────────
+    if (/youtu\.be\/|youtube\.com\/watch/.test(t) ||
+        /\b(download|dl|save|get)\b.{0,20}\b(youtube|yt)\b.{0,15}\b(video|audio|mp3|mp4|song)\b/.test(t)) {
+        if (/\b(mp3|audio|song|music)\b/.test(t)) return 'yt_audio'
+        return 'yt_video'
+    }
+
     // ── Social Media Download ─────────────────────────────────────────────────
     if (/tiktok\.com|instagram\.com|instagr\.am|twitter\.com|x\.com\/.*\/status|fb\.watch/.test(t) ||
         /\b(download|dl|save)\b.{0,15}\b(tiktok|instagram|twitter|reel|tweet|video)\b/.test(t)) return 'download'
+
+    // ── Lyrics ────────────────────────────────────────────────────────────────
+    if (/\b(lyrics?|words?)\b.{0,20}\b(of|for|to|song)\b/.test(t) ||
+        /\b(show|get|find|search)\b.{0,15}\b(lyrics?)\b/.test(t) ||
+        /\blyrics?\s+\w/.test(t)) return 'lyrics'
+
+    // ── Define / Dictionary ────────────────────────────────────────────────────
+    if (/\b(define|definition|meaning|what does|what'?s? the meaning)\b.{0,25}\b(of\s+)?\w+\b/.test(t) ||
+        /\b(word|dictionary)\b.{0,15}\b(for|of|meaning|definition)\b/.test(t)) return 'define'
+
+    // ── Weather ────────────────────────────────────────────────────────────────
+    if (/\b(weather|temperature|forecast|clima|rain|sunny|hot|cold)\b.{0,30}\b(in|at|for|today|tomorrow)?\b/.test(t) ||
+        /\b(what'?s? the weather|how'?s? the weather|weather today)\b/.test(t)) return 'weather'
+
+    // ── Wikipedia ─────────────────────────────────────────────────────────────
+    if (/\b(wiki|wikipedia|who is|what is)\b.{0,30}\b(page|article|about|on)?\b/.test(t) &&
+        !/\b(song|music|lyrics|image|picture|weather|group|github|repo)\b/.test(t)) return 'wiki'
+
+    // ── Football live scores ───────────────────────────────────────────────────
+    if (/\b(live score|livescore|live result|live match|football score|soccer score)\b/.test(t) ||
+        /\b(what'?s? the score|current score)\b/.test(t)) return 'football_scores'
+
+    // ── Football predictions ───────────────────────────────────────────────────
+    if (/\b(football|soccer)\b.{0,20}\b(predict|prediction|tips?|bet)\b/.test(t) ||
+        /\b(today'?s? (matches?|games?|fixtures?))\b/.test(t) ||
+        /\b(match predictions?|betting tips?)\b/.test(t)) return 'football_predictions'
+
+    // ── League standings ────────────────────────────────────────────────────────
+    if (/\b(epl|premier league|la liga|laliga|ucl|champions league|bundesliga|serie a|ligue 1)\b.{0,20}\b(standings?|table|rank|top)\b/.test(t) ||
+        /\b(standings?|league table)\b.{0,20}\b(epl|laliga|ucl|bundesliga|seriea|ligue1|premier)\b/.test(t)) return 'football_standings'
+
+    // ── Remove background ──────────────────────────────────────────────────────
+    if (/\b(remove|cut out|delete|clear)\b.{0,15}\b(background|bg|backdrop)\b/.test(t) ||
+        /\b(background remov(al|er)|no background|transparent background)\b/.test(t)) return 'remove_bg'
+
+    // ── QR code ────────────────────────────────────────────────────────────────
+    if (/\b(create|make|generate|build)\b.{0,15}\b(qr|qrcode|qr code)\b/.test(t) ||
+        /\bqr\s*(code)?\b.{0,15}\b(for|of|with|from)\b/.test(t)) return 'create_qr'
+
+    // ── Screenshot website ─────────────────────────────────────────────────────
+    if (/\b(screenshot|snap|capture|take a shot)\b.{0,20}\b(of\s+)?(website|site|webpage|url|page)\b/.test(t) ||
+        /\b(website screenshot|take screenshot)\b/.test(t)) return 'ss_web'
+
+    // ── Spotify search ─────────────────────────────────────────────────────────
+    if (/\b(spotify|find)\b.{0,20}\b(song|track|music)\b.{0,20}\b(on spotify)\b/.test(t)) return 'spotify_search'
 
     // ── Translation ──────────────────────────────────────────────────────────
     if (/\b(translate|translation)\b.{0,30}\b(to|into|in)\b/.test(t) ||

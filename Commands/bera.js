@@ -19,6 +19,12 @@ const { planTask, summarizeResults } = require('../Library/actions/agent')
 const { translate } = require('../Library/actions/translate')
 const { download, detectPlatform } = require('../Library/actions/downloader')
 const { listServers, getServerStatus, powerAction, sendCommand, formatUptime, statusEmoji } = require('../Library/actions/pterodactyl')
+const {
+    gtLyrics, gtDefine, gtDictionary, gtGoogle, gtWiki, gtWeather,
+    gtYtMp3, gtYtMp4, gtTikTok, gtInstagram, gtTwitter, gtSpotifyDl,
+    gtSpotifySearch, gtRemoveBg, gtCreateQr, gtScreenshot, gtOcr, gtUpscale,
+    gtLiveScore, gtPredictions, gtStandings, gtImage, gtBible, gtWallpaper
+} = require('../Library/actions/giftedapi')
 
 const getUserHistory = (sender) => {
     if (!global.db.data.users[sender]) global.db.data.users[sender] = {}
@@ -1221,21 +1227,245 @@ Start immediately with the code — no lengthy intro.`
             '┃ I\'m Bera AI — your intelligent WhatsApp assistant.\n' +
             '┃ Here\'s a quick overview of what I can do:\n' +
             '┃\n' +
-            '┃ 🎵 *Music* — play/find any song by name\n' +
+            '┃ 🎵 *Music* — play/find any song, lyrics, Spotify\n' +
             '┃ 🎨 *AI Images* — generate images from descriptions\n' +
             '┃ 👁️ *Vision* — analyze & describe images you send\n' +
-            '┃ 🌐 *Web Search* — look up anything live online\n' +
+            '┃ 🌐 *Search* — Google, Wikipedia, weather, define words\n' +
             '┃ 🌍 *Translate* — translate to/from any language\n' +
+            '┃ 📥 *Download* — YouTube, TikTok, Instagram, Twitter, Spotify\n' +
+            '┃ ⚽ *Sports* — live scores, predictions, league tables\n' +
+            '┃ 🛠️ *Tools* — remove BG, QR codes, screenshots, OCR\n' +
             '┃ 📦 *Git/GitHub* — clone, push, create/delete repos\n' +
             '┃ 💻 *Shell* — run terminal commands directly\n' +
             '┃ 📁 *Files* — read, create, edit workspace files\n' +
-            '┃ 📥 *Download* — TikTok, Instagram, Twitter videos\n' +
             '┃ 🖥️ *Panel* — control your Pterodactyl servers\n' +
             '┃ 🤖 *AI Chat* — code, writing, math, anything\n' +
             '┃\n' +
             '┃ 📋 *Full command list:* Type *.menu*\n' +
             '╰══════════════════⊷'
         )
+    }
+
+    // ── NLP: YouTube download ───────────────────────────────────────────────────
+    if (intent === 'yt_audio' || intent === 'yt_video') {
+        const urlMatch = text.match(/https?:\/\/[^\s]+youtu[^\s]+/)
+        if (!urlMatch) return reply(`Send me the YouTube URL too!\nExample: _download this as mp3 https://youtu.be/..._`)
+        const ytUrl = urlMatch[0]
+        await react(conn, m, '⏳')
+        if (intent === 'yt_audio') {
+            const d = await gtYtMp3(ytUrl)
+            if (!d || (!d.download_url && !d.url && !d.audio)) {
+                await react(conn, m, '❌')
+                return reply(`❌ Could not download audio from that YouTube link.`)
+            }
+            const audioUrl = d.download_url || d.url || d.audio
+            await react(conn, m, '✅')
+            await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mp4', ptt: false, fileName: `${d.title || 'audio'}.mp3` }, { quoted: m })
+            return reply(`🎵 *${d.title || 'Audio'}*${d.channel ? `\n👤 ${d.channel}` : ''}`)
+        } else {
+            const d = await gtYtMp4(ytUrl)
+            if (!d || (!d.download_url && !d.url && !d.video)) {
+                await react(conn, m, '❌')
+                return reply(`❌ Could not download video from that YouTube link.`)
+            }
+            const videoUrl = d.download_url || d.url || d.video
+            await react(conn, m, '✅')
+            return conn.sendMessage(m.chat, { video: { url: videoUrl }, caption: `🎬 *${d.title || 'Video'}*${d.channel ? `\n👤 ${d.channel}` : ''}` }, { quoted: m })
+        }
+    }
+
+    // ── NLP: Social media download ─────────────────────────────────────────────
+    if (intent === 'download') {
+        const urlMatch = text.match(/https?:\/\/[^\s]+/)
+        if (!urlMatch) {
+            const legacyResult = await download(text)
+            if (legacyResult?.success) return reply(JSON.stringify(legacyResult).slice(0, 200))
+            return reply(`Please include the video URL!\nExample: _download this tiktok https://tiktok.com/..._`)
+        }
+        const dlUrl = urlMatch[0]
+        await react(conn, m, '⏳')
+        let d = null
+        if (/tiktok/.test(dlUrl)) d = await gtTikTok(dlUrl)
+        else if (/instagram|instagr\.am/.test(dlUrl)) d = await gtInstagram(dlUrl)
+        else if (/twitter|x\.com/.test(dlUrl)) d = await gtTwitter(dlUrl)
+        else { const legacy = await download(dlUrl); if (legacy?.success) d = legacy }
+        if (!d) {
+            await react(conn, m, '❌')
+            return reply(`❌ Could not download from that link.`)
+        }
+        await react(conn, m, '✅')
+        const videoUrl = d.video?.[0] || d.nowm || d.url || d.download_url || d.media?.[0]?.url
+        if (videoUrl) {
+            return conn.sendMessage(m.chat, { video: { url: videoUrl }, caption: `📥 *${d.title || d.desc || d.text?.slice(0, 80) || 'Video'}*` }, { quoted: m })
+        }
+        return reply(`Downloaded: ${JSON.stringify(d).slice(0, 300)}`)
+    }
+
+    // ── NLP: Lyrics ───────────────────────────────────────────────────────────
+    if (intent === 'lyrics') {
+        const query = text.replace(/\b(show|get|find|search|lyrics?|words?|of|for|to|song)\b/gi, '').trim() || text
+        await react(conn, m, '🎵')
+        const d = await gtLyrics(query)
+        if (!d) return reply(`❌ Couldn't find lyrics for: *${query}*\n_Try: lyrics Bohemian Rhapsody by Queen_`)
+        await react(conn, m, '✅')
+        const lyr = d.lyrics || d.lyric || d.result || ''
+        return reply(`🎵 *${d.title || query}*${d.artist ? ` — ${d.artist}` : ''}\n${'─'.repeat(28)}\n\n${lyr.slice(0, 3500)}`)
+    }
+
+    // ── NLP: Define / Dictionary ──────────────────────────────────────────────
+    if (intent === 'define') {
+        const word = text.replace(/\b(define|definition|meaning|what does|what'?s? the meaning|of|the|word|dictionary)\b/gi, '').trim() || text
+        await react(conn, m, '📖')
+        const d = await gtDictionary(word)
+        if (!d) return reply(`❌ No definition found for: *${word}*`)
+        await react(conn, m, '✅')
+        const phonetic = d.phonetic ? `  /${d.phonetic}/` : ''
+        const meanings = d.meanings || []
+        let out = `📚 *${d.word || word}*${phonetic}\n\n`
+        if (Array.isArray(meanings)) {
+            meanings.slice(0, 2).forEach(mg => {
+                if (mg.partOfSpeech) out += `_${mg.partOfSpeech}_\n`
+                ;(mg.definitions || []).slice(0, 2).forEach((df, i) => {
+                    out += `${i + 1}. ${df.definition || df}\n`
+                    if (df.example) out += `   _"${df.example}"_\n`
+                })
+                out += '\n'
+            })
+        }
+        return reply(out.trim())
+    }
+
+    // ── NLP: Weather ──────────────────────────────────────────────────────────
+    if (intent === 'weather') {
+        const loc = text.replace(/\b(weather|temperature|forecast|what'?s?|how'?s?|the|today|in|at|for|clima)\b/gi, '').trim() || 'Nairobi'
+        await react(conn, m, '🌤')
+        const w = await gtWeather(loc)
+        if (!w) return reply(`❌ Could not get weather for: *${loc}*`)
+        await react(conn, m, '✅')
+        const temp = w.temperature || w.temp || w.current?.temp_c || w.main?.temp || '?'
+        const desc = w.condition || w.description || w.weather?.[0]?.description || w.current?.condition?.text || ''
+        const humidity = w.humidity || w.current?.humidity || ''
+        return reply(`⛅ *Weather — ${w.location || w.city || loc}*\n${'─'.repeat(28)}\n🌡 *${temp}°C*${desc ? ` — ${desc}` : ''}${humidity ? `\n💧 Humidity: ${humidity}%` : ''}`)
+    }
+
+    // ── NLP: Wikipedia ────────────────────────────────────────────────────────
+    if (intent === 'wiki') {
+        const topic = text.replace(/\b(wiki|wikipedia|who is|what is|tell me about|about)\b/gi, '').trim() || text
+        await react(conn, m, '🌐')
+        const d = await gtWiki(topic)
+        if (!d) return reply(`❌ No Wikipedia article found for: *${topic}*`)
+        await react(conn, m, '✅')
+        const extract = (d.extract || d.description || '').slice(0, 1000)
+        return reply(`🌐 *${d.title || topic}*\n${'─'.repeat(28)}\n\n${extract}\n\n🔗 ${d.url || `https://en.wikipedia.org/wiki/${encodeURIComponent(topic)}`}`)
+    }
+
+    // ── NLP: Football live scores ──────────────────────────────────────────────
+    if (intent === 'football_scores') {
+        await react(conn, m, '⚽')
+        const matches = await gtLiveScore()
+        if (!matches) return reply(`❌ No live match data right now.`)
+        await react(conn, m, '✅')
+        const list = Array.isArray(matches) ? matches.slice(0, 8) : Object.values(matches).flat().slice(0, 8)
+        if (!list.length) return reply(`⚽ No live matches at the moment.`)
+        const lines = list.map(g => `⚽ *${g.homeTeam}* ${g.score || `${g.homeScore||0}-${g.awayScore||0}`} *${g.awayTeam}*${g.status ? ` _(${g.status})_` : ''}\n   ${g.league || ''}`)
+        return reply(`⚽ *Live Scores*\n${'─'.repeat(28)}\n\n${lines.join('\n\n')}`)
+    }
+
+    // ── NLP: Football predictions ──────────────────────────────────────────────
+    if (intent === 'football_predictions') {
+        await react(conn, m, '🔮')
+        const games = await gtPredictions()
+        if (!games || !Array.isArray(games)) return reply(`❌ No predictions available right now.`)
+        await react(conn, m, '✅')
+        const lines = games.slice(0, 6).map(g => {
+            const ft = g.predictions?.fulltime || {}
+            const best = ft.home > ft.away ? `${g.match?.split(' vs ')[0]} win (${Math.round(ft.home)}%)` :
+                         ft.away > ft.home ? `${g.match?.split(' vs ')[1]} win (${Math.round(ft.away)}%)` :
+                         `Draw (${Math.round(ft.draw || 33)}%)`
+            return `🔮 *${g.match}*\n   _${g.league}_ · 💡 ${best}`
+        })
+        return reply(`🔮 *Today's Predictions*\n${'─'.repeat(28)}\n\n${lines.join('\n\n')}`)
+    }
+
+    // ── NLP: League standings ─────────────────────────────────────────────────
+    if (intent === 'football_standings') {
+        const leagueKey = /epl|premier league/.test(text) ? 'epl' :
+                          /laliga|la liga/.test(text) ? 'laliga' :
+                          /ucl|champions league/.test(text) ? 'ucl' :
+                          /bundesliga/.test(text) ? 'bundesliga' :
+                          /serie a|seriea/.test(text) ? 'seriea' :
+                          /ligue 1|ligue1/.test(text) ? 'ligue1' : 'epl'
+        await react(conn, m, '⚽')
+        const teams = await gtStandings(leagueKey)
+        if (!teams || !teams.length) return reply(`❌ Standings not available.`)
+        await react(conn, m, '✅')
+        const leagueNames = { epl: 'EPL', laliga: 'La Liga', ucl: 'UCL', bundesliga: 'Bundesliga', seriea: 'Serie A', ligue1: 'Ligue 1' }
+        const rows = teams.slice(0, 10).map((t, i) => {
+            const pos = String(t.position || t.rank || i + 1).padStart(2)
+            const name = (t.team || t.name || t.club || '?').padEnd(14).slice(0, 14)
+            const pts = String(t.points || t.pts || 0).padStart(3)
+            const w = String(t.won || t.w || 0).padStart(2)
+            const d = String(t.draw || t.d || 0).padStart(2)
+            const l = String(t.lost || t.l || 0).padStart(2)
+            return `${pos} ${name} ${pts} ${w} ${d} ${l}`
+        })
+        return reply('```\n' + `*${leagueNames[leagueKey] || 'League'} Top 10*\n#  Team           Pts W  D  L\n` + rows.join('\n') + '\n```')
+    }
+
+    // ── NLP: Remove background ─────────────────────────────────────────────────
+    if (intent === 'remove_bg') {
+        const urlMatch = text.match(/https?:\/\/[^\s]+/)
+        let imgUrl = urlMatch?.[0]
+        if (!imgUrl && imageBuffer) imgUrl = 'data:image/jpeg;base64,' + imageBuffer.toString('base64')
+        if (!imgUrl) return reply(`Please send an image or include its URL!\nExample: _remove background https://example.com/photo.jpg_`)
+        await react(conn, m, '⏳')
+        const outUrl = await gtRemoveBg(imgUrl)
+        if (!outUrl) {
+            await react(conn, m, '❌')
+            return reply(`❌ Background removal failed.`)
+        }
+        await react(conn, m, '✅')
+        if (outUrl.startsWith('http')) return conn.sendMessage(m.chat, { image: { url: outUrl }, caption: '✅ Background removed!' }, { quoted: m })
+        return conn.sendMessage(m.chat, { image: Buffer.from(outUrl.split(',')[1] || outUrl, 'base64'), caption: '✅ Background removed!' }, { quoted: m })
+    }
+
+    // ── NLP: Create QR ────────────────────────────────────────────────────────
+    if (intent === 'create_qr') {
+        const content = text.replace(/\b(create|make|generate|build|qr|qrcode|qr code|for|of|with|from)\b/gi, '').trim() || text
+        await react(conn, m, '⏳')
+        const qrUrl = await gtCreateQr(content)
+        if (!qrUrl) {
+            await react(conn, m, '❌')
+            return reply(`❌ QR code generation failed.`)
+        }
+        await react(conn, m, '✅')
+        if (qrUrl.startsWith('http')) return conn.sendMessage(m.chat, { image: { url: qrUrl }, caption: `📱 QR Code for: _${content.slice(0, 60)}_` }, { quoted: m })
+        return conn.sendMessage(m.chat, { image: Buffer.from(qrUrl.split(',')[1] || qrUrl, 'base64'), caption: `📱 QR Code` }, { quoted: m })
+    }
+
+    // ── NLP: Screenshot website ────────────────────────────────────────────────
+    if (intent === 'ss_web') {
+        const urlMatch = text.match(/https?:\/\/[^\s]+/)
+        if (!urlMatch) return reply(`Include the URL!\nExample: _screenshot https://google.com_`)
+        await react(conn, m, '⏳')
+        const buf = await gtScreenshot(urlMatch[0])
+        if (!buf) {
+            await react(conn, m, '❌')
+            return reply(`❌ Screenshot failed.`)
+        }
+        await react(conn, m, '✅')
+        return conn.sendMessage(m.chat, { image: buf, caption: `📸 ${urlMatch[0]}` }, { quoted: m })
+    }
+
+    // ── NLP: Spotify search ────────────────────────────────────────────────────
+    if (intent === 'spotify_search') {
+        const query = text.replace(/\b(spotify|find|search|song|track|music|on spotify)\b/gi, '').trim() || text
+        await react(conn, m, '🎵')
+        const results = await gtSpotifySearch(query)
+        if (!results?.length) return reply(`❌ No Spotify results for: *${query}*`)
+        await react(conn, m, '✅')
+        const lines = results.slice(0, 5).map((t, i) => `*${i + 1}. ${t.title || t.name}* — ${t.artist || t.artists}\n🔗 ${t.url || ''}`)
+        return reply(`🎵 *Spotify: "${query}"*\n${'─'.repeat(28)}\n\n${lines.join('\n\n')}`)
     }
 
         return askNick(m, conn, reply, sender, text, imageBuffer)
