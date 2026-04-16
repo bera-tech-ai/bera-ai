@@ -13,7 +13,25 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
     const isGroup = m.isGroup
     const react = (e) => conn.sendMessage(chat, { react: { text: e, key: m.key } }).catch(() => {})
 
-    const getBotJid = () => (conn.user?.id || '').replace(/:[0-9]+@/, '@')
+    // Build all possible JID forms the bot may appear under in group metadata.
+    // Newer Baileys / WhatsApp uses LID (xxx@lid) for participants while
+    // conn.user.id is the phone JID. Must check BOTH or admin detection fails.
+    const getBotJids = () => {
+        const out = new Set()
+        const phone = (conn.user?.id || '').replace(/:[0-9]+@/, '@')
+        const lid = (conn.user?.lid || '').replace(/:[0-9]+@/, '@')
+        if (phone) {
+            out.add(phone)
+            const num = phone.split('@')[0]
+            if (num) out.add(num + '@s.whatsapp.net')
+        }
+        if (lid) {
+            out.add(lid)
+            const lidNum = lid.split('@')[0]
+            if (lidNum) out.add(lidNum + '@lid')
+        }
+        return out
+    }
 
     const getGroupMeta = async () => {
         try { return await conn.groupMetadata(chat) } catch { return null }
@@ -22,8 +40,8 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
     const botIsAdmin = async () => {
         const meta = await getGroupMeta()
         if (!meta) return false
-        const me = getBotJid()
-        const p = meta.participants.find(p => p.id === me)
+        const myJids = getBotJids()
+        const p = meta.participants.find(p => myJids.has(p.id) || myJids.has(p.lid) || myJids.has(p.jid))
         return p?.admin === 'admin' || p?.admin === 'superadmin'
     }
 
@@ -31,7 +49,14 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         if (isOwner) return true
         const meta = await getGroupMeta()
         if (!meta) return false
-        const p = meta.participants.find(p => p.id === sender)
+        // sender may also be in LID or phone form depending on Baileys version
+        const senderNum = (sender || '').split('@')[0]
+        const p = meta.participants.find(p => {
+            if (p.id === sender || p.lid === sender || p.jid === sender) return true
+            const pNum = (p.id || '').split('@')[0]
+            const pLidNum = (p.lid || '').split('@')[0]
+            return senderNum && (pNum === senderNum || pLidNum === senderNum)
+        })
         return p?.admin === 'admin' || p?.admin === 'superadmin'
     }
 

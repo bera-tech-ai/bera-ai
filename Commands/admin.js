@@ -623,43 +623,62 @@ Get yours at: https://berahost.com`)
         await reply('⏳ Pulling latest code from GitHub...')
         try {
             const { exec } = require('child_process')
-            const pullOut = await new Promise(res => {
-                exec('git pull origin main 2>&1', { timeout: 30000 }, (err, stdout, stderr) => res(stdout + (stderr ? '\n' + stderr : '')))
-            })
-            const already = pullOut.includes('Already up to date')
-            const changed = (pullOut.match(/\|\s+\d+/g) || []).length
+            const sh = (cmd, t = 30000) => new Promise(res =>
+                exec(cmd, { timeout: t, cwd: require('path').join(__dirname, '..') },
+                    (e, so, se) => res((so || '') + (se ? '\n' + se : ''))))
+
+            const beforeHash = (await sh('git rev-parse --short HEAD')).trim()
+            // Force fetch + hard reset so .update is GUARANTEED to match remote main
+            await sh('git fetch origin main')
+            const afterRemote = (await sh('git rev-parse --short origin/main')).trim()
+            const hardReset = await sh('git reset --hard origin/main')
+            const afterHash = (await sh('git rev-parse --short HEAD')).trim()
+            const lastCommit = (await sh('git log -1 --format=%s')).trim()
+
+            const changedFiles = (await sh(`git diff --name-only ${beforeHash} ${afterHash}`)).trim().split('\n').filter(Boolean)
+            const already = beforeHash === afterHash
+
             let npmOut = ''
-            if (pullOut.includes('package.json') || pullOut.includes('package-lock')) {
-                npmOut = await new Promise(res => { exec('npm install --production --loglevel=error 2>&1', { timeout: 60000 }, (err, out) => res(out||'')) })
+            if (changedFiles.some(f => f === 'package.json' || f === 'package-lock.json')) {
+                npmOut = await sh('npm install --production --loglevel=error 2>&1', 90000)
             }
-            // Inline hot-reload: flush plugin require cache and re-load
+
+            // Hot-reload Plugins + Commands by busting require cache
             const _path = require('path'), _fs = require('fs')
-            const _plugDir = _path.join(__dirname, '..', 'Plugins')
-            const _plugFiles = _fs.readdirSync(_plugDir).filter(f => f.endsWith('.js'))
+            const _root = _path.join(__dirname, '..')
             let _loaded = 0, _failed = 0
-            for (const _f of _plugFiles) {
-                const _fp = _path.join(_plugDir, _f)
-                try { delete require.cache[require.resolve(_fp)]; require(_fp); _loaded++ }
-                catch(_e) { _failed++; console.error('[RELOAD] ' + _f + ':', _e.message) }
+            for (const dir of ['Plugins', 'Commands']) {
+                const dPath = _path.join(_root, dir)
+                if (!_fs.existsSync(dPath)) continue
+                for (const f of _fs.readdirSync(dPath).filter(x => x.endsWith('.js'))) {
+                    const fp = _path.join(dPath, f)
+                    try {
+                        delete require.cache[require.resolve(fp)]
+                        require(fp)
+                        _loaded++
+                    } catch (e) { _failed++; console.error(`[RELOAD] ${f}: ${e.message}`) }
+                }
             }
-            // Also reload command files
-            const _cmdDir = _path.join(__dirname, '..', 'Commands')
-            const _cmdFiles = _fs.readdirSync(_cmdDir).filter(f => f.endsWith('.js'))
-            for (const _f of _cmdFiles) {
-                try { delete require.cache[require.resolve(_path.join(_cmdDir, _f))] } catch(_e) {}
+            // Bust action library cache too so prompt/AI changes take effect
+            for (const f of _fs.readdirSync(_path.join(_root, 'Library', 'actions')).filter(x => x.endsWith('.js'))) {
+                try { delete require.cache[require.resolve(_path.join(_root, 'Library', 'actions', f))] } catch {}
             }
-            const result = { pluginsLoaded: _loaded, failed: _failed }
+
             await conn.sendMessage(chat, { react: { text: '✅', key: m.key } })
-            const gitLines = pullOut.trim().split('\n').filter(l => l.trim() && !l.includes('https://') && !l.includes('FETCH_HEAD')).slice(0, 4)
-            const gitSection = gitLines.length ? '┃\n┃ 📋 ' + gitLines.join('\n┃ ') + '\n' : ''
             return reply(
                 '╭══〘 *🔄 BOT UPDATED* 〙═⊷\n' +
-                '┃ Status: ' + (already ? '✅ Already up to date' : '🆕 ' + changed + ' file(s) updated') + '\n' +
-                '┃ Plugins loaded: *' + result.pluginsLoaded + '*\n' +
+                '┃ Status: ' + (already ? '✅ Already up to date' : `🆕 ${changedFiles.length} file(s) updated`) + '\n' +
+                `┃ Before: \`${beforeHash}\`\n` +
+                `┃ After:  \`${afterHash}\`\n` +
+                `┃ Remote: \`${afterRemote}\`\n` +
+                `┃ Latest: _${lastCommit.slice(0, 60)}_\n` +
+                `┃ Reloaded: *${_loaded}* files (${_failed} failed)\n` +
+                (changedFiles.length && !already ? '┃ Changed: ' + changedFiles.slice(0, 5).join(', ') + (changedFiles.length > 5 ? '...' : '') + '\n' : '') +
+                (npmOut ? '┃ npm: deps reinstalled\n' : '') +
                 '┃ 🔌 Connection: *maintained*\n' +
-                (npmOut ? '┃ npm: ' + npmOut.slice(0,60) + '\n' : '') +
-                gitSection +
-                '╰══════════════════⊷'
+                '╰══════════════════⊷\n\n' +
+                (already ? 'ℹ️ Already on latest commit. If you expected new code, the push may not have reached GitHub yet.' :
+                    '✅ Use `.restart` for a clean restart with the new code, or test changes immediately — most fixes are now live in memory.')
             )
         } catch (e) {
             await conn.sendMessage(chat, { react: { text: '❌', key: m.key } })
