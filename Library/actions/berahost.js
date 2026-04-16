@@ -5,18 +5,50 @@
  */
 const axios = require('axios')
 
-// API base — configurable via env, falls back to the documented URL
-const BH_API  = (process.env.BERAHOST_API_URL || 'https://kingvon-bot-hosting.replit.app').replace(/\/$/, '') + '/api'
+// API base — try multiple known URLs for BeraHost, configurable via env or DB
+const BH_FALLBACK_URLS = [
+    'https://berahost.beraai.co.ke',
+    'https://api.berahost.co.ke',
+    'https://berahost.co.ke',
+    'https://berahost.com',
+    'https://kingvon-bot-hosting.replit.app',
+]
+const getBhBaseUrl = () => {
+    const fromDb  = global.db?.data?.settings?.bhApiUrl
+    const fromEnv = process.env.BERAHOST_API_URL
+    return (fromDb || fromEnv || BH_FALLBACK_URLS[0]).replace(/\/$/, '')
+}
+const BH_API  = () => getBhBaseUrl() + '/api'
 const getKey  = () => global.db?.data?.settings?.bhApiKey || process.env.BH_API_KEY || null
 
 const bh = () => {
     const k = getKey()
-    if (!k) throw new Error('NO_BH_KEY')
+    if (!k) throw new Error('NO_BH_KEY — run .setbhkey bh_yourkey')
     return axios.create({
-    baseURL: BH_API,
-    headers: { 'x-api-key': k, 'Content-Type': 'application/json' },
-    timeout: 30000
+        baseURL: BH_API(),
+        headers: { 'x-api-key': k, 'Content-Type': 'application/json' },
+        timeout: 30000
     })
+}
+
+// Auto-discover the working BeraHost URL by probing known candidates
+const discoverBhUrl = async () => {
+    const key = getKey()
+    if (!key) return null
+    for (const base of BH_FALLBACK_URLS) {
+        try {
+            const r = await axios.get(base + '/api/coins/balance', {
+                headers: { 'x-api-key': key },
+                timeout: 8000
+            })
+            if (r.status < 400) {
+                if (global.db?.data?.settings) global.db.data.settings.bhApiUrl = base
+                await global.db?.write?.()
+                return base
+            }
+        } catch {}
+    }
+    return null
 }
 
 const bhErr = (e) => e.response?.data?.error || e.response?.data?.message || e.message || 'Unknown error'

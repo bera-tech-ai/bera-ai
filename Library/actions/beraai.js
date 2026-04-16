@@ -138,6 +138,44 @@ const callPollinationsModel = (messages, model, timeoutMs) => {
     })
 }
 
+// ── Gifted Tech API — fast GET, good model quality ────────────────────────────
+// Base: https://api.giftedtech.co.ke/chatgpt?apikey=gifted&q=...
+// NOTE: Do NOT include a `prompt` param — it breaks the endpoint.
+const callGiftedTech = async (userText, historyMessages, timeoutMs) => {
+    // Build a compact context string from history (last 4 messages max)
+    const histCtx = (historyMessages || [])
+        .filter(m => m.role !== 'system')
+        .slice(-4)
+        .map(m => (m.role === 'user' ? 'User' : 'Bera AI') + ': ' + String(m.content || '').slice(0, 200))
+        .join('\n')
+
+    // Identity line + optional history + current message — total < 600 chars
+    const identity = 'You are Bera AI, a smart WhatsApp assistant built by Bera Tech. Always say your name is Bera AI.'
+    const userPart = String(userText || '').slice(0, 400)
+    const q = histCtx
+        ? identity + '\n\nConversation:\n' + histCtx + '\nUser: ' + userPart + '\nBera AI:'
+        : identity + '\n\nUser: ' + userPart + '\nBera AI:'
+
+    const GT_ENDPOINTS = [
+        'https://api.giftedtech.co.ke/chatgpt',
+        'https://api.giftedtech.co.ke/gpt4o',
+    ]
+    for (const url of GT_ENDPOINTS) {
+        try {
+            const r = await axios.get(url, {
+                params: { apikey: 'gifted', q },
+                timeout: timeoutMs || 10000
+            })
+            if (typeof r.data === 'string' && r.data.includes('<!DOCTYPE')) continue // HTML error page
+            const text = r.data?.result || r.data?.reply || r.data?.response || r.data?.message ||
+                         r.data?.text || (typeof r.data === 'string' ? r.data : null)
+            const clean = text && parseAiText(text)
+            if (clean && clean.length > 1 && !clean.includes('<!DOCTYPE')) return clean.trim()
+        } catch {}
+    }
+    return null
+}
+
 // ── apiskeith.top: fast GET with just a query string (no 431 risk) ────────────
 const callApiskeithFast = async (userText, timeoutMs) => {
     const FAST_ENDPOINTS = [
@@ -145,7 +183,8 @@ const callApiskeithFast = async (userText, timeoutMs) => {
         'https://apiskeith.top/ai/gpt',
         'https://apiskeith.top/keithai',
     ]
-    const q = `You are Bera AI — a smart WhatsApp assistant. Answer concisely.\n\nUser: ${(userText || '').slice(0, 500)}\nBera AI:`
+    const identity = 'You are Bera AI — a smart WhatsApp assistant built by Bera Tech. NEVER say your name is Keith. Always say "I am Bera AI".'
+    const q = identity + '\n\nUser: ' + (userText || '').slice(0, 450) + '\nBera AI:'
     for (const url of FAST_ENDPOINTS) {
         try {
             const r = await axios.get(url, { params: { q }, timeout: timeoutMs || 12000 })
@@ -191,18 +230,26 @@ const callApiskeith = async (messages, timeoutMs) => {
 }
 
 const callAI = async (messages, timeoutMs) => {
-    // ── PRIMARY: apiskeith fast GET — sub-second, no 431 risk ─────────────────
     const lastUser = [...messages].reverse().find(m => m.role === 'user')?.content || ''
+    const historyMsgs = messages.filter(m => m.role !== 'system')
+
+    // ── PRIMARY: Gifted Tech API — fast, good quality, handles identity well ───
+    if (lastUser) {
+        const gifted = await callGiftedTech(lastUser, historyMsgs, Math.min(timeoutMs || 10000, 10000))
+        if (gifted) return gifted
+    }
+
+    // ── SECONDARY: apiskeith fast GET — sub-second, no 431 risk ──────────────
     if (lastUser) {
         const fast = await callApiskeithFast(lastUser, Math.min(timeoutMs || 12000, 12000))
         if (fast) return fast
     }
 
-    // ── SECONDARY: apiskeith POST with trimmed history ─────────────────────────
+    // ── TERTIARY: apiskeith POST with trimmed history ─────────────────────────
     const apiskeithResult = await callApiskeith(messages, Math.min(timeoutMs || 20000, 20000))
     if (apiskeithResult) return apiskeithResult
 
-    // ── TERTIARY: Pollinations rotation (slowest, most capable) ───────────────
+    // ── QUATERNARY: Pollinations rotation (slowest, most capable) ─────────────
     for (let i = 0; i < AI_MODELS.length; i++) {
         const model = AI_MODELS[(_modelIdx + i) % AI_MODELS.length]
         try {

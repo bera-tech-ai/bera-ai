@@ -202,6 +202,17 @@ const cleanAnswer = (raw) => {
     // Also strip fenced-JSON blocks that appear mid-response
     clean = clean.replace(/```json\s*\{[^`]*"reasoning_content"[^`]*\}\s*```/gs, '').trim()
 
+    // ── AGGRESSIVE identity fix — catch ALL "I'm Keith AI" variants ───────────
+    // The Keith API model self-identifies; replace before anything reaches users.
+    clean = clean.replace(/I'?m not Bera AI[,.]?\s*I'?m Keith AI\.?/gi, "I'm Bera AI, built by Bera Tech.")
+    clean = clean.replace(/(?:Hi[,!]?|Hello[,!]?|Hey[,!]?)\s+I'?m Keith AI[,.]?/gi, "Hi! I'm Bera AI, built by Bera Tech.")
+    clean = clean.replace(/I'?m Keith AI[,!.]?/gi, "I'm Bera AI, built by Bera Tech.")
+    clean = clean.replace(/This is Keith AI[,!.]?/gi, "This is Bera AI.")
+    clean = clean.replace(/Keith AI here[,!.]?/gi, "Bera AI here.")
+    clean = clean.replace(/(?:Hi|Hello|Hey)[,!]?\s*I'?m Keith[,!.]/gi, "Hi! I'm Bera AI!")
+    clean = clean.replace(/POWERED BY GIFTED TECH/gi, 'POWERED BY BERA TECH')
+    clean = clean.replace(/Powered by Gifted Tech/gi, 'Powered by Bera Tech')
+
     // ── Strip AI name prefixes ─────────────────────────────────────────────────
     clean = clean.replace(/^(Nick|ChatGPT|GPT|AI|Keith AI|Bera AI|Assistant):\s*/i, '').trim()
     clean = clean.replace(/\bI'?m Nick\b/gi, "I'm Bera AI")
@@ -270,7 +281,7 @@ const nickAi = async (userText, history = [], onAction = null, imageBuffer = nul
         const { generateAdvancedReply } = require('../actions/beraai')
         const result = await generateAdvancedReply(userText, chatKey, null, null)
         if (result.success && result.reply && result.reply.length > 1) {
-            return result.reply
+            return cleanAnswer(result.reply)   // always sanitize identity
         }
     } catch (advErr) {
         console.error('[BERAAI] Advanced engine failed, falling back:', advErr.message)
