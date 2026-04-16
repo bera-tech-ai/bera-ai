@@ -2109,7 +2109,7 @@ handle.before = async (m, { conn, reply, prefix }) => {
     }
 }
 
-handle.command = ['bera', 'chatbot', 'beraclone', 'workspace', 'setghtoken', 'tagreply', 'transcribe', 'listen', 'beratrigger', 'beratrig', 'beralisten']
+handle.command = ['bera', 'agent', 'chatbot', 'beraclone', 'workspace', 'setghtoken', 'tagreply', 'transcribe', 'listen', 'beratrigger', 'beratrig', 'beralisten']
 handle.tags = ['ai']
 
 module.exports = handle

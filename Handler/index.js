@@ -2707,7 +2707,7 @@ const handleMessage = async (conn, rawMsg) => {
                         'group_kick','group_add','group_promote','group_demote','group_mute',
                         'group_unmute','group_link','group_tagall','group_admins','group_info','group_warn'
                     ]
-                    if (beraIntents.includes(intent)) {
+                    if (beraIntents.includes(intent) && intent !== 'chat') {
                         try {
                             const { handleAction } = require('../Commands/bera')
                             await handleAction(m, conn, reply, text, sender, null)
@@ -2717,6 +2717,32 @@ const handleMessage = async (conn, rawMsg) => {
                         return
                     }
                 }
+
+                // ── DEFAULT: route any unhandled "Bera <text>" through the FULL AGENT LOOP ──
+                // This gives the AI access to every tool: cmd (any bot command),
+                // writefile, mkdir, bash, gitclone, gitpush, gitrepo, pm2, etc.
+                // So "Bera ping", "Bera build me a stopwatch", "Bera kick @x" all
+                // get executed instead of just chatted about.
+                try {
+                    console.log('[BERA-AGENT] 🤖 Routing to full agent loop:', text.slice(0, 60))
+                    const { generateAdvancedReply } = require('../Library/actions/beraai')
+                    conn.sendPresenceUpdate('composing', chat).catch(() => {})
+                    react('🤖')
+                    // Strip the leading "Bera" so the AI sees the real instruction
+                    const cleaned = text.replace(/^\s*bera[,:\s]+/i, '').trim() || text
+                    const result = await generateAdvancedReply(cleaned, chat, conn, m, { agentMode: true, MAX_LOOPS: 12 })
+                    if (result && result.success && result.reply) {
+                        await reply(result.reply)
+                    } else if (result && result.reply) {
+                        await reply(result.reply)
+                    } else {
+                        await reply('🤖 (no response)')
+                    }
+                } catch (e) {
+                    console.error('[BERA-AGENT ERROR]', e.message)
+                    await reply('❌ Agent error: ' + e.message)
+                }
+                return
             }
             // ═══════════════════════════════════════════════════════════════
 

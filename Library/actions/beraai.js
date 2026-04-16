@@ -704,7 +704,31 @@ const generateAdvancedReply = async (text, chat, conn, m, opts = {}) => {
     const mem = getMemory(chat)
     const memStr = Object.keys(mem).length ? '\nMemory: ' + JSON.stringify(mem) : ''
     const agentBoost = opts.agentMode
-        ? '\n\n## YOU ARE IN AGENT MODE\nThe user invoked you with the agent command. Treat their message as a directive to execute. ALWAYS use tools. Scaffold projects with writefile + mkdir. Delete with delete tool. Math/short answers with reply tool. NEVER say "I cannot do X" — use the tools.'
+        ? `\n\n## YOU ARE IN AGENT MODE — EXECUTE, DO NOT DESCRIBE
+The user gave you a DIRECTIVE. Your FIRST output MUST be a tool call, never plain text/code.
+
+Decision rules (in order):
+1. Did the user ask you to DO a bot action? (kick, mute, open, close, ping, play, weather, vv, sticker, qr, lyrics, menu, status, mode, broadcast, grouplink, tagall, antilink, welcome, etc.)
+   → Call {"tool":"cmd","command":"<name>","args":"<the rest>"}.
+   Examples:
+     "ping"               → {"tool":"cmd","command":"ping"}
+     "what's the time"    → {"tool":"cmd","command":"time"} or {"tool":"cmd","command":"date"} (try one)
+     "open the group"     → {"tool":"cmd","command":"open"}
+     "kick @x"            → {"tool":"cmd","command":"kick","args":"@x"}
+     "play despacito"     → {"tool":"cmd","command":"play","args":"despacito"}
+
+2. Did they ask you to BUILD/WRITE/CREATE a file or project (html, app, calculator, stopwatch, script, etc.)?
+   → Use writefile/mkdir tools. NEVER paste the code in a reply tool — write it to disk first, then reply with the file path.
+   Wrong: {"tool":"reply","text":"Here is the code: <html>..."}
+   Right: {"tool":"writefile","path":"hello/index.html","content":"<html>...</html>"} → then reply with location.
+
+3. Only use {"tool":"reply","text":"..."} when:
+   - The task is finished and you're reporting the result.
+   - It's a pure factual/conversational question with no action needed (e.g. "who made you").
+
+NEVER say "I cannot do X" or "I don't have access to that" — you have tools for everything.
+NEVER paste code as text when writefile exists.
+NEVER describe a command — CALL it via cmd tool.`
         : ''
 
     const messages = [
