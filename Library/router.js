@@ -427,7 +427,9 @@ const detectIntent = (text) => {
     if (/\b(?:block)\s+@/i.test(t) || /\bblock\s+(?:that|this)\s+(?:person|number)/i.test(t)) return 'admin_block'
     if (/\b(?:unblock)\s+@/i.test(t)) return 'admin_unblock'
     if (/\b(?:get|fetch|show)\s+(?:profile\s+)?(?:pic|photo|picture|pp)\s+(?:of|for)?\s*@/i.test(t)) return 'admin_getpp'
-    if (/\b(?:set|switch|change)\s+(?:bot\s+)?mode\s+(?:to\s+)?(?:public|private)/i.test(t)) return 'admin_mode'
+    if (/\b(?:set|switch|change|put|make)\s+(?:bots?\s+|bera\s+|the\s+|my\s+)?mode\s+(?:to\s+|as\s+)?(?:public|private)/i.test(t) ||
+        /\b(?:set|switch|change|put|make)\s+(?:bots?|bera)\s+(?:to\s+)?(?:mode\s+)?(?:public|private)/i.test(t) ||
+        /\b(?:public|private)\s+mode\b/i.test(t)) return 'admin_mode'
     if (/\b(?:enable|disable|turn\s+(?:on|off))\s+auto\s*(?:typing|type)/i.test(t)) return 'admin_autotyping'
     if (/\b(?:add|set)\s+(?:a\s+)?sudo\s+(?:user|@)/i.test(t)) return 'admin_sudo'
     if (/\b(?:set|add)\s+reminder\b/i.test(t) || /\bremind\s+me\b/i.test(t)) return 'admin_remind'

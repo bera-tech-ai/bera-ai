@@ -11,7 +11,7 @@ const path = require('path')
 const BERAHOST_API = 'https://kingvon-bot-hosting.replit.app/api'
 const BERAHOST_KEY = process.env.BERAHOST_API_KEY || ''
 const APISKEITH = 'https://apiskeith.top'
-const GIFTED_API = 'https://api.mauricegift.xyz'
+const GIFTED_API = 'https://api.giftedtech.co.ke'
 
 // ─────────────────────────────────────────────
 // Helper

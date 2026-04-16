@@ -8,7 +8,7 @@ const config = require('../Config')
 const { searchYoutube, downloadAudio, downloadVideo, searchAndDownloadVideo } = require('../Library/actions/music')
 
 const APISKEITH = 'https://apiskeith.top'
-const GIFTED_API = 'https://api.mauricegift.xyz'
+const GIFTED_API = 'https://api.giftedtech.co.ke'
 
 const react = (conn, m, emoji) =>
     conn.sendMessage(m.chat, { react: { text: emoji, key: m.key } }).catch(() => {})

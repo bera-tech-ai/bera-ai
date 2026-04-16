@@ -83,6 +83,17 @@ const askNick = async (m, conn, reply, sender, userText, imageBuffer = null) => 
 const handleAction = async (m, conn, reply, text, sender, imageBuffer) => {
     const intent = detectIntent(text)
 
+    const ownerNum = (config.owner || config.ownerNumber || '254116763755').replace(/[^0-9]/g, '')
+    const senderNum = (sender || '').replace(/[^0-9]/g, '')
+    const isOwner = senderNum === ownerNum || (Array.isArray(global.db?.data?.settings?.sudo) && global.db.data.settings.sudo.includes(senderNum))
+    let isAdmin = false
+    try {
+        if (m.isGroup) {
+            const meta = await conn.groupMetadata(m.chat).catch(() => null)
+            isAdmin = meta?.participants?.find(p => p.id.split('@')[0] === senderNum)?.admin != null
+        }
+    } catch {}
+
     if (imageBuffer) {
         const wantsCreate = /\b(create|generate|make|draw|similar|like this|same style)\b/i.test(text)
         if (wantsCreate) {
@@ -1242,6 +1253,174 @@ Start immediately with the code — no lengthy intro.`
             '┃ 🤖 *AI Chat* — code, writing, math, anything\n' +
             '┃\n' +
             '┃ 📋 *Full command list:* Type *.menu*\n' +
+            '╰══════════════════⊷'
+        )
+    }
+
+    // ── BOT MODE (private / public) ────────────────────────────────────────────
+    if (['admin_mode', 'bot_private', 'bot_public'].includes(intent) ||
+        (intent === 'chat' && /\b(set|switch|change|put|make)\b.{0,20}\b(bot|bera)\b.{0,20}\b(mode|to)\b.{0,15}\b(private|public)\b/i.test(text))) {
+        if (!isOwner) return reply(`❌ Only the bot owner can change bot mode.`)
+        const wantsPrivate = /private/i.test(text)
+        const wantsPublic  = /public/i.test(text)
+        if (!wantsPrivate && !wantsPublic) {
+            const cur = global.db?.data?.settings?.mode || 'public'
+            return reply(`⚙️ *Bot Mode*\n\nCurrent: *${cur}*\n\nSay:\n• _"Bera set mode to private"_ — only you can use the bot\n• _"Bera set mode to public"_ — everyone can use the bot`)
+        }
+        if (!global.db.data.settings) global.db.data.settings = {}
+        const newMode = wantsPrivate ? 'private' : 'public'
+        global.db.data.settings.mode = newMode
+        await global.db.write()
+        const icon = newMode === 'private' ? '🔒' : '🌐'
+        return reply(`${icon} *Bot mode set to ${newMode}!*\n\n${newMode === 'private' ? '🔒 Only you (owner) can now use the bot.' : '🌐 Everyone can now use the bot.'}`)
+    }
+
+    // ── AUTO STATUS VIEW ──────────────────────────────────────────────────────
+    if (['auto_status_view_on', 'auto_status_view_off', 'auto_status_view', 'auto_status_info', 'statuspanel'].includes(intent) ||
+        (intent === 'chat' && /\b(enable|turn on|activate|disable|turn off|deactivate|toggle)\b.{0,20}\b(auto\s*status\s*view|status\s*view|auto\s*view)\b/i.test(text))) {
+        if (!isOwner) return reply(`❌ Owner only.`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        const s = global.db.data.settings
+        if (intent === 'auto_status_info' || intent === 'statuspanel') {
+            return reply(
+                '╭══〘 *📊 STATUS SETTINGS* 〙═⊷\n' +
+                '┃\n' +
+                '┃ 👁️ Auto View: *' + (s.autoStatusView ? 'ON ✅' : 'OFF ❌') + '*\n' +
+                '┃ ❤️  Auto Like: *' + (s.autoStatusLike ? 'ON ✅' : 'OFF ❌') + '*\n' +
+                '┃\n' +
+                '┃ Say:\n' +
+                '┃ • _"Bera enable auto status view"_\n' +
+                '┃ • _"Bera disable auto status view"_\n' +
+                '┃ • _"Bera enable auto status like"_\n' +
+                '╰══════════════════⊷'
+            )
+        }
+        const wantsOn  = /on|enable|activate/i.test(text) || intent === 'auto_status_view_on'
+        const wantsOff = /off|disable|deactivate/i.test(text) || intent === 'auto_status_view_off'
+        s.autoStatusView = wantsOff ? false : (wantsOn ? true : !s.autoStatusView)
+        await global.db.write()
+        return reply(`👁️ *Auto Status View: ${s.autoStatusView ? 'ON ✅' : 'OFF ❌'}*\n\nBera will ${s.autoStatusView ? 'now automatically view' : 'no longer view'} all status updates.`)
+    }
+
+    // ── AUTO STATUS LIKE ──────────────────────────────────────────────────────
+    if (['auto_status_like_on', 'auto_status_like_off', 'auto_status_like'].includes(intent) ||
+        (intent === 'chat' && /\b(enable|turn on|activate|disable|turn off|deactivate)\b.{0,20}\b(auto\s*status\s*like|status\s*like|auto\s*like)\b/i.test(text))) {
+        if (!isOwner) return reply(`❌ Owner only.`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        const s = global.db.data.settings
+        const wantsOn  = /on|enable|activate/i.test(text) || intent === 'auto_status_like_on'
+        const wantsOff = /off|disable|deactivate/i.test(text) || intent === 'auto_status_like_off'
+        s.autoStatusLike = wantsOff ? false : (wantsOn ? true : !s.autoStatusLike)
+        await global.db.write()
+        return reply(`❤️ *Auto Status Like: ${s.autoStatusLike ? 'ON ✅' : 'OFF ❌'}*\n\nBera will ${s.autoStatusLike ? 'now automatically react to' : 'no longer react to'} status updates.`)
+    }
+
+    // ── ANTI-LINK ──────────────────────────────────────────────────────────────
+    if (['antilink_on', 'antilink_off', 'antilink'].includes(intent)) {
+        if (!isOwner && !isAdmin) return reply(`❌ Admins only.`)
+        if (!global.db.data[m.chat]) global.db.data[m.chat] = {}
+        const wantsOn  = intent === 'antilink_on'  || /on|enable|activate/i.test(text)
+        const wantsOff = intent === 'antilink_off' || /off|disable|deactivate/i.test(text)
+        const cur = global.db.data[m.chat]?.antilink || false
+        const newState = wantsOff ? false : (wantsOn ? true : !cur)
+        global.db.data[m.chat].antilink = newState
+        await global.db.write()
+        return reply(`🔗 *Anti-Link: ${newState ? 'ON ✅' : 'OFF ❌'}*\n\n${newState ? 'Group links will now be blocked and deleted.' : 'Group links are now allowed.'}`)
+    }
+
+    // ── ANTI-SPAM ──────────────────────────────────────────────────────────────
+    if (['antispam_on', 'antispam_off', 'antispam'].includes(intent)) {
+        if (!isOwner && !isAdmin) return reply(`❌ Admins only.`)
+        if (!global.db.data[m.chat]) global.db.data[m.chat] = {}
+        const wantsOn  = intent === 'antispam_on'  || /on|enable|activate/i.test(text)
+        const wantsOff = intent === 'antispam_off' || /off|disable|deactivate/i.test(text)
+        const cur = global.db.data[m.chat]?.antispam || false
+        const newState = wantsOff ? false : (wantsOn ? true : !cur)
+        global.db.data[m.chat].antispam = newState
+        await global.db.write()
+        return reply(`🚫 *Anti-Spam: ${newState ? 'ON ✅' : 'OFF ❌'}*\n\n${newState ? 'Spam messages will now be blocked.' : 'Spam protection is now off.'}`)
+    }
+
+    // ── ANTI-DELETE ────────────────────────────────────────────────────────────
+    if (['antidelete_on', 'antidelete_off', 'antidelete'].includes(intent)) {
+        if (!isOwner && !isAdmin) return reply(`❌ Admins only.`)
+        if (!global.db.data[m.chat]) global.db.data[m.chat] = {}
+        const wantsOn  = intent === 'antidelete_on'  || /on|enable|activate/i.test(text)
+        const wantsOff = intent === 'antidelete_off' || /off|disable|deactivate/i.test(text)
+        const cur = global.db.data[m.chat]?.antidelete || false
+        const newState = wantsOff ? false : (wantsOn ? true : !cur)
+        global.db.data[m.chat].antidelete = newState
+        await global.db.write()
+        return reply(`🛡️ *Anti-Delete: ${newState ? 'ON ✅' : 'OFF ❌'}*\n\n${newState ? 'Deleted messages will now be recovered and re-sent.' : 'Anti-delete protection is now off.'}`)
+    }
+
+    // ── AI / CHATBOT TOGGLE ────────────────────────────────────────────────────
+    if (['ai_on', 'ai_off', 'ai_status'].includes(intent)) {
+        if (!isOwner) return reply(`❌ Owner only.`)
+        if (!global.db.data.settings) global.db.data.settings = {}
+        if (intent === 'ai_status') {
+            const on = global.db.data.settings.chatbot || false
+            return reply(`🤖 *AI Chatbot Status: ${on ? 'ON ✅' : 'OFF ❌'}*\n\nSay _"Bera turn on AI"_ or _"Bera turn off AI"_ to toggle.`)
+        }
+        const newState = intent === 'ai_on'
+        global.db.data.settings.chatbot = newState
+        await global.db.write()
+        return reply(`🤖 *AI Chatbot: ${newState ? 'ON ✅' : 'OFF ❌'}*\n\n${newState ? 'Bera will now respond to all messages with AI.' : 'Bera will only respond to commands now.'}`)
+    }
+
+    // ── FULL COMMAND LIST (when user asks for actual .menu) ───────────────────
+    if (intent === 'menu' && /\b(full|all|complete|entire|actual|real|list|commands?)\b/i.test(text)) {
+        return reply(
+            '╭══〘 *📋 FULL COMMAND LIST* 〙═⊷\n' +
+            '┃ Type these with prefix *.*\n' +
+            '┃\n' +
+            '┃ *🤖 AI*\n' +
+            '┃ .chat .ai .bera .gpt .ask\n' +
+            '┃ .imagine .aiimg .dalle .flux\n' +
+            '┃ .vision .see .analyze\n' +
+            '┃ .transcript .ytscript\n' +
+            '┃\n' +
+            '┃ *🎵 Music & Download*\n' +
+            '┃ .play .song .music\n' +
+            '┃ .lyrics .lyric .words\n' +
+            '┃ .ytmp3 .ytmp4 .yta .ytv\n' +
+            '┃ .tiktok .igdl .twitter\n' +
+            '┃ .spotify .spotifydl .spdl\n' +
+            '┃ .shazam .identify\n' +
+            '┃\n' +
+            '┃ *🌐 Search & Info*\n' +
+            '┃ .google .wiki .weather\n' +
+            '┃ .define .dict .bible\n' +
+            '┃ .wallpaper .wp\n' +
+            '┃\n' +
+            '┃ *⚽ Sports*\n' +
+            '┃ .livescore .live .score\n' +
+            '┃ .predictions .tips\n' +
+            '┃ .epl .laliga .ucl\n' +
+            '┃ .bundesliga .seriea .ligue1\n' +
+            '┃\n' +
+            '┃ *🛠️ Tools*\n' +
+            '┃ .removebg .rmbg .nobg\n' +
+            '┃ .qr .createqr .readqr\n' +
+            '┃ .ssweb .screenshot .ocr\n' +
+            '┃ .upscale .enhance .hd\n' +
+            '┃ .translate .tl\n' +
+            '┃\n' +
+            '┃ *👥 Group*\n' +
+            '┃ .kick .add .promote .demote\n' +
+            '┃ .mute .unmute .tagall\n' +
+            '┃ .antilink .antispam .antidel\n' +
+            '┃ .welcome .bye .grouplink\n' +
+            '┃\n' +
+            '┃ *⚙️ Settings*\n' +
+            '┃ .mode public/private\n' +
+            '┃ .sv on/off  (status view)\n' +
+            '┃ .sl on/off  (status like)\n' +
+            '┃ .chatbot on/off\n' +
+            '┃\n' +
+            '┃ *💻 Dev*\n' +
+            '┃ .git .github .shell .eval\n' +
+            '┃ .file .pm2 .deploy\n' +
             '╰══════════════════⊷'
         )
     }
