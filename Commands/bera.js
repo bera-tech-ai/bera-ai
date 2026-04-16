@@ -23,7 +23,8 @@ const {
     gtLyrics, gtDefine, gtDictionary, gtGoogle, gtWiki, gtWeather,
     gtYtMp3, gtYtMp4, gtTikTok, gtInstagram, gtTwitter, gtSpotifyDl,
     gtSpotifySearch, gtRemoveBg, gtCreateQr, gtScreenshot, gtOcr, gtUpscale,
-    gtLiveScore, gtPredictions, gtStandings, gtImage, gtBible, gtWallpaper
+    gtLiveScore, gtPredictions, gtStandings, gtImage, gtBible, gtWallpaper,
+    gtClassifyIntent
 } = require('../Library/actions/giftedapi')
 
 const getUserHistory = (sender) => {
@@ -1645,6 +1646,248 @@ Start immediately with the code — no lengthy intro.`
         await react(conn, m, '✅')
         const lines = results.slice(0, 5).map((t, i) => `*${i + 1}. ${t.title || t.name}* — ${t.artist || t.artists}\n🔗 ${t.url || ''}`)
         return reply(`🎵 *Spotify: "${query}"*\n${'─'.repeat(28)}\n\n${lines.join('\n\n')}`)
+    }
+
+    // ── AI INTENT CLASSIFIER FALLBACK ─────────────────────────────────────────
+    // When regex router says 'chat', use AI to classify ANY phrasing
+    if (intent === 'chat') {
+        await react(conn, m, '🤔')
+        let classified
+        try { classified = await gtClassifyIntent(text) } catch { classified = { action: 'chat', params: {} } }
+
+        const p = classified?.params || {}
+        switch (classified?.action) {
+            case 'play_music': {
+                await react(conn, m, '🎵')
+                const q = p.query || text
+                const res = await searchAndDownload(q)
+                if (!res.success) { await react(conn, m, '❌'); return reply(`❌ Couldn't find: ${q}`) }
+                await react(conn, m, '✅')
+                await conn.sendMessage(m.chat, { audio: { url: res.audioUrl }, mimetype: 'audio/mp4', ptt: false, fileName: `${res.title}.mp3` }, { quoted: m })
+                return conn.sendMessage(m.chat, { text: `🎵 *${res.title}*${res.channel ? '\n👤 ' + res.channel : ''}` })
+            }
+            case 'lyrics': {
+                await react(conn, m, '🎵')
+                const d = await gtLyrics(p.query || text)
+                if (!d) { await react(conn, m, '❌'); return reply(`❌ No lyrics found for: *${p.query || text}*`) }
+                await react(conn, m, '✅')
+                return reply(`🎵 *${d.title || p.query}*${d.artist ? ' — ' + d.artist : ''}\n${'─'.repeat(28)}\n\n${(d.lyrics || d.lyric || '').slice(0, 3500)}`)
+            }
+            case 'weather': {
+                await react(conn, m, '🌤')
+                const w = await gtWeather(p.location || text)
+                if (!w) { await react(conn, m, '❌'); return reply(`❌ Weather unavailable for: *${p.location}*`) }
+                await react(conn, m, '✅')
+                return reply(`⛅ *Weather — ${w.location || p.location}*\n🌡 *${w.temperature || w.temp || '?'}°C*${w.condition ? ' — ' + w.condition : ''}${w.humidity ? '\n💧 Humidity: ' + w.humidity + '%' : ''}`)
+            }
+            case 'define': {
+                await react(conn, m, '📖')
+                const d = await gtDictionary(p.word || text)
+                if (!d) { await react(conn, m, '❌'); return reply(`❌ No definition for: *${p.word}*`) }
+                await react(conn, m, '✅')
+                let out = `📚 *${d.word || p.word}*${d.phonetic ? `  /${d.phonetic}/` : ''}\n\n`
+                ;(d.meanings || []).slice(0, 2).forEach(mg => {
+                    if (mg.partOfSpeech) out += `_${mg.partOfSpeech}_\n`
+                    ;(mg.definitions || []).slice(0, 2).forEach((df, i) => { out += `${i + 1}. ${df.definition || df}\n` })
+                    out += '\n'
+                })
+                return reply(out.trim())
+            }
+            case 'wikipedia': {
+                await react(conn, m, '🌐')
+                const d = await gtWiki(p.topic || text)
+                if (!d) { await react(conn, m, '❌'); return reply(`❌ Nothing found on: *${p.topic}*`) }
+                await react(conn, m, '✅')
+                return reply(`🌐 *${d.title || p.topic}*\n${'─'.repeat(28)}\n\n${(d.extract || d.description || '').slice(0, 1000)}\n\n🔗 ${d.url || 'https://en.wikipedia.org/wiki/' + encodeURIComponent(p.topic || text)}`)
+            }
+            case 'google_search': {
+                await react(conn, m, '🔍')
+                const results = await gtGoogle(p.query || text)
+                if (!results?.length) { await react(conn, m, '❌'); return reply(`❌ No results for: *${p.query}*`) }
+                await react(conn, m, '✅')
+                return reply(`🔍 *${p.query || text}*\n${'─'.repeat(28)}\n\n${results.slice(0, 4).map((r, i) => `*${i + 1}. ${r.title}*\n${r.snippet || ''}\n🔗 ${r.url || ''}`).join('\n\n')}`)
+            }
+            case 'translate': {
+                await react(conn, m, '🌍')
+                const r = await translate(p.text || text, p.to || 'en')
+                await react(conn, m, r.success ? '✅' : '❌')
+                return reply(r.success ? `🌍 *${p.to}:*\n${r.result}` : `❌ Translation failed: ${r.error}`)
+            }
+            case 'generate_image': {
+                await react(conn, m, '🎨')
+                const g = await generateImage(p.prompt || text)
+                await react(conn, m, g.success ? '✅' : '❌')
+                if (!g.success) return reply(`❌ Image generation failed`)
+                if (g.buffer) return conn.sendMessage(m.chat, { image: g.buffer, caption: `🎨 ${p.prompt}` }, { quoted: m })
+                if (g.url) return conn.sendMessage(m.chat, { image: { url: g.url }, caption: `🎨 ${p.prompt}` }, { quoted: m })
+                break
+            }
+            case 'yt_audio': {
+                await react(conn, m, '⏳')
+                const d = await gtYtMp3(p.url)
+                if (!d?.download_url && !d?.url && !d?.audio) { await react(conn, m, '❌'); return reply(`❌ Could not download audio.`) }
+                await react(conn, m, '✅')
+                await conn.sendMessage(m.chat, { audio: { url: d.download_url || d.url || d.audio }, mimetype: 'audio/mp4', ptt: false }, { quoted: m })
+                return reply(`🎵 *${d.title || 'Audio'}*`)
+            }
+            case 'yt_video': {
+                await react(conn, m, '⏳')
+                const d = await gtYtMp4(p.url)
+                if (!d?.download_url && !d?.url && !d?.video) { await react(conn, m, '❌'); return reply(`❌ Could not download video.`) }
+                await react(conn, m, '✅')
+                return conn.sendMessage(m.chat, { video: { url: d.download_url || d.url || d.video }, caption: `🎬 *${d.title || 'Video'}*` }, { quoted: m })
+            }
+            case 'download_social': {
+                await react(conn, m, '⏳')
+                const url = p.url || text.match(/https?:\/\/[^\s]+/)?.[0]
+                if (!url) return reply(`Please include the video URL!`)
+                let d = null
+                if (/tiktok/.test(url)) d = await gtTikTok(url)
+                else if (/instagram|instagr\.am/.test(url)) d = await gtInstagram(url)
+                else if (/twitter|x\.com/.test(url)) d = await gtTwitter(url)
+                if (!d) { await react(conn, m, '❌'); return reply(`❌ Could not download.`) }
+                await react(conn, m, '✅')
+                const vid = d.video?.[0] || d.nowm || d.url || d.download_url
+                if (vid) return conn.sendMessage(m.chat, { video: { url: vid }, caption: `📥 ${d.title || d.desc || ''}`.slice(0, 100) }, { quoted: m })
+                return reply(`Downloaded data: ${JSON.stringify(d).slice(0, 200)}`)
+            }
+            case 'football_scores': {
+                await react(conn, m, '⚽')
+                const matches = await gtLiveScore()
+                if (!matches) { await react(conn, m, '❌'); return reply(`❌ No live match data.`) }
+                await react(conn, m, '✅')
+                const list = Array.isArray(matches) ? matches.slice(0, 8) : Object.values(matches).flat().slice(0, 8)
+                if (!list.length) return reply(`⚽ No live matches right now.`)
+                return reply(`⚽ *Live Scores*\n${'─'.repeat(28)}\n\n${list.map(g => `⚽ *${g.homeTeam}* ${g.score || `${g.homeScore || 0}-${g.awayScore || 0}`} *${g.awayTeam}*${g.status ? ` _(${g.status})_` : ''}`).join('\n\n')}`)
+            }
+            case 'football_predictions': {
+                await react(conn, m, '🔮')
+                const games = await gtPredictions()
+                if (!games?.length) { await react(conn, m, '❌'); return reply(`❌ No predictions now.`) }
+                await react(conn, m, '✅')
+                return reply(`🔮 *Today's Predictions*\n${'─'.repeat(28)}\n\n${games.slice(0, 6).map(g => `🔮 *${g.match}*\n   _${g.league}_`).join('\n\n')}`)
+            }
+            case 'football_standings': {
+                await react(conn, m, '⚽')
+                const teams = await gtStandings(p.league || 'epl')
+                if (!teams?.length) { await react(conn, m, '❌'); return reply(`❌ Standings unavailable.`) }
+                await react(conn, m, '✅')
+                const rows = teams.slice(0, 10).map((t, i) => `${String(t.position || i + 1).padStart(2)} ${(t.team || t.name || '?').padEnd(14).slice(0, 14)} ${String(t.points || 0).padStart(3)}`)
+                return reply('```\n' + `*${(p.league || 'EPL').toUpperCase()} Top 10*\n#  Team           Pts\n` + rows.join('\n') + '\n```')
+            }
+            case 'create_qr': {
+                await react(conn, m, '⏳')
+                const qrUrl = await gtCreateQr(p.content || text)
+                if (!qrUrl) { await react(conn, m, '❌'); return reply(`❌ QR generation failed.`) }
+                await react(conn, m, '✅')
+                return conn.sendMessage(m.chat, { image: qrUrl.startsWith('http') ? { url: qrUrl } : Buffer.from(qrUrl.split(',')[1] || qrUrl, 'base64'), caption: `📱 QR: _${(p.content || text).slice(0, 60)}_` }, { quoted: m })
+            }
+            case 'screenshot': {
+                await react(conn, m, '⏳')
+                const url = p.url || text.match(/https?:\/\/[^\s]+/)?.[0]
+                if (!url) return reply(`Include the URL!`)
+                const buf = await gtScreenshot(url)
+                if (!buf) { await react(conn, m, '❌'); return reply(`❌ Screenshot failed.`) }
+                await react(conn, m, '✅')
+                return conn.sendMessage(m.chat, { image: buf, caption: `📸 ${url}` }, { quoted: m })
+            }
+            case 'set_mode': {
+                if (!isOwner) return reply(`❌ Owner only.`)
+                if (!global.db.data.settings) global.db.data.settings = {}
+                const mode = p.mode || ((/private/i.test(text)) ? 'private' : 'public')
+                global.db.data.settings.mode = mode
+                await global.db.write()
+                return reply(`${mode === 'private' ? '🔒' : '🌐'} *Bot mode set to ${mode}!*\n${mode === 'private' ? 'Only you can use the bot now.' : 'Everyone can use the bot now.'}`)
+            }
+            case 'auto_status_view': {
+                if (!isOwner) return reply(`❌ Owner only.`)
+                if (!global.db.data.settings) global.db.data.settings = {}
+                const on = p.state === 'on'
+                global.db.data.settings.autoStatusView = on
+                await global.db.write()
+                return reply(`👁️ *Auto Status View: ${on ? 'ON ✅' : 'OFF ❌'}*`)
+            }
+            case 'auto_status_like': {
+                if (!isOwner) return reply(`❌ Owner only.`)
+                if (!global.db.data.settings) global.db.data.settings = {}
+                const on = p.state === 'on'
+                global.db.data.settings.autoStatusLike = on
+                await global.db.write()
+                return reply(`❤️ *Auto Status Like: ${on ? 'ON ✅' : 'OFF ❌'}*`)
+            }
+            case 'antilink': {
+                if (!global.db.data[m.chat]) global.db.data[m.chat] = {}
+                const on = p.state === 'on'
+                global.db.data[m.chat].antilink = on
+                await global.db.write()
+                return reply(`🔗 *Anti-Link: ${on ? 'ON ✅' : 'OFF ❌'}*`)
+            }
+            case 'antispam': {
+                if (!global.db.data[m.chat]) global.db.data[m.chat] = {}
+                const on = p.state === 'on'
+                global.db.data[m.chat].antispam = on
+                await global.db.write()
+                return reply(`🚫 *Anti-Spam: ${on ? 'ON ✅' : 'OFF ❌'}*`)
+            }
+            case 'antidelete': {
+                if (!global.db.data[m.chat]) global.db.data[m.chat] = {}
+                const on = p.state === 'on'
+                global.db.data[m.chat].antidelete = on
+                await global.db.write()
+                return reply(`🛡️ *Anti-Delete: ${on ? 'ON ✅' : 'OFF ❌'}*`)
+            }
+            case 'ai_toggle': {
+                if (!isOwner) return reply(`❌ Owner only.`)
+                if (!global.db.data.settings) global.db.data.settings = {}
+                const on = p.state === 'on'
+                global.db.data.settings.chatbot = on
+                await global.db.write()
+                return reply(`🤖 *AI Chatbot: ${on ? 'ON ✅' : 'OFF ❌'}*`)
+            }
+            case 'remove_bg': {
+                const urlMatch = text.match(/https?:\/\/[^\s]+/)
+                const imgUrl = urlMatch?.[0] || (imageBuffer ? 'data:image/jpeg;base64,' + imageBuffer.toString('base64') : null)
+                if (!imgUrl) return reply(`Send an image or include its URL!`)
+                await react(conn, m, '⏳')
+                const out = await gtRemoveBg(imgUrl)
+                if (!out) { await react(conn, m, '❌'); return reply(`❌ Background removal failed.`) }
+                await react(conn, m, '✅')
+                return conn.sendMessage(m.chat, { image: out.startsWith('http') ? { url: out } : Buffer.from(out.split(',')[1] || out, 'base64'), caption: '✅ Background removed!' }, { quoted: m })
+            }
+            case 'show_menu':
+                return handleAction(m, conn, reply, 'menu', sender, null)
+            case 'show_full_menu':
+                return handleAction(m, conn, reply, 'show full command list', sender, null)
+            case 'bible': {
+                await react(conn, m, '📖')
+                const d = await gtBible(p.verse || text)
+                if (!d) { await react(conn, m, '❌'); return reply(`❌ Verse not found: ${p.verse}`) }
+                await react(conn, m, '✅')
+                return reply(`📖 *${p.verse}*\n\n${typeof d === 'string' ? d : d.text || d.verse || JSON.stringify(d)}`)
+            }
+            case 'wallpaper': {
+                await react(conn, m, '🖼️')
+                const results = await gtWallpaper(p.query || text)
+                if (!results?.length) { await react(conn, m, '❌'); return reply(`❌ No wallpapers found.`) }
+                await react(conn, m, '✅')
+                const w = results[Math.floor(Math.random() * Math.min(results.length, 5))]
+                const wUrl = w.url || w.image || w.src
+                if (wUrl) return conn.sendMessage(m.chat, { image: { url: wUrl }, caption: `🖼️ ${p.query || text}` }, { quoted: m })
+                break
+            }
+            case 'ocr': {
+                const urlMatch = text.match(/https?:\/\/[^\s]+/)
+                const imgUrl2 = urlMatch?.[0]
+                if (!imgUrl2 && !imageBuffer) return reply(`Send an image with text in it!`)
+                await react(conn, m, '⏳')
+                const ocrResult = await gtOcr(imgUrl2 || '')
+                if (!ocrResult) { await react(conn, m, '❌'); return reply(`❌ OCR failed.`) }
+                await react(conn, m, '✅')
+                return reply(`📝 *Text from image:*\n\n${ocrResult}`)
+            }
+            default:
+                break
+        }
     }
 
         return askNick(m, conn, reply, sender, text, imageBuffer)

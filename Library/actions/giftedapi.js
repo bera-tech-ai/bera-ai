@@ -155,6 +155,71 @@ const gtBible = (verse) =>
 const gtWallpaper = (query) =>
     gt('/api/search/wallpaper', { query }).then(r => r.results || null)
 
+// ── AI-POWERED INTENT CLASSIFIER ─────────────────────────────────────────────
+// Understands ANY natural language phrasing and maps it to a bot action.
+// Returns: { action: string, params: object } or { action: 'chat' }
+const ACTIONS_PROMPT = `You are an intent classifier for a WhatsApp AI bot called Bera AI.
+Given the user message, respond ONLY with a valid JSON object (no markdown, no explanation).
+
+Available actions and their param shapes:
+  play_music       { query: "song name or artist" }
+  yt_audio         { url: "youtube url" }
+  yt_video         { url: "youtube url" }
+  download_social  { url: "tiktok/instagram/twitter/fb url" }
+  spotify_dl       { url: "spotify url" }
+  lyrics           { query: "song title artist" }
+  weather          { location: "city or place" }
+  define           { word: "word to define" }
+  wikipedia        { topic: "topic to look up" }
+  google_search    { query: "search query" }
+  translate        { text: "text", to: "target language" }
+  generate_image   { prompt: "image description" }
+  show_menu        {}
+  show_full_menu   {}
+  football_scores  {}
+  football_predictions {}
+  football_standings { league: "epl|laliga|ucl|bundesliga|seriea|ligue1" }
+  create_qr        { content: "text or url for QR" }
+  screenshot       { url: "https://..." }
+  remove_bg        {}
+  set_mode         { mode: "private|public" }
+  auto_status_view { state: "on|off" }
+  auto_status_like { state: "on|off" }
+  antilink         { state: "on|off" }
+  antispam         { state: "on|off" }
+  antidelete       { state: "on|off" }
+  ai_toggle        { state: "on|off" }
+  ocr              {}
+  bible            { verse: "book chapter:verse e.g John 3:16" }
+  wallpaper        { query: "topic" }
+  shazam           { url: "audio url" }
+  chat             {}
+
+Rules:
+- If the message is a greeting, question, or general conversation → action: "chat"
+- If the user wants to do something the bot can handle → return that action
+- For music: "play nyasembo", "play easy to quit by juice wrld", "send me the song blinding lights" → play_music
+- For mode: "set private", "make it private", "go private", "private mode" → set_mode {mode:"private"}
+- For status view: "auto view status", "start viewing statuses", "view people's statuses" → auto_status_view {state:"on"}
+- Infer "on" vs "off" from context: "stop", "disable", "turn off", "deactivate" → off; "start", "enable", "turn on", "activate" → on
+- For menu: "what can you do", "show commands", "open menu", "help" → show_menu
+- For downloads: detect platform from URL or keywords (tiktok, instagram, twitter, youtube)
+
+Respond ONLY with JSON. Example: {"action":"play_music","params":{"query":"nyasembo odongo swagg"}}`
+
+const gtClassifyIntent = async (text) => {
+    if (!text || text.length < 2) return { action: 'chat', params: {} }
+    try {
+        const r = await gt('/api/ai/gpt4o-mini', { q: ACTIONS_PROMPT + '\n\nUser message: ' + text.slice(0, 300) })
+        const raw = (r?.result || r?.content || r?.answer || '').trim()
+        const jsonStr = raw.replace(/```json|```/gi, '').trim()
+        const first = jsonStr.indexOf('{')
+        const last = jsonStr.lastIndexOf('}')
+        if (first === -1 || last === -1) return { action: 'chat', params: {} }
+        return JSON.parse(jsonStr.slice(first, last + 1))
+    } catch { return { action: 'chat', params: {} } }
+}
+
 module.exports = {
     gt, gtChat, gtImage, gtTranscript,
     gtLyrics, gtDefine, gtDictionary,
@@ -164,5 +229,6 @@ module.exports = {
     gtRemoveBg, gtCreateQr, gtReadQr, gtScreenshot, gtOcr, gtUpscale, gtRemoveWatermark,
     gtLiveScore, gtPredictions, gtStandings,
     gtBible, gtWallpaper,
-    GT_LEAGUES
+    GT_LEAGUES,
+    gtClassifyIntent
 }
