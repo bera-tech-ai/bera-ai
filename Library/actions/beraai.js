@@ -156,17 +156,24 @@ const callGiftedTech = async (userText, historyMessages, timeoutMs) => {
         ? identity + '\n\nConversation:\n' + histCtx + '\nUser: ' + userPart + '\nBera AI:'
         : identity + '\n\nUser: ' + userPart + '\nBera AI:'
 
-    const GT_ENDPOINTS = [
-        'https://api.giftedtech.co.ke/chatgpt',
-        'https://api.giftedtech.co.ke/gpt4o',
+    // Real URL pattern: https://api.giftedtech.co.ke/api/ai/{endpoint}?apikey=gifted&q=...
+    const GT_CHAT_ENDPOINTS = [
+        'https://api.giftedtech.co.ke/api/ai/ai',        // Gifted AI (primary)
+        'https://api.giftedtech.co.ke/api/ai/gpt4o',     // GPT-4o
+        'https://api.giftedtech.co.ke/api/ai/gpt4o-mini',// GPT-4o Mini
+        'https://api.giftedtech.co.ke/api/ai/custom',    // Custom AI (accepts prompt param)
+        'https://api.giftedtech.co.ke/api/ai/letmegpt',  // LetMeGPT
+        'https://api.giftedtech.co.ke/api/ai/pollinations', // Pollinations proxy
     ]
-    for (const url of GT_ENDPOINTS) {
+    for (const url of GT_CHAT_ENDPOINTS) {
         try {
-            const r = await axios.get(url, {
-                params: { apikey: 'gifted', q },
-                timeout: timeoutMs || 10000
-            })
-            if (typeof r.data === 'string' && r.data.includes('<!DOCTYPE')) continue // HTML error page
+            const params = { apikey: 'gifted', q }
+            // custom endpoint supports an optional system prompt
+            if (url.includes('/custom')) {
+                params.prompt = 'You are Bera AI, a smart WhatsApp assistant created by Bera Tech. Always identify yourself as Bera AI.'
+            }
+            const r = await axios.get(url, { params, timeout: timeoutMs || 10000 })
+            if (typeof r.data === 'string' && r.data.includes('<!DOCTYPE')) continue
             const text = r.data?.result || r.data?.reply || r.data?.response || r.data?.message ||
                          r.data?.text || (typeof r.data === 'string' ? r.data : null)
             const clean = text && parseAiText(text)
@@ -174,6 +181,40 @@ const callGiftedTech = async (userText, historyMessages, timeoutMs) => {
         } catch {}
     }
     return null
+}
+
+// ── Gifted Tech image generation ──────────────────────────────────────────────
+// Uses Flux, Deep AI, txt2img, or Magic Studio — returns image URL
+const giftedImage = async (prompt, timeoutMs) => {
+    const IMG_ENDPOINTS = [
+        'https://api.giftedtech.co.ke/api/ai/fluximg',
+        'https://api.giftedtech.co.ke/api/ai/deepimg',
+        'https://api.giftedtech.co.ke/api/ai/txt2img',
+        'https://api.giftedtech.co.ke/api/ai/magicstudio',
+    ]
+    for (const url of IMG_ENDPOINTS) {
+        try {
+            const r = await axios.get(url, {
+                params: { apikey: 'gifted', prompt },
+                timeout: timeoutMs || 30000,
+                responseType: 'json'
+            })
+            const imgUrl = r.data?.result || r.data?.url || r.data?.image || r.data?.imageUrl
+            if (imgUrl && typeof imgUrl === 'string' && imgUrl.startsWith('http')) return imgUrl
+        } catch {}
+    }
+    return null
+}
+
+// ── Gifted Tech YouTube transcript ────────────────────────────────────────────
+const giftedTranscript = async (videoUrl, timeoutMs) => {
+    try {
+        const r = await axios.get('https://api.giftedtech.co.ke/api/ai/transcript', {
+            params: { apikey: 'gifted', url: videoUrl },
+            timeout: timeoutMs || 20000
+        })
+        return r.data?.result || r.data?.transcript || null
+    } catch { return null }
 }
 
 // ── apiskeith.top: fast GET with just a query string (no 431 risk) ────────────
@@ -865,5 +906,7 @@ module.exports = {
     pm2Logs,
     pm2Show,
     pm2Restart,
-    pm2Stop
+    pm2Stop,
+    giftedImage,
+    giftedTranscript
 }
