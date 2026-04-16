@@ -1946,6 +1946,36 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
         }
     }
 
+    // ── .beratrigger on/off — toggle the no-prefix "Bera ..." auto-trigger ────
+    if (command === 'beratrigger' || command === 'beratrig' || command === 'beralisten') {
+        if (!isOwner) return reply(`⛔ Owner only.`)
+        const arg = (text || '').trim().toLowerCase()
+        global.db.data.settings = global.db.data.settings || {}
+        const current = global.db.data.settings.beraTrigger !== false
+        if (!arg || !['on', 'off', 'status'].includes(arg)) {
+            const bar = current ? '▓▓▓▓▓▓▓▓▓▓' : '░░░░░░░░░░'
+            return reply(
+                `╭═〘 *🎯 BERA AUTO-TRIGGER* 〙\n` +
+                `┃ ${current ? '🟢' : '🔴'} [${bar}]\n` +
+                `┃ Status: *${current ? 'ON ✅' : 'OFF ❌'}*\n` +
+                `┃\n` +
+                `┃ When ON, any message containing\n` +
+                `┃ the word "bera" (no prefix needed)\n` +
+                `┃ triggers the bot agent.\n` +
+                `┃\n` +
+                `┃ Toggle: *${prefix}beratrigger on/off*\n` +
+                `╰═══════════════════`
+            )
+        }
+        if (arg === 'status') {
+            const bar2 = current ? '▓▓▓▓▓▓▓▓▓▓' : '░░░░░░░░░░'
+            return reply(`🎯 Bera auto-trigger ${current ? '🟢' : '🔴'} [${bar2}] *${current ? 'ON' : 'OFF'}*`)
+        }
+        global.db.data.settings.beraTrigger = (arg === 'on')
+        await global.db.write()
+        return reply(`🎯 *Bera auto-trigger: ${arg === 'on' ? 'ON ✅' : 'OFF ❌'}*\n${arg === 'on' ? 'Now responds to any message with "bera" in it.' : 'Now ONLY responds to ' + prefix + 'bera and ' + prefix + 'agent commands.'}`)
+    }
+
     if (command === 'chatbot') {
         if (!isOwner) return reply(`⛔ Owner only.`)
         const action = text?.trim().toLowerCase()
@@ -2079,7 +2109,7 @@ handle.before = async (m, { conn, reply, prefix }) => {
     }
 }
 
-handle.command = ['bera', 'chatbot', 'beraclone', 'workspace', 'setghtoken', 'tagreply', 'transcribe', 'listen']
+handle.command = ['bera', 'chatbot', 'beraclone', 'workspace', 'setghtoken', 'tagreply', 'transcribe', 'listen', 'beratrigger', 'beratrig', 'beralisten']
 handle.tags = ['ai']
 
 module.exports = handle

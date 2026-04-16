@@ -875,7 +875,9 @@ const handleMessage = async (conn, rawMsg) => {
             // DMs and groups. Never fires on random messages.
             // ═══════════════════════════════════════════════════════════════
             const _agentMentioned = (m.message?.extendedTextMessage?.contextInfo?.mentionedJid || []).some(j => j === conn.user?.id)
-            const _agentBeraCall  = text && /\bbera\b/i.test(text)
+            // Toggle: settings.beraTrigger (default ON). When false, "bera <text>" without prefix is ignored.
+            const _beraTriggerOn   = global.db?.data?.settings?.beraTrigger !== false
+            const _agentBeraCall  = _beraTriggerOn && text && /\bbera\b/i.test(text)
             const _agentAllowed   = _agentMentioned || _agentBeraCall
             if (!m.fromMe && text && _agentAllowed) {
                 const { detectIntent } = require('../Library/router')
@@ -2812,4 +2814,53 @@ const handleMessage = async (conn, rawMsg) => {
     }
 }
 
-module.exports = { handleMessage, handleGroupEvents, handleReaction, handleAntiDelete, handleAntiEdit }
+// ── runCommand: lets the AI agent invoke ANY built-in command by name ─────────
+// Constructs the same ctx object the normal command path uses, then calls the handler.
+const _RUNCMD_BLOCKLIST = new Set(['bera', 'agent', 'beratrigger', 'beratrig', 'beralisten', 'chatbot', 'eval', 'exec', 'shell', '$', '>'])
+const runCommand = async (commandName, argsString, m, conn) => {
+    try {
+        const cmdLower = String(commandName || '').toLowerCase().trim().replace(/^[./!]+/, '')
+        if (_RUNCMD_BLOCKLIST.has(cmdLower)) {
+            return { success: false, error: `Command '${cmdLower}' is blocked from AI invocation to prevent recursion or abuse.` }
+        }
+        const handler = commandMap.get(cmdLower)
+        if (!handler) return { success: false, error: `Unknown command: ${commandName}` }
+
+        const text = String(argsString || '').trim()
+        const args = text ? text.split(/\s+/) : []
+        const chat = m.key?.remoteJid || m.chat
+        const sender = m.key?.participant || m.key?.remoteJid || m.sender
+        const { authorized: _authd, isOwner: _isOwn } = (() => {
+            try { return isAuthorized(sender) } catch { return { authorized: false, isOwner: false } }
+        })()
+        const isOwner = !!_isOwn
+        const isGroup = !!(chat && chat.includes('@g.us'))
+        let isAdmin = false
+        if (isGroup) {
+            try {
+                const meta = await conn.groupMetadata(chat)
+                const me = (sender || '')
+                isAdmin = (meta.participants || []).some(p => p.id === me && p.admin)
+            } catch {}
+        }
+        const prefix = getPrefix()
+        const captured = []
+        const reply = async (txt) => {
+            captured.push(String(txt))
+            try { await conn.sendMessage(chat, { text: String(txt) }, { quoted: m }) } catch {}
+        }
+        const ctx = {
+            conn, m, text, args, command: cmdLower, sender, chat, prefix,
+            isOwner, isGroup, isAdmin, isAuthorized: !!_authd, reply
+        }
+        if (typeof handler === 'function') await handler(m, ctx)
+        else if (typeof handler.all === 'function') await handler.all(m, ctx)
+        else if (typeof handler.handler === 'function') await handler.handler(m, ctx)
+        else return { success: false, error: 'Handler has no callable function.' }
+        return { success: true, message: captured.join('\n').slice(0, 1000) || 'Command executed.' }
+    } catch (e) {
+        return { success: false, error: e.message }
+    }
+}
+
+module.exports = { handleMessage, handleGroupEvents, handleReaction, handleAntiDelete, handleAntiEdit, runCommand }

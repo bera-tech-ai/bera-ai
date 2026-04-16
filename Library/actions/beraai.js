@@ -471,9 +471,45 @@ You have these tools. To call one, output ONLY a single line of JSON (no markdow
 {"tool":"pm2logs","name":"process-name","lines":15}
 {"tool":"pm2restart","name":"process-name"}
 {"tool":"pm2stop","name":"process-name"}
+{"tool":"cmd","command":"vv","args":""}
 {"tool":"reply","text":"your final answer to the user"}
 
 CRITICAL RULES:
+- cmd: invoke ANY built-in bot command (without the prefix). args is the rest of the line.
+  Examples (use cmd for ALL of these):
+    {"tool":"cmd","command":"vv"}                          → reveal a quoted view-once
+    {"tool":"cmd","command":"open"}                        → open the group (admins can chat again)
+    {"tool":"cmd","command":"close"}                       → close the group (only admins can chat)
+    {"tool":"cmd","command":"kick","args":"@254712345678"} → kick a member
+    {"tool":"cmd","command":"promote","args":"@254712345678"} → promote to admin
+    {"tool":"cmd","command":"demote","args":"@254712345678"} → demote
+    {"tool":"cmd","command":"tagall"}                      → tag everyone
+    {"tool":"cmd","command":"grouplink"}                   → get group invite link
+    {"tool":"cmd","command":"revoke"}                      → revoke invite link
+    {"tool":"cmd","command":"groupname","args":"New Name"} → rename group
+    {"tool":"cmd","command":"antilink","args":"on"}        → enable antilink
+    {"tool":"cmd","command":"welcome","args":"on"}         → enable welcome
+    {"tool":"cmd","command":"mute"}                        → mute group
+    {"tool":"cmd","command":"play","args":"nyasembo"}      → search & send a song
+    {"tool":"cmd","command":"yt","args":"https://..."}     → youtube download
+    {"tool":"cmd","command":"sticker"}                     → convert quoted image to sticker
+    {"tool":"cmd","command":"imagine","args":"a cat in space"} → AI image
+    {"tool":"cmd","command":"weather","args":"Nairobi"}    → weather
+    {"tool":"cmd","command":"lyrics","args":"blinding lights"} → lyrics
+    {"tool":"cmd","command":"translate","args":"french Hello"} → translate
+    {"tool":"cmd","command":"qr","args":"hello world"}     → QR code
+    {"tool":"cmd","command":"menu"}                        → full bot menu
+    {"tool":"cmd","command":"ping"}                        → bot latency
+    {"tool":"cmd","command":"mode","args":"private"}       → set private mode
+    {"tool":"cmd","command":"broadcast","args":"hi all"}   → broadcast
+    {"tool":"cmd","command":"backup"}                      → backup database
+    {"tool":"cmd","command":"berahost","args":"bots"}      → list deployed bots
+    {"tool":"cmd","command":"toimg"}                       → sticker to image
+    {"tool":"cmd","command":"vision"}                      → analyse quoted image
+  IMPORTANT: When the user asks you to DO anything that is in the bot's menu — open/close
+  groups, kick/promote members, reveal view-once, get the group link, set antilink, change
+  group name, send stickers, play music, generate QR, etc. — ALWAYS use the cmd tool with
+  the matching command name. Do NOT just describe how to do it. EXECUTE it.
 - ALL file paths are RELATIVE to ./workspace. So path "myapp/index.js" creates ./workspace/myapp/index.js
 - bash also runs INSIDE ./workspace by default (cwd = workspace).
 - writefile creates parent dirs automatically. Use it to write COMPLETE files (HTML, JS, JSON, README, etc.)
@@ -778,6 +814,21 @@ const generateAdvancedReply = async (text, chat, conn, m, opts = {}) => {
                 }
                 const r = await shGitPush(toolCall.folder, toolCall.message || 'Update via Bera AI')
                 toolResult = r.success ? `✅ Pushed: ${r.output}`.slice(0, 800) : `❌ Push failed: ${r.output}`
+            } else if (toolCall.tool === 'cmd') {
+                if (!conn || !m) { toolResult = '❌ cmd tool needs an active conversation context.' }
+                else {
+                    try {
+                        const handler = require('../../Handler')
+                        const runFn = handler.runCommand
+                        if (typeof runFn !== 'function') { toolResult = '❌ runCommand is unavailable.' }
+                        else {
+                            const r = await runFn(toolCall.command, toolCall.args || '', m, conn)
+                            toolResult = r.success
+                                ? `✅ Ran .${toolCall.command} ${toolCall.args || ''}\n${(r.message || '').slice(0, 600)}`
+                                : `❌ Command failed: ${r.error || 'unknown'}`
+                        }
+                    } catch (e) { toolResult = `❌ cmd error: ${e.message}` }
+                }
             } else if (toolCall.tool === 'gitrepo') {
                 if (!ghCreateRepo) { toolResult = '❌ GitHub module unavailable' }
                 else {
