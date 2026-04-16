@@ -141,7 +141,7 @@ const callPollinationsModel = (messages, model, timeoutMs) => {
 // ── Gifted Tech API — fast GET, good model quality ────────────────────────────
 // Base: https://api.giftedtech.co.ke/chatgpt?apikey=gifted&q=...
 // NOTE: Do NOT include a `prompt` param — it breaks the endpoint.
-const callGiftedTech = async (userText, historyMessages, timeoutMs) => {
+const callGiftedTech = async (userText, historyMessages, timeoutMs, systemPrompt) => {
     // Build a compact context string from history (last 4 messages max)
     const histCtx = (historyMessages || [])
         .filter(m => m.role !== 'system')
@@ -149,9 +149,12 @@ const callGiftedTech = async (userText, historyMessages, timeoutMs) => {
         .map(m => (m.role === 'user' ? 'User' : 'Bera AI') + ': ' + String(m.content || '').slice(0, 200))
         .join('\n')
 
-    // Identity line + optional history + current message — total < 600 chars
-    const identity = 'You are Bera AI, a smart WhatsApp assistant built by Bera Tech. Always say your name is Bera AI.'
-    const userPart = String(userText || '').slice(0, 400)
+    // If a real system prompt is provided (e.g. agent mode with tool list), use it.
+    // Otherwise fall back to the short identity line.
+    const identity = systemPrompt && systemPrompt.length > 100
+        ? systemPrompt.slice(0, 6000)
+        : 'You are Bera AI, a smart WhatsApp assistant built by Bera Tech. Always say your name is Bera AI.'
+    const userPart = String(userText || '').slice(0, 800)
     const q = histCtx
         ? identity + '\n\nConversation:\n' + histCtx + '\nUser: ' + userPart + '\nBera AI:'
         : identity + '\n\nUser: ' + userPart + '\nBera AI:'
@@ -218,14 +221,16 @@ const giftedTranscript = async (videoUrl, timeoutMs) => {
 }
 
 // ── apiskeith.top: fast GET with just a query string (no 431 risk) ────────────
-const callApiskeithFast = async (userText, timeoutMs) => {
+const callApiskeithFast = async (userText, timeoutMs, systemPrompt) => {
     const FAST_ENDPOINTS = [
         'https://apiskeith.top/ai/gpt41Nano',
         'https://apiskeith.top/ai/gpt',
         'https://apiskeith.top/keithai',
     ]
-    const identity = 'You are Bera AI — a smart WhatsApp assistant built by Bera Tech. NEVER say your name is Keith. Always say "I am Bera AI".'
-    const q = identity + '\n\nUser: ' + (userText || '').slice(0, 450) + '\nBera AI:'
+    const identity = systemPrompt && systemPrompt.length > 100
+        ? systemPrompt.slice(0, 6000)
+        : 'You are Bera AI — a smart WhatsApp assistant built by Bera Tech. NEVER say your name is Keith. Always say "I am Bera AI".'
+    const q = identity + '\n\nUser: ' + (userText || '').slice(0, 800) + '\nBera AI:'
     for (const url of FAST_ENDPOINTS) {
         try {
             const r = await axios.get(url, { params: { q }, timeout: timeoutMs || 12000 })
@@ -277,30 +282,23 @@ const callAI = async (messages, timeoutMs) => {
     const historyMsgs = messages.filter(m => m.role !== 'system')
     const systemContent = messages.find(m => m.role === 'system')?.content || ''
 
-    // ── CRITICAL: If system prompt contains tool instructions (agent mode),
-    // skip the bare-text endpoints because they DROP the system prompt entirely
-    // and just send the raw user text — the AI then never sees the tools and
-    // just chats. We must use the POST endpoint that respects the full message
-    // array (system + history + user).
-    const needsSystem =
-        systemContent.includes('tool') || systemContent.includes('AGENT MODE') ||
-        systemContent.includes('writefile') || systemContent.includes('cmd')
+    // Priority order (always): Gifted → Keith fast → Keith POST → Pollinations
+    // Pass the system prompt through so agent-mode instructions and tool list
+    // travel with every request, not just the POST endpoint.
 
-    if (!needsSystem) {
-        // ── PRIMARY: Gifted Tech API — fast, good quality, handles identity well ───
-        if (lastUser) {
-            const gifted = await callGiftedTech(lastUser, historyMsgs, Math.min(timeoutMs || 10000, 10000))
-            if (gifted) return gifted
-        }
-
-        // ── SECONDARY: apiskeith fast GET — sub-second, no 431 risk ──────────────
-        if (lastUser) {
-            const fast = await callApiskeithFast(lastUser, Math.min(timeoutMs || 12000, 12000))
-            if (fast) return fast
-        }
+    // ── PRIMARY: Gifted Tech API ──────────────────────────────────────────────
+    if (lastUser) {
+        const gifted = await callGiftedTech(lastUser, historyMsgs, Math.min(timeoutMs || 10000, 10000), systemContent)
+        if (gifted) return gifted
     }
 
-    // ── TERTIARY: apiskeith POST with trimmed history ─────────────────────────
+    // ── SECONDARY: apiskeith fast GET ─────────────────────────────────────────
+    if (lastUser) {
+        const fast = await callApiskeithFast(lastUser, Math.min(timeoutMs || 12000, 12000), systemContent)
+        if (fast) return fast
+    }
+
+    // ── TERTIARY: apiskeith POST with full message array ──────────────────────
     const apiskeithResult = await callApiskeith(messages, Math.min(timeoutMs || 20000, 20000))
     if (apiskeithResult) return apiskeithResult
 
