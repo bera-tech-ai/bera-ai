@@ -246,11 +246,13 @@ const callApiskeith = async (messages, timeoutMs) => {
         ...messages.slice(1).slice(-6)
     ].filter(Boolean)
 
-    // Also trim system prompt content if it's enormous (> 2000 chars)
-    if (trimmed[0]?.content?.length > 2000) {
+    // Trim system prompt only when really huge (8000+ chars). The agent prompt
+    // contains the tool list and decision rules — truncating it makes the AI
+    // stop using tools and just chat.
+    if (trimmed[0]?.content?.length > 8000) {
         trimmed[0] = {
             ...trimmed[0],
-            content: trimmed[0].content.slice(0, 2000) + '\n[truncated for speed]'
+            content: trimmed[0].content.slice(0, 8000) + '\n[truncated]'
         }
     }
 
@@ -273,17 +275,29 @@ const callApiskeith = async (messages, timeoutMs) => {
 const callAI = async (messages, timeoutMs) => {
     const lastUser = [...messages].reverse().find(m => m.role === 'user')?.content || ''
     const historyMsgs = messages.filter(m => m.role !== 'system')
+    const systemContent = messages.find(m => m.role === 'system')?.content || ''
 
-    // ── PRIMARY: Gifted Tech API — fast, good quality, handles identity well ───
-    if (lastUser) {
-        const gifted = await callGiftedTech(lastUser, historyMsgs, Math.min(timeoutMs || 10000, 10000))
-        if (gifted) return gifted
-    }
+    // ── CRITICAL: If system prompt contains tool instructions (agent mode),
+    // skip the bare-text endpoints because they DROP the system prompt entirely
+    // and just send the raw user text — the AI then never sees the tools and
+    // just chats. We must use the POST endpoint that respects the full message
+    // array (system + history + user).
+    const needsSystem =
+        systemContent.includes('tool') || systemContent.includes('AGENT MODE') ||
+        systemContent.includes('writefile') || systemContent.includes('cmd')
 
-    // ── SECONDARY: apiskeith fast GET — sub-second, no 431 risk ──────────────
-    if (lastUser) {
-        const fast = await callApiskeithFast(lastUser, Math.min(timeoutMs || 12000, 12000))
-        if (fast) return fast
+    if (!needsSystem) {
+        // ── PRIMARY: Gifted Tech API — fast, good quality, handles identity well ───
+        if (lastUser) {
+            const gifted = await callGiftedTech(lastUser, historyMsgs, Math.min(timeoutMs || 10000, 10000))
+            if (gifted) return gifted
+        }
+
+        // ── SECONDARY: apiskeith fast GET — sub-second, no 431 risk ──────────────
+        if (lastUser) {
+            const fast = await callApiskeithFast(lastUser, Math.min(timeoutMs || 12000, 12000))
+            if (fast) return fast
+        }
     }
 
     // ── TERTIARY: apiskeith POST with trimmed history ─────────────────────────
@@ -751,6 +765,35 @@ NEVER describe a command — CALL it via cmd tool.`
             return { success: false, reply: 'AI is rate-limited, try again in a moment.' }
         }
 
+        // ── Normalize OpenAI-style responses ──────────────────────────────────
+        // Some upstream models wrap the answer as a JSON object like:
+        //   {"role":"assistant","content":"...","tool_calls":[{"function":{"name":"cmd","arguments":"{...}"}}]}
+        // or just include reasoning_content. Convert these into our embedded
+        // {"tool":"...","..."} format so the rest of the dispatcher works.
+        try {
+            const trimmed = aiReply.trim()
+            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                const obj = JSON.parse(trimmed)
+                if (obj && Array.isArray(obj.tool_calls) && obj.tool_calls.length) {
+                    const tc = obj.tool_calls[0]
+                    const name = tc.function?.name || tc.name
+                    let argsObj = {}
+                    try {
+                        const raw = tc.function?.arguments || tc.arguments || '{}'
+                        argsObj = typeof raw === 'string' ? JSON.parse(raw) : raw
+                    } catch {}
+                    if (name) aiReply = JSON.stringify({ tool: name, ...argsObj })
+                } else if (obj && obj.reasoning_content && !obj.content) {
+                    // model only thought, didn't act — extract any {"tool"...} from reasoning
+                    const m = obj.reasoning_content.match(/\{\s*"tool"[\s\S]*?\}/)
+                    if (m) aiReply = m[0]
+                    else aiReply = obj.reasoning_content
+                } else if (obj && obj.content && typeof obj.content === 'string') {
+                    aiReply = obj.content
+                }
+            }
+        } catch {}
+
         // Try to parse as tool call — find balanced {"tool":...} JSON (may be multi-line)
         const extractToolCall = (s) => {
             const idx = s.indexOf('{"tool"')
@@ -896,7 +939,7 @@ NEVER describe a command — CALL it via cmd tool.`
         }
 
         lastToolResult = { tool: toolCall.tool, result: toolResult }
-        messages.push({ role: 'assistant', content: jsonMatch[0] })
+        messages.push({ role: 'assistant', content: jsonStr })
         messages.push({ role: 'user', content: 'Tool result:\n' + toolResult + '\n\nNow give the user a clear answer based on this.' })
     }
 
