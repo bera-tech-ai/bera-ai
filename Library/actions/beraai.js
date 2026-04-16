@@ -474,7 +474,7 @@ You have these tools. To call one, output ONLY a single line of JSON (no markdow
 {"tool":"delete","path":"file or dir to remove"}
 {"tool":"ls","path":""}
 {"tool":"gitclone","url":"https://github.com/user/repo.git","folder":"optional-name"}
-{"tool":"gitpush","folder":"repo-folder","message":"commit message"}
+{"tool":"gitpush","folder":"workspace-folder","repo":"repo-name-on-github","message":"commit message"}
 {"tool":"gitrepo","name":"repo-name","private":false,"description":"..."}
 {"tool":"search","query":"what to search"}
 {"tool":"scrape","url":"https://..."}
@@ -528,7 +528,16 @@ CRITICAL RULES:
 - For project scaffolding: writefile is your main tool — write each file in order.
 - After scaffolding, you MAY call bash to "npm install" or run setup.
 - gitrepo creates a NEW github repo on bera-tech-ai (uses GH_TOKEN automatically).
-- gitpush stages, commits, and pushes a workspace folder to its configured origin.
+  ⚠️  gitrepo ONLY creates an EMPTY repo. It does NOT push any code. After
+  gitrepo succeeds, you MUST IMMEDIATELY call gitpush to upload the actual files.
+- gitpush stages, commits, and pushes a workspace folder.
+  Pass "repo" with the github repo name AND "folder" with the local workspace folder
+  to wire up the remote and push in one shot. Example chain when the user says
+  "send my notes-app folder to a new repo called notes-app":
+    1. {"tool":"gitrepo","name":"notes-app","private":false,"description":"Notes web app"}
+    2. {"tool":"gitpush","folder":"notes-app","repo":"notes-app","message":"Initial commit"}
+    3. {"tool":"reply","text":"✅ notes-app pushed to https://github.com/bera-tech-ai/notes-app"}
+  NEVER stop after step 1 — an empty repo is NOT what the user asked for.
 - ONLY output the JSON line when invoking a tool. NO surrounding text. NO markdown.
 - When you have all the info you need, call {"tool":"reply","text":"..."} with your final answer.
 
@@ -899,7 +908,15 @@ NEVER describe a command — CALL it via cmd tool.`
                 else {
                     try {
                         const r = await ghCreateRepo(toolCall.name, !!toolCall.private, toolCall.description || '')
-                        toolResult = r?.html_url ? `✅ Repo created: ${r.html_url}` : `Repo result: ${JSON.stringify(r).slice(0, 300)}`
+                        if (r?.html_url) {
+                            toolResult = `✅ Empty repo created at ${r.html_url}\n\n` +
+                                `⚠️ THE REPO IS EMPTY. If the user wanted you to upload files, ` +
+                                `your NEXT step MUST be:\n` +
+                                `{"tool":"gitpush","folder":"<workspace-folder-with-the-files>","repo":"${toolCall.name}","message":"Initial commit"}\n` +
+                                `Do NOT call reply yet unless the user only asked you to create an empty repo.`
+                        } else {
+                            toolResult = `Repo result: ${JSON.stringify(r).slice(0, 300)}`
+                        }
                     } catch (e) { toolResult = `❌ Repo create failed: ${e.message}` }
                 }
             } else if (toolCall.tool === 'search') {
