@@ -453,29 +453,54 @@ Always wrap code in markdown code blocks with language tag:
 - Omit imports
 - Produce code that would fail on first run
 
-## TOOL CALLING
-When you need to DO something, respond ONLY with valid JSON on ONE line:
-{"tool":"bash","cmd":"your command here"}
-{"tool":"search","query":"what to search for"}
+## TOOL CALLING — YOU ARE A FULL AUTONOMOUS AGENT
+You have these tools. To call one, output ONLY a single line of JSON (no markdown fences, no extra text):
+{"tool":"bash","cmd":"any shell command in ./workspace dir"}
+{"tool":"writefile","path":"relative/path.ext","content":"FULL FILE CONTENT HERE"}
+{"tool":"readfile","path":"relative/path.ext"}
+{"tool":"mkdir","path":"new/dir/path"}
+{"tool":"delete","path":"file or dir to remove"}
+{"tool":"ls","path":""}
+{"tool":"gitclone","url":"https://github.com/user/repo.git","folder":"optional-name"}
+{"tool":"gitpush","folder":"repo-folder","message":"commit message"}
+{"tool":"gitrepo","name":"repo-name","private":false,"description":"..."}
+{"tool":"search","query":"what to search"}
 {"tool":"scrape","url":"https://..."}
 {"tool":"system"}
 {"tool":"pm2list"}
 {"tool":"pm2logs","name":"process-name","lines":15}
 {"tool":"pm2restart","name":"process-name"}
 {"tool":"pm2stop","name":"process-name"}
-{"tool":"reply","text":"your final answer"}
+{"tool":"reply","text":"your final answer to the user"}
 
-Rules:
-- bash: file ops, git, npm, node scripts, anything shell-level
-- search: current events, prices, news, live data you may not know
-- scrape: when user provides a URL to analyze or read
-- system: RAM, CPU, disk, uptime, load average, full server stats
-- pm2list: list all PM2 managed processes with status, memory, CPU
-- pm2logs: fetch last N lines of logs for a named PM2 process
-- pm2restart: restart a PM2 process by name
-- pm2stop: stop a PM2 process by name
-- reply: conversational responses or final answer after tool results
-- ONLY output JSON when calling a tool. Otherwise reply normally in plain text.
+CRITICAL RULES:
+- ALL file paths are RELATIVE to ./workspace. So path "myapp/index.js" creates ./workspace/myapp/index.js
+- bash also runs INSIDE ./workspace by default (cwd = workspace).
+- writefile creates parent dirs automatically. Use it to write COMPLETE files (HTML, JS, JSON, README, etc.)
+- For project scaffolding: writefile is your main tool — write each file in order.
+- After scaffolding, you MAY call bash to "npm install" or run setup.
+- gitrepo creates a NEW github repo on bera-tech-ai (uses GH_TOKEN automatically).
+- gitpush stages, commits, and pushes a workspace folder to its configured origin.
+- ONLY output the JSON line when invoking a tool. NO surrounding text. NO markdown.
+- When you have all the info you need, call {"tool":"reply","text":"..."} with your final answer.
+
+## AGENT MODE — PROJECT SCAFFOLDING
+When the user says things like:
+  "create a calculator project in nodejs and html"
+  "scaffold a fullstack stopwatch in react"
+  "build me a todo app with express backend"
+  "delete the directory X"
+You are in AGENT MODE. Plan the project, then execute step by step:
+1. Decide structure (folders, files, package.json, README)
+2. Use mkdir + writefile to create EVERY needed file with COMPLETE working code
+3. After scaffolding, call bash to npm install if needed
+4. Finally, call reply with: project location, what was built, and how to run it
+   (e.g. "cd workspace/my-app && npm start" or "pm2 start ecosystem.config.js")
+
+For "delete the directory X" → call {"tool":"delete","path":"X"} then reply confirming.
+For "what's 2-6" or any math/code query → just reply with the answer; don't over-engineer.
+
+NEVER refuse a scaffolding request. NEVER say "I can't create files." You CAN — use writefile.
 
 ## FULL BOT COMMAND REFERENCE (prefix: .)
 You know and can invoke every command below. When the user asks you to do something, find the right command and either guide them OR use the {"tool":"cmd","command":"kick","args":[...]} tool to execute it directly.
@@ -629,20 +654,30 @@ const pushHistory = (chat, role, content) => {
 }
 const getHistory = (chat) => HISTORY[chat] || []
 
+// ── File-system tools (scoped to ./workspace) ────────────────────────────────
+const { readFile: fsRead, writeFile: fsWrite, deleteFile: fsDelete, listFiles: fsList, resolvePath: fsResolve, WORK_DIR: FS_WORK_DIR } = require('./files')
+const { runShell, cloneRepo: shClone, gitPush: shGitPush, setupRepoRemote: shSetupRemote } = require('./shell')
+const fsNode = require('fs')
+const pathNode = require('path')
+const { createRepo: ghCreateRepo } = (() => { try { return require('./github') } catch { return {} } })()
+
 // ── Main: generate advanced reply with tool loop ──────────────────────────────
-const generateAdvancedReply = async (text, chat, conn, m) => {
+const generateAdvancedReply = async (text, chat, conn, m, opts = {}) => {
     pushHistory(chat, 'user', text)
 
     const mem = getMemory(chat)
     const memStr = Object.keys(mem).length ? '\nMemory: ' + JSON.stringify(mem) : ''
+    const agentBoost = opts.agentMode
+        ? '\n\n## YOU ARE IN AGENT MODE\nThe user invoked you with the agent command. Treat their message as a directive to execute. ALWAYS use tools. Scaffold projects with writefile + mkdir. Delete with delete tool. Math/short answers with reply tool. NEVER say "I cannot do X" — use the tools.'
+        : ''
 
     const messages = [
-        { role: 'system', content: SYSTEM_PROMPT + memStr },
+        { role: 'system', content: SYSTEM_PROMPT + memStr + agentBoost },
         ...getHistory(chat).slice(-6)   // keep 6 exchanges max — reduces request size & 431 risk
     ]
 
     let lastToolResult = null
-    const MAX_LOOPS = 3
+    const MAX_LOOPS = opts.agentMode ? 14 : 4
 
     for (let loop = 0; loop < MAX_LOOPS; loop++) {
         let aiReply
@@ -656,16 +691,48 @@ const generateAdvancedReply = async (text, chat, conn, m) => {
             return { success: false, reply: 'AI is rate-limited, try again in a moment.' }
         }
 
-        // Try to parse as tool call
-        const jsonMatch = aiReply.match(/\{[^\n]*"tool"[^\n]*\}/)
-        if (!jsonMatch) {
-            // Plain reply — we're done
+        // Try to parse as tool call — find balanced {"tool":...} JSON (may be multi-line)
+        const extractToolCall = (s) => {
+            const idx = s.indexOf('{"tool"')
+            if (idx === -1) {
+                const idx2 = s.search(/\{\s*"tool"/)
+                if (idx2 === -1) return null
+                return extractFromIndex(s, idx2)
+            }
+            return extractFromIndex(s, idx)
+        }
+        const extractFromIndex = (s, start) => {
+            let depth = 0, inStr = false, esc = false
+            for (let i = start; i < s.length; i++) {
+                const c = s[i]
+                if (esc) { esc = false; continue }
+                if (c === '\\') { esc = true; continue }
+                if (c === '"') { inStr = !inStr; continue }
+                if (inStr) continue
+                if (c === '{') depth++
+                else if (c === '}') {
+                    depth--
+                    if (depth === 0) return s.slice(start, i + 1)
+                }
+            }
+            return null
+        }
+        const jsonStr = extractToolCall(aiReply)
+        if (!jsonStr) {
             pushHistory(chat, 'assistant', aiReply)
             return { success: true, reply: aiReply, toolUsed: lastToolResult?.tool || null }
         }
 
         let toolCall
-        try { toolCall = JSON.parse(jsonMatch[0]) } catch { break }
+        try { toolCall = JSON.parse(jsonStr) } catch (e) {
+            // Maybe model used real newlines in content — try escaping them inside string values
+            try {
+                const fixed = jsonStr.replace(/"content"\s*:\s*"([\s\S]*?)"\s*(,|\})/g, (_, body, end) => {
+                    return '"content":"' + body.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + '"' + end
+                })
+                toolCall = JSON.parse(fixed)
+            } catch { break }
+        }
 
         if (toolCall.tool === 'reply') {
             pushHistory(chat, 'assistant', toolCall.text || aiReply)
@@ -676,13 +743,48 @@ const generateAdvancedReply = async (text, chat, conn, m) => {
         let toolResult = ''
         try {
             if (toolCall.tool === 'bash') {
-                // Safety: block dangerous commands
-                const BLOCKED = /rm\s+-rf\s+\/|mkfs|dd\s+if=|shutdown|reboot|>\s*\/etc\/passwd/
-                if (BLOCKED.test(toolCall.cmd || '')) {
-                    toolResult = 'Blocked: that command is too dangerous.'
-                } else {
-                    const r = await runBash(toolCall.cmd, 12000)
-                    toolResult = r.output || 'Command completed with no output.'
+                const r = await runShell(toolCall.cmd || '')
+                toolResult = (r.output || 'Command completed with no output.').slice(0, 4000)
+            } else if (toolCall.tool === 'writefile') {
+                const r = fsWrite(toolCall.path, toolCall.content || '')
+                toolResult = r.success
+                    ? `✅ Wrote ${r.size} bytes to ${toolCall.path}`
+                    : `❌ Write failed: ${r.error}`
+            } else if (toolCall.tool === 'readfile') {
+                const r = fsRead(toolCall.path)
+                toolResult = r.success
+                    ? `Content of ${toolCall.path}:\n\n${r.content.slice(0, 3000)}`
+                    : `❌ Read failed: ${r.error}`
+            } else if (toolCall.tool === 'mkdir') {
+                try {
+                    const full = fsResolve(toolCall.path)
+                    fsNode.mkdirSync(full, { recursive: true })
+                    toolResult = `✅ Created directory ${toolCall.path}`
+                } catch (e) { toolResult = `❌ mkdir failed: ${e.message}` }
+            } else if (toolCall.tool === 'delete') {
+                const r = fsDelete(toolCall.path)
+                toolResult = r.success ? `✅ Deleted ${toolCall.path}` : `❌ Delete failed: ${r.error}`
+            } else if (toolCall.tool === 'ls') {
+                const r = fsList(toolCall.path || '')
+                if (!r.success) { toolResult = `❌ ${r.error}` }
+                else if (!r.items.length) { toolResult = `(empty) ${r.path}` }
+                else toolResult = `Contents of ${r.path}:\n` + r.items.map(i => `  ${i.type === 'dir' ? '📁' : '📄'} ${i.name}${i.type === 'file' ? ' (' + i.size + 'b)' : ''}`).join('\n')
+            } else if (toolCall.tool === 'gitclone') {
+                const r = await shClone(toolCall.url, toolCall.folder || null)
+                toolResult = r.success ? `✅ Cloned to workspace/${r.name}\n${r.output}`.slice(0, 800) : `❌ Clone failed: ${r.output}`
+            } else if (toolCall.tool === 'gitpush') {
+                if (toolCall.repo && process.env.GH_TOKEN) {
+                    await shSetupRemote(toolCall.folder, 'bera-tech-ai', toolCall.repo, process.env.GH_TOKEN)
+                }
+                const r = await shGitPush(toolCall.folder, toolCall.message || 'Update via Bera AI')
+                toolResult = r.success ? `✅ Pushed: ${r.output}`.slice(0, 800) : `❌ Push failed: ${r.output}`
+            } else if (toolCall.tool === 'gitrepo') {
+                if (!ghCreateRepo) { toolResult = '❌ GitHub module unavailable' }
+                else {
+                    try {
+                        const r = await ghCreateRepo(toolCall.name, !!toolCall.private, toolCall.description || '')
+                        toolResult = r?.html_url ? `✅ Repo created: ${r.html_url}` : `Repo result: ${JSON.stringify(r).slice(0, 300)}`
+                    } catch (e) { toolResult = `❌ Repo create failed: ${e.message}` }
                 }
             } else if (toolCall.tool === 'search') {
                 const r = await webSearch(toolCall.query || text)

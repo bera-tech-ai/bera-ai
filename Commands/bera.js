@@ -1917,6 +1917,35 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, isOwner }
         return handleAction(m, conn, reply, userText, nickSender, imageBuffer)
     }
 
+    // ── AGENT MODE — full autonomous coding agent ─────────────────────────────
+    // Usage: .agent create a calculator app in nodejs and html
+    //        .agent delete the directory my-app
+    //        .agent scaffold a fullstack stopwatch in react
+    if (command === 'agent') {
+        if (!text) return reply(
+            `🤖 *Bera Agent* — full autonomous mode\n\n` +
+            `I can scaffold projects, write files, run shell commands, manage GitHub, and more.\n\n` +
+            `*Examples:*\n` +
+            `• ${prefix}agent create a calculator project in nodejs and html\n` +
+            `• ${prefix}agent scaffold a fullstack stopwatch in react\n` +
+            `• ${prefix}agent delete the directory my-app\n` +
+            `• ${prefix}agent build a todo app with express backend\n` +
+            `• ${prefix}agent create github repo called weather-app and push my code\n` +
+            `• ${prefix}agent what's 2-6\n\n` +
+            `Files go to *./workspace/*. I work step by step until done.`
+        )
+        try {
+            await conn.sendMessage(m.chat, { react: { text: '🤔', key: m.key } })
+            const { generateAdvancedReply } = require('../Library/actions/beraai')
+            const result = await generateAdvancedReply(text, `agent_${m.chat}_${nickSender}`, conn, m, { agentMode: true })
+            await conn.sendMessage(m.chat, { react: { text: result.success ? '✅' : '❌', key: m.key } })
+            return reply(result.reply || '❌ Agent had no output.')
+        } catch (e) {
+            await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } })
+            return reply(`❌ Agent error: ${e.message}`)
+        }
+    }
+
     if (command === 'chatbot') {
         if (!isOwner) return reply(`⛔ Owner only.`)
         const action = text?.trim().toLowerCase()
