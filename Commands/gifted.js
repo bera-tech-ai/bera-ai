@@ -13,6 +13,48 @@ const react = (conn, m, emoji) =>
 
 const hasMedia = (msg) => msg && /image|video|audio/.test(msg.mimetype || '')
 
+// ── Photo edit helper ─────────────────────────────────────────────────────────
+// Resolves quoted image → URL, hits one of several Gifted endpoint variants,
+// and sends back the resulting image. Returns true on success, false otherwise.
+const resolveImageUrl = async (m, conn, args) => {
+    let url = args[0]
+    if (url && url.startsWith('http')) return url
+    if (m.quoted && hasMedia(m.quoted)) {
+        const buf = await conn.downloadMediaMessage(m.quoted).catch(() => null)
+        if (buf) {
+            // Many Gifted endpoints accept an https URL only — fall back to a
+            // public uploader if the endpoint refuses base64. For now, return
+            // base64 first; the caller will retry with upload if needed.
+            return 'data:image/jpeg;base64,' + buf.toString('base64')
+        }
+    }
+    return null
+}
+
+const photoEdit = async (m, conn, reply, args, prefix, cmd, label, paths, extraParams = {}) => {
+    const imgUrl = await resolveImageUrl(m, conn, args)
+    if (!imgUrl) return reply(`Usage: *${prefix}${cmd} <image URL>* or reply to an image.`)
+    await react(conn, m, '🎨')
+    let outUrl = null
+    let lastErr = ''
+    for (const path of paths) {
+        const r = await gt(path, { url: imgUrl, ...extraParams })
+        const candidate = r?.result?.url || r?.result || r?.url || r?.image ||
+            r?.imageUrl || r?.data?.url || r?.data
+        if (typeof candidate === 'string' && candidate.startsWith('http')) {
+            outUrl = candidate
+            break
+        }
+        lastErr = r?.error || r?.message || 'No URL in response'
+    }
+    if (!outUrl) {
+        await react(conn, m, '❌')
+        return reply(`❌ ${label} failed: ${lastErr || 'all endpoints unavailable'}`)
+    }
+    await react(conn, m, '✅')
+    return conn.sendMessage(m.chat, { image: { url: outUrl }, caption: `🎨 *${label}*` }, { quoted: m })
+}
+
 const fmtDuration = (s) => {
     if (!s) return ''
     const m = Math.floor(s / 60), sec = s % 60
@@ -463,6 +505,83 @@ const handle = async (m, { conn, command, args, reply, prefix, text }) => {
         return conn.sendMessage(m.chat, { image: { url: outUrl }, caption: '✨ *Image Enhanced!*' }, { quoted: m })
     }
 
+    // ── PHOTO EDITING SUITE (all Gifted Tech endpoints) ───────────────────────
+    if (command === 'cartoon' || command === 'cartoonify' || command === 'tooncartoon') {
+        return photoEdit(m, conn, reply, args, prefix, 'cartoon', 'Cartoonified',
+            ['/api/tools/imagecartoonifier', '/api/imageedit/cartoon', '/api/ai/cartoon'])
+    }
+
+    if (command === 'colorize' || command === 'colorizeimage' || command === 'colorise') {
+        return photoEdit(m, conn, reply, args, prefix, 'colorize', 'Colorized',
+            ['/api/tools/colorizeimage', '/api/imageedit/colorize', '/api/ai/colorize'])
+    }
+
+    if (command === 'blur' || command === 'blurimage') {
+        return photoEdit(m, conn, reply, args, prefix, 'blur', 'Blurred',
+            ['/api/imageedit/blur', '/api/tools/imageblur', '/api/imageedit/blurimage'])
+    }
+
+    if (command === 'sepia' || command === 'sepiafilter') {
+        return photoEdit(m, conn, reply, args, prefix, 'sepia', 'Sepia Filter',
+            ['/api/imageedit/sepia', '/api/tools/imagesepia'])
+    }
+
+    if (command === 'bw' || command === 'blackwhite' || command === 'bnw') {
+        return photoEdit(m, conn, reply, args, prefix, 'bw', 'Black & White',
+            ['/api/imageedit/blackwhite', '/api/imageedit/bw', '/api/tools/imageblackwhite'])
+    }
+
+    if (command === 'grayscale' || command === 'greyscale' || command === 'gray') {
+        return photoEdit(m, conn, reply, args, prefix, 'grayscale', 'Grayscale',
+            ['/api/imageedit/grayscale', '/api/imageedit/greyscale', '/api/tools/imagegrayscale'])
+    }
+
+    if (command === 'sharpen' || command === 'sharp') {
+        return photoEdit(m, conn, reply, args, prefix, 'sharpen', 'Sharpened',
+            ['/api/imageedit/sharpen', '/api/tools/imagesharpen'])
+    }
+
+    if (command === 'invert' || command === 'invertcolors' || command === 'negative') {
+        return photoEdit(m, conn, reply, args, prefix, 'invert', 'Inverted Colors',
+            ['/api/imageedit/invert', '/api/tools/imageinvert', '/api/imageedit/negative'])
+    }
+
+    if (command === 'sketch' || command === 'pencilsketch' || command === 'pencil') {
+        return photoEdit(m, conn, reply, args, prefix, 'sketch', 'Pencil Sketch',
+            ['/api/imageedit/sketch', '/api/tools/imagesketch', '/api/ai/pencilsketch'])
+    }
+
+    if (command === 'pixelate' || command === 'pixel' || command === 'pixelize') {
+        return photoEdit(m, conn, reply, args, prefix, 'pixelate', 'Pixelated',
+            ['/api/imageedit/pixelate', '/api/tools/imagepixelate'])
+    }
+
+    if (command === 'anime' || command === 'toanime' || command === 'animify') {
+        return photoEdit(m, conn, reply, args, prefix, 'anime', 'Anime Style',
+            ['/api/ai/img2anime', '/api/tools/imagetoanime', '/api/ai/animeify'])
+    }
+
+    if (command === 'img2img' || command === 'imgedit' || command === 'restyle') {
+        const imgUrl = await resolveImageUrl(m, conn, args)
+        if (!imgUrl) return reply(`Usage: reply to an image with *${prefix}img2img <prompt>*\nExample: reply with *${prefix}img2img make it look like a Studio Ghibli scene*`)
+        if (!text || text.length < 3) return reply(`❌ Add a prompt. Example: *${prefix}img2img turn this into a watercolor painting*`)
+        await react(conn, m, '🎨')
+        const endpoints = ['/api/ai/img2img', '/api/ai/imageremix', '/api/tools/img2img']
+        let outUrl = null, lastErr = ''
+        for (const ep of endpoints) {
+            const r = await gt(ep, { url: imgUrl, prompt: text })
+            const candidate = r?.result?.url || r?.result || r?.url || r?.image
+            if (typeof candidate === 'string' && candidate.startsWith('http')) { outUrl = candidate; break }
+            lastErr = r?.error || r?.message || 'no result'
+        }
+        if (!outUrl) {
+            await react(conn, m, '❌')
+            return reply(`❌ Image-to-image failed: ${lastErr}`)
+        }
+        await react(conn, m, '✅')
+        return conn.sendMessage(m.chat, { image: { url: outUrl }, caption: `🎨 *${text.slice(0, 80)}*` }, { quoted: m })
+    }
+
     // ── AI IMAGE GENERATION (Gifted) ──────────────────────────────────────────
     if (command === 'imagine' || command === 'ai4k' || command === 'aigen' || command === 'flux') {
         if (!text) return reply(`Usage: *${prefix}imagine <description>*\n_Example: ${prefix}imagine a sunset over Nairobi_`)
@@ -655,6 +774,19 @@ handle.command = [
     'ocr', 'readtext', 'img2txt',
     'upscale', 'enhance', 'hd',
     'imagine', 'ai4k', 'aigen', 'flux',
+    // Photo editing suite
+    'cartoon', 'cartoonify', 'tooncartoon',
+    'colorize', 'colorizeimage', 'colorise',
+    'blur', 'blurimage',
+    'sepia', 'sepiafilter',
+    'bw', 'blackwhite', 'bnw',
+    'grayscale', 'greyscale', 'gray',
+    'sharpen', 'sharp',
+    'invert', 'invertcolors', 'negative',
+    'sketch', 'pencilsketch', 'pencil',
+    'pixelate', 'pixel', 'pixelize',
+    'anime', 'toanime', 'animify',
+    'img2img', 'imgedit', 'restyle',
     'transcript', 'ytscript', 'captions',
     'livescore', 'live', 'scores',
     'predictions', 'predict', 'tips',
