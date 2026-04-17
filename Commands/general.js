@@ -25,6 +25,30 @@ const handle = async (m, { conn, text, reply, prefix, command, isOwner, sender, 
         return reply(`╭══〘 *⚡ PING* 〙═⊷\n┃❍ Response: *${ms}ms*\n╰══════════════════⊷`)
     }
 
+    if (command === 'pdf') {
+        if (!text) return reply('Usage: ' + prefix + 'pdf <your text>\nGenerates a PDF and sends it as a document.')
+        try {
+            const PDFDocument = require('pdfkit')
+            const fs = require('fs'), path = require('path')
+            const ws = path.join(__dirname, '..', 'workspace')
+            if (!fs.existsSync(ws)) fs.mkdirSync(ws, { recursive: true })
+            const fileName = `bera-${Date.now()}.pdf`
+            const fp = path.join(ws, fileName)
+            const doc = new PDFDocument({ margin: 50 })
+            const stream = fs.createWriteStream(fp)
+            doc.pipe(stream)
+            doc.fontSize(12).font('Helvetica').text(text, { align: 'left' })
+            doc.end()
+            await new Promise((res, rej) => { stream.on('finish', res); stream.on('error', rej) })
+            const buf = fs.readFileSync(fp)
+            await conn.sendMessage(chat, { document: buf, mimetype: 'application/pdf', fileName, caption: `📄 ${fileName} (${(buf.length/1024).toFixed(1)} KB)` }, { quoted: m })
+            try { fs.unlinkSync(fp) } catch {}
+            return
+        } catch (e) {
+            return reply('❌ PDF error: ' + e.message)
+        }
+    }
+
     if (command === 'uptime') {
         const up = process.uptime()
         const h = Math.floor(up / 3600)
@@ -662,7 +686,7 @@ handle.before = async (m, { conn }) => {
 
 handle.command = [
     'ping', 'menu', 'help', 'start', 'info',
-    'sticker', 'stic', 's', 'toimg',
+    'sticker', 'stic', 's', 'toimg', 'pdf',
     'dl', 'download',
     'berarmemory', 'beraforget', 'berareset',
     'setprefix', 'setendpoint', 'myprofile',

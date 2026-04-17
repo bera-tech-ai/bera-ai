@@ -484,6 +484,9 @@ You have these tools. To call one, output ONLY a single line of JSON (no markdow
 {"tool":"pm2restart","name":"process-name"}
 {"tool":"pm2stop","name":"process-name"}
 {"tool":"cmd","command":"vv","args":""}
+{"tool":"sendfile","path":"workspace/relative/path.ext","caption":"optional caption"}
+{"tool":"pdf","text":"the text body of the PDF","filename":"hello.pdf","title":"optional title"}
+{"tool":"zip","folder":"folder-to-zip","filename":"output.zip"}
 {"tool":"reply","text":"your final answer to the user"}
 
 CRITICAL RULES:
@@ -527,6 +530,19 @@ CRITICAL RULES:
 - writefile creates parent dirs automatically. Use it to write COMPLETE files (HTML, JS, JSON, README, etc.)
 - For project scaffolding: writefile is your main tool — write each file in order.
 - After scaffolding, you MAY call bash to "npm install" or run setup.
+- sendfile sends ANY file from ./workspace to the user as a WhatsApp document.
+  Use this when the user asks you to "send me the file/code/zip/pdf/document".
+  Example: user says "send me a pdf with hello bruce inside" →
+    1. {"tool":"pdf","text":"hello bruce","filename":"hello.pdf","title":"Hello"}
+    2. {"tool":"reply","text":"📄 PDF sent."}
+  (the pdf tool writes AND sends in one shot — you don't need a separate sendfile call after pdf or zip.)
+- pdf generates a PDF from text and sends it immediately. Use for any request like
+  "create a pdf of X", "make me a PDF document", "send X as a PDF".
+- zip compresses a workspace folder and sends it as a .zip document. Use when the user
+  asks "zip the project", "send me the code as a zip", "package the folder".
+  Example: user has notes-app at workspace/notes-app and says "send it as a zip" →
+    1. {"tool":"zip","folder":"notes-app","filename":"notes-app.zip"}
+    2. {"tool":"reply","text":"📦 Zip sent."}
 - gitrepo creates a NEW github repo on bera-tech-ai (uses GH_TOKEN automatically).
   ⚠️  gitrepo ONLY creates an EMPTY repo. It does NOT push any code. After
   gitrepo succeeds, you MUST IMMEDIATELY call gitpush to upload the actual files.
@@ -786,11 +802,13 @@ NEVER describe a command — CALL it via cmd tool.`
         try {
             aiReply = await callAI(messages, 30000)
         } catch (e) {
-            return { success: false, reply: 'AI error: ' + e.message }
+            // Never bubble raw axios errors like "Request failed with status code 403"
+            console.error('[beraai] callAI threw:', e.message)
+            return { success: false, reply: '🤖 My AI brain is taking a quick break. Try again in a moment, or use a direct command like .menu' }
         }
 
-        if (!aiReply || aiReply === 'RATELIMIT') {
-            return { success: false, reply: 'AI is rate-limited, try again in a moment.' }
+        if (!aiReply || aiReply === 'RATELIMIT' || /^Request failed with status code/i.test(aiReply) || /^AxiosError/i.test(aiReply)) {
+            return { success: false, reply: '🤖 All AI providers are busy right now. Give it a few seconds and try again.' }
         }
 
         // ── Normalize OpenAI-style responses ──────────────────────────────────
@@ -909,6 +927,85 @@ NEVER describe a command — CALL it via cmd tool.`
                 }
                 const r = await shGitPush(toolCall.folder, toolCall.message || 'Update via Bera AI')
                 toolResult = r.success ? `✅ Pushed: ${r.output}`.slice(0, 800) : `❌ Push failed: ${r.output}`
+            } else if (toolCall.tool === 'sendfile') {
+                if (!conn || !m) { toolResult = '❌ sendfile needs an active conversation context.' }
+                else {
+                    try {
+                        const path = require('path'), fs = require('fs')
+                        const ws = path.join(__dirname, '..', '..', 'workspace')
+                        const rel = (toolCall.path || '').replace(/^workspace[\/\\]/, '')
+                        const fp = path.join(ws, rel)
+                        if (!fp.startsWith(ws)) { toolResult = '❌ Path escapes workspace.' }
+                        else if (!fs.existsSync(fp)) { toolResult = `❌ File not found: ${rel}` }
+                        else {
+                            const stat = fs.statSync(fp)
+                            if (stat.isDirectory()) { toolResult = `❌ ${rel} is a directory. Use the zip tool first.` }
+                            else if (stat.size > 95 * 1024 * 1024) { toolResult = `❌ File too big (${(stat.size/1024/1024).toFixed(1)} MB) — WhatsApp limit is 100 MB.` }
+                            else {
+                                const fileName = path.basename(fp)
+                                const ext = path.extname(fileName).slice(1).toLowerCase()
+                                const mimeMap = { pdf:'application/pdf', zip:'application/zip', txt:'text/plain', json:'application/json', js:'text/javascript', html:'text/html', css:'text/css', md:'text/markdown', csv:'text/csv', xml:'application/xml', png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', mp3:'audio/mpeg', mp4:'video/mp4' }
+                                const mimetype = mimeMap[ext] || 'application/octet-stream'
+                                await conn.sendMessage(m.chat, { document: fs.readFileSync(fp), mimetype, fileName, caption: toolCall.caption || '' }, { quoted: m })
+                                toolResult = `✅ Sent ${fileName} (${(stat.size/1024).toFixed(1)} KB) to user.`
+                            }
+                        }
+                    } catch (e) { toolResult = `❌ sendfile error: ${e.message}` }
+                }
+            } else if (toolCall.tool === 'pdf') {
+                if (!conn || !m) { toolResult = '❌ pdf tool needs conversation context.' }
+                else {
+                    try {
+                        const PDFDocument = require('pdfkit')
+                        const path = require('path'), fs = require('fs')
+                        const ws = path.join(__dirname, '..', '..', 'workspace')
+                        if (!fs.existsSync(ws)) fs.mkdirSync(ws, { recursive: true })
+                        const fileName = (toolCall.filename || 'bera-document.pdf').replace(/[^\w.\-]/g, '_').replace(/(\.pdf)?$/i, '.pdf')
+                        const fp = path.join(ws, fileName)
+                        const doc = new PDFDocument({ margin: 50 })
+                        const stream = fs.createWriteStream(fp)
+                        doc.pipe(stream)
+                        if (toolCall.title) {
+                            doc.fontSize(20).font('Helvetica-Bold').text(String(toolCall.title), { align: 'center' })
+                            doc.moveDown()
+                        }
+                        doc.fontSize(12).font('Helvetica').text(String(toolCall.text || ''), { align: 'left' })
+                        doc.end()
+                        await new Promise((res, rej) => { stream.on('finish', res); stream.on('error', rej) })
+                        const buf = fs.readFileSync(fp)
+                        await conn.sendMessage(m.chat, { document: buf, mimetype: 'application/pdf', fileName, caption: toolCall.caption || `📄 ${fileName}` }, { quoted: m })
+                        toolResult = `✅ Generated and sent PDF: ${fileName} (${(buf.length/1024).toFixed(1)} KB)`
+                    } catch (e) { toolResult = `❌ pdf error: ${e.message}` }
+                }
+            } else if (toolCall.tool === 'zip') {
+                if (!conn || !m) { toolResult = '❌ zip tool needs conversation context.' }
+                else {
+                    try {
+                        const archiver = require('archiver')
+                        const path = require('path'), fs = require('fs')
+                        const ws = path.join(__dirname, '..', '..', 'workspace')
+                        const folder = (toolCall.folder || '').replace(/^workspace[\/\\]/, '')
+                        const src = path.join(ws, folder)
+                        if (!src.startsWith(ws) || !fs.existsSync(src)) { toolResult = `❌ Folder not found: ${folder}` }
+                        else {
+                            const fileName = (toolCall.filename || `${folder || 'workspace'}.zip`).replace(/[^\w.\-]/g, '_').replace(/(\.zip)?$/i, '.zip')
+                            const fp = path.join(ws, fileName)
+                            const output = fs.createWriteStream(fp)
+                            const archive = archiver('zip', { zlib: { level: 9 } })
+                            archive.pipe(output)
+                            if (fs.statSync(src).isDirectory()) archive.directory(src, folder || false)
+                            else archive.file(src, { name: path.basename(src) })
+                            await archive.finalize()
+                            await new Promise((res, rej) => { output.on('close', res); output.on('error', rej) })
+                            const buf = fs.readFileSync(fp)
+                            if (buf.length > 95 * 1024 * 1024) { toolResult = `❌ Zip too big (${(buf.length/1024/1024).toFixed(1)} MB).` }
+                            else {
+                                await conn.sendMessage(m.chat, { document: buf, mimetype: 'application/zip', fileName, caption: toolCall.caption || `📦 ${fileName}` }, { quoted: m })
+                                toolResult = `✅ Zipped and sent: ${fileName} (${(buf.length/1024).toFixed(1)} KB)`
+                            }
+                        }
+                    } catch (e) { toolResult = `❌ zip error: ${e.message}` }
+                }
             } else if (toolCall.tool === 'cmd') {
                 if (!conn || !m) { toolResult = '❌ cmd tool needs an active conversation context.' }
                 else {
