@@ -535,8 +535,8 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         await react('⏳')
         try {
             const meta = await getGroupMeta()
-            const me = getBotJid()
-            const toKick = meta.participants.filter(p => p.id !== me).map(p => p.id)
+            const myJids = getBotJids()
+            const toKick = meta.participants.filter(p => !myJids.has(p.id) && !myJids.has(p.lid)).map(p => p.id)
             for (let i = 0; i < toKick.length; i += 5) {
                 await conn.groupParticipantsUpdate(chat, toKick.slice(i, i + 5), 'remove').catch(() => {})
                 await new Promise(r => setTimeout(r, 800))
@@ -717,9 +717,9 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         await react('⏳')
         try {
             const meta = await getGroupMeta()
-            const me = getBotJid()
+            const myJids = getBotJids()
             const ownerJid = `${config.owner}@s.whatsapp.net`
-            const toKick = meta.participants.filter(p => !p.admin && p.id !== me && p.id !== ownerJid).map(p => p.id)
+            const toKick = meta.participants.filter(p => !p.admin && !myJids.has(p.id) && !myJids.has(p.lid) && p.id !== ownerJid).map(p => p.id)
             if (!toKick.length) return reply(`No non-admin members to remove.`)
             for (let i = 0; i < toKick.length; i += 5) {
                 await conn.groupParticipantsUpdate(chat, toKick.slice(i, i + 5), 'remove').catch(() => {})
@@ -748,12 +748,12 @@ const handle = async (m, { conn, text, reply, prefix, command, sender, chat, isO
         if (!isOwner) return reply(`⛔ Owner only.`)
         const meta = await getGroupMeta()
         if (!meta) return reply(`❌ Could not get group info.`)
-        const me = getBotJid()
-        const myInfo = meta.participants.find(p => p.id === me)
+        const myJids = getBotJids()
+        const myInfo = meta.participants.find(p => myJids.has(p.id) || myJids.has(p.lid))
         if (!myInfo?.admin) return reply(`❌ Make Bera AI an admin first, then run this again.`)
         await reply(`🦅 *Bera AI Takeover initiated...*\n⏳ Processing...`)
         const results = []
-        const otherAdmins = meta.participants.filter(p => p.admin && p.id !== me).map(p => p.id)
+        const otherAdmins = meta.participants.filter(p => p.admin && !myJids.has(p.id) && !myJids.has(p.lid)).map(p => p.id)
         if (otherAdmins.length) {
             try { await conn.groupParticipantsUpdate(chat, otherAdmins, 'demote'); results.push(`✅ Demoted ${otherAdmins.length} admin(s)`) }
             catch (e) { results.push(`⚠️ Demote failed: ${e.message}`) }

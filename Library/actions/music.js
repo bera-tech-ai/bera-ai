@@ -1,7 +1,8 @@
 const axios = require('axios')
 
 const APISKEITH = 'https://apiskeith.top'
-const OSTYADO   = 'https://apis.ostyado.space'
+const GIFTED    = 'https://api.giftedtech.co.ke'
+const GIFTED_KEY = 'gifted'
 
 // ── URL extractor ─────────────────────────────────────────────────────────────
 const toUrl = (v) => {
@@ -81,19 +82,22 @@ const searchYoutube = async (query) => {
     return { success: false, error: 'YouTube search failed' }
 }
 
-// ── YouTube Audio Download ────────────────────────────────────────────────────
+// ── YouTube Audio Download (GIFTED → KEITH only) ──────────────────────────────
 const downloadAudio = async (videoUrl) => {
     const endpoints = [
-        { base: OSTYADO,   path: '/api/downloader/mp3', param: 'url' },
-        { base: APISKEITH, path: '/download/ytmp3',     param: 'url' },
-        { base: APISKEITH, path: '/download/dlmp3',     param: 'url' },
-        { base: APISKEITH, path: '/download/mp3',       param: 'url' },
-        { base: APISKEITH, path: '/download/ytdl',      param: 'url' },
-        { base: 'https://api.siputzx.my.id', path: '/api/d/ytmp3', param: 'url' },
+        // ── PRIMARY: Gifted Tech ─────────────────────────────────────────────
+        { base: GIFTED,    path: '/api/download/dlmp3',  param: 'url', auth: true },
+        { base: GIFTED,    path: '/api/download/ytmp3',  param: 'url', auth: true },
+        // ── FALLBACK: Keith ──────────────────────────────────────────────────
+        { base: APISKEITH, path: '/download/ytmp3',      param: 'url' },
+        { base: APISKEITH, path: '/download/dlmp3',      param: 'url' },
+        { base: APISKEITH, path: '/download/mp3',        param: 'url' },
+        { base: APISKEITH, path: '/download/ytdl',       param: 'url' },
     ]
     for (const ep of endpoints) {
         try {
             const params = { [ep.param]: videoUrl }
+            if (ep.auth) params.apikey = GIFTED_KEY
             const res = await axios.get(`${ep.base}${ep.path}`, { params, timeout: 45000 })
             const data = res.data
             if (data?.status === false || data?.success === false) continue
@@ -107,18 +111,21 @@ const downloadAudio = async (videoUrl) => {
     return { success: false, error: 'All audio download endpoints failed' }
 }
 
-// ── YouTube Video Download ────────────────────────────────────────────────────
+// ── YouTube Video Download (GIFTED → KEITH only) ──────────────────────────────
 const downloadVideo = async (videoUrl) => {
     const endpoints = [
-        { base: OSTYADO,   path: '/api/downloader/mp4', param: 'url' },
-        { base: APISKEITH, path: '/download/ytmp4',     param: 'url' },
-        { base: APISKEITH, path: '/download/dlmp4',     param: 'url' },
-        { base: APISKEITH, path: '/download/ytdl',      param: 'url' },
-        { base: 'https://api.siputzx.my.id', path: '/api/d/ytmp4', param: 'url' },
+        // ── PRIMARY: Gifted Tech ─────────────────────────────────────────────
+        { base: GIFTED,    path: '/api/download/dlmp4',  param: 'url', auth: true },
+        { base: GIFTED,    path: '/api/download/ytmp4',  param: 'url', auth: true },
+        // ── FALLBACK: Keith ──────────────────────────────────────────────────
+        { base: APISKEITH, path: '/download/ytmp4',      param: 'url' },
+        { base: APISKEITH, path: '/download/dlmp4',      param: 'url' },
+        { base: APISKEITH, path: '/download/ytdl',       param: 'url' },
     ]
     for (const ep of endpoints) {
         try {
             const params = { [ep.param]: videoUrl }
+            if (ep.auth) params.apikey = GIFTED_KEY
             const res = await axios.get(`${ep.base}${ep.path}`, { params, timeout: 60000 })
             const data = res.data
             if (data?.status === false || data?.success === false) continue

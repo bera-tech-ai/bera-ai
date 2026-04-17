@@ -549,10 +549,31 @@ When the user says things like:
   "delete the directory X"
 You are in AGENT MODE. Plan the project, then execute step by step:
 1. Decide structure (folders, files, package.json, README)
-2. Use mkdir + writefile to create EVERY needed file with COMPLETE working code
+2. Use writefile to create EVERY needed file with COMPLETE working code
 3. After scaffolding, call bash to npm install if needed
 4. Finally, call reply with: project location, what was built, and how to run it
-   (e.g. "cd workspace/my-app && npm start" or "pm2 start ecosystem.config.js")
+
+🚫 ABSOLUTE RULE — DO NOT CALL reply UNTIL EVERY FILE EXISTS.
+For a web app (HTML/CSS/JS frontend + Node backend), you MUST create AT MINIMUM:
+  - index.html (or public/index.html) — full HTML
+  - style.css (or public/style.css) — full CSS
+  - script.js (or public/script.js) — full JS with all event handlers
+  - server.js — full Express server
+  - package.json — name, scripts.start, dependencies
+That is FIVE writefile calls MINIMUM before reply. If you call reply with only
+package.json written, you have FAILED and the user is angry.
+
+Order of operations for "build a notes web app" type requests:
+  1. {"tool":"writefile","path":"notes-app/package.json","content":"..."}
+  2. {"tool":"writefile","path":"notes-app/server.js","content":"..."}
+  3. {"tool":"writefile","path":"notes-app/public/index.html","content":"..."}
+  4. {"tool":"writefile","path":"notes-app/public/style.css","content":"..."}
+  5. {"tool":"writefile","path":"notes-app/public/script.js","content":"..."}
+  6. {"tool":"bash","cmd":"cd notes-app && npm install"}
+  7. (optional) gitrepo + gitpush + pm2 start
+  8. {"tool":"reply","text":"✅ notes-app built at workspace/notes-app — ..."}
+
+NEVER call reply after only 1-2 writefiles for a multi-file project.
 
 For "delete the directory X" → call {"tool":"delete","path":"X"} then reply confirming.
 For "what's 2-6" or any math/code query → just reply with the answer; don't over-engineer.
@@ -758,7 +779,7 @@ NEVER describe a command — CALL it via cmd tool.`
     ]
 
     let lastToolResult = null
-    const MAX_LOOPS = opts.agentMode ? 14 : 4
+    const MAX_LOOPS = opts.agentMode ? 20 : 4
 
     for (let loop = 0; loop < MAX_LOOPS; loop++) {
         let aiReply
