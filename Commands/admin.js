@@ -686,6 +686,26 @@ Get yours at: https://berahost.com`)
         }
     }
 
+    if (command === 'deploy' || command === 'skydeploy' || command === 'host') {
+        if (!text) return reply('Usage: ' + prefix + 'deploy <github-repo-url> [project-name]\nExample: ' + prefix + 'deploy https://github.com/bera-tech-ai/notes-app')
+        const parts = text.trim().split(/\s+/)
+        const repoUrl = parts[0]
+        const name = parts[1] || repoUrl.split('/').pop().replace(/\.git$/, '')
+        if (!/^https?:\/\/github\.com\//i.test(repoUrl)) return reply('❌ That doesn\'t look like a github URL. Use https://github.com/owner/repo')
+        try {
+            const sky = require('../Library/actions/skyhost')
+            await reply('🚀 Deploying *' + name + '* to Sky Hosting... (30-180s)')
+            const r = await sky.deployRepo({ repoUrl, name })
+            if (r.success) {
+                return reply('✅ *Deployed!*\n\n🚀 Live URL: ' + r.liveUrl + '\n🛠️ Runtime: ' + (r.runtime || 'auto') + '\n📦 Project: ' + r.projectId)
+            } else {
+                return reply('❌ Deploy failed: ' + r.error + (r.logs ? '\n\n*Last logs:*\n' + r.logs : ''))
+            }
+        } catch (e) {
+            return reply('❌ Deploy error: ' + e.message)
+        }
+    }
+
 }
 
 handle.command = ['update','reload','hotreload','selfupdate','up','broadcast', 'backup', 'stats', 'ban', 'unban', 'premium', 'depremium',
@@ -693,6 +713,7 @@ handle.command = ['update','reload','hotreload','selfupdate','up','broadcast', '
     'autostatusview', 'statusview', 'autotyping', 'autobio',
     'addbio', 'setbio', 'listbios', 'clearbio', 'noprefix',
     'setgitusername', 'setgittoken', 'setbhkey', 'myconfig', 'mykeys', 'configs',
+    'deploy', 'skydeploy', 'host',
     // Shell/eval commands
     'bash', 'shell', 'exec', 'run', 'terminal', 'cmd',
     'eval', 'js', 'jseval', 'evaljs',
